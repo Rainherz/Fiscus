@@ -85,6 +85,14 @@ The "Categorías" screen reads the `department_function_summary` view
 (`supabase/migrations/20261026120000_create_department_function_summary.sql`), so apply that
 migration before you use it.
 
+Cost history: MEF only publishes the current cost, so Fiscus records its own history in
+`investment_cost_changes` from 27/10/2026 onwards
+(`supabase/migrations/20261027200000_create_investment_cost_changes.sql`). Every investment starts with a
+`baseline` row; triggers add a `changed` row when `viable_amount` or `updated_cost` changes. The detail
+screen shows this as "Historial del costo", and home lists the department's latest increases under
+"Aumentos recientes". Earlier history is unknown. The demo mode includes an invented history for Majes
+Siguas II, only so these screens have something to show.
+
 ## Daily ingest
 
 `ofi5.mef.gob.pe` drops TCP connections from GitHub-hosted runners (US datacenter IPs), so the ingest
