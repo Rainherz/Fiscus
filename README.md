@@ -45,13 +45,14 @@ executing unit. MEF does not refresh it every day.
   refreshed daily and the open-data file can be days older, and the cost history does not log
   back-and-forth changes. Investments only the file has (`open_data`) get every column.
 - `.github/workflows/open-data-ingest.yml` runs it on manual dispatch only (`force` input) for now. The
-  daily schedule (10:00 UTC, 05:00 Lima, after the SSI run) is enabled once the app filters by
-  `government_level`.
+  daily schedule (10:00 UTC, 05:00 Lima, after the SSI run) can be enabled once the app version that
+  filters by `government_level` (see "Government levels" below) is deployed.
 - Unchanged rows are not rewritten. The `touch_ingested_at` trigger skips an update when no data column
   changed, for both ingests. `ingested_at`, `source_updated_at` and `open_data_updated_at` therefore
   move only when the data changes; whole-source freshness is in `ingest_runs` (SSI) and
-  `source_snapshots` (open data). The detail screen's "Actualizado el" (`source_updated_at`) now reads
-  as the date of the report the current values came from.
+  `source_snapshots` (open data). The detail screen shows `source_updated_at` as "Último cambio en los
+  datos del MEF: dd/mm/yyyy" (the last time the project's figures changed); the footers keep the
+  whole-source "Datos actualizados el …".
 
 Views. The existing views (`region_comparison`, `stalled_investments`, `accrual_reference_month`,
 `function_summary`, `department_function_summary`, `department_summary`) now filter
@@ -59,10 +60,22 @@ Views. The existing views (`region_comparison`, `stalled_investments`, `accrual_
 arrive. New `*_by_level` views (`region_comparison_by_level`, `stalled_investments_by_level`,
 `function_summary_by_level`, `department_function_summary_by_level`) have a `government_level` column
 (`GN`, `GR`, `GL`, or `ALL` for every level) for the app to filter on. `region_comparison_by_level`
-only has the 25 departments. **The app also reads `investments` and `investment_cost_changes`
-directly. Those reads need a level filter before the open-data workflow runs against production,
-otherwise rankings, search and "Aumentos recientes" will start to include national and local
-projects.**
+only has the 25 departments. The app reads only the `*_by_level` views and filters its direct
+`investments` and `investment_cost_changes` reads by level (see "Government levels").
+
+`supabase/migrations/20261101000000_entity_comparison.sql` adds:
+
+- `entity_comparison`: one row per entity and `government_level` per scope. `scope_department_code = 0`
+  is all of Peru (every project of the entity, including those without department; `department_code`
+  is set only when all of them are in one department); `1-25` counts only the entity's projects in that
+  department, so a ministry appears in every region where it works. Same figures as the region
+  comparison (valid costs, positive increases only, overspent, stalled from
+  `stalled_investments_by_level`). Two `UNION ALL` branches, so a scope filter prunes the other branch
+  and a department filter uses `investments_department_level_idx`. It is a plain view: every page
+  aggregates the scope again (a full scan of about 165k rows nationwide).
+- `accrual_reference_month_all_levels`: the end of the data window over every level, the reference
+  month of `stalled_investments_by_level`.
+- `investments_cost_increase_pct_idx`, for the "Mayor aumento (%)" ranking on the larger table.
 
 Size (measured on Postgres 17 with the October 2026 file plus 27,296 SSI-like GR rows, autovacuum off):
 `investments` takes 142 MB after the first load of both sources (111 MB heap, 31 MB indexes) and
@@ -165,9 +178,31 @@ they never fetch or show the wrong scope (the header shows a placeholder meanwhi
 take an optional `departmentCode`: undefined means all of Peru, and the query specs drop the department
 filter. National reads stay paged or limited, never whole-table fetches.
 
-The "Categorías" screen reads the `department_function_summary` view for a department
-(`supabase/migrations/20261026120000_create_department_function_summary.sql`) and the `function_summary`
-view for all of Peru, so apply those migrations before you use it.
+Government levels: the scope also holds a level, "Todos los niveles" (default), "Gobierno nacional",
+"Gobiernos regionales" or "Gobiernos locales", stored on the device (`fiscus.level`) like the region.
+It is chosen in the region picker ("NIVEL DE GOBIERNO", a segmented control above the regions; the
+region ranking updates at once) and shown in the header as a second line under the region. This adds
+no extra row to every screen at 320 px. Every read follows it: direct `investments` and
+`investment_cost_changes` reads add `government_level = <code>` unless it is every level, and view reads
+use the `*_by_level` views with `government_level = 'ALL' | <code>` (`stalled_investments_by_level` has
+no `ALL` rows, so it is simply not filtered). An exact CUI search ignores the level, as it ignores the
+region. Footnotes name the level ("Gobiernos regionales. Montos en soles corrientes."; nationwide and
+national ones add "No incluye proyectos de varias regiones."). Rows and the detail carry a GN/GR/GL tag
+announced as "Gobierno nacional/regional/local". National projects without department read "Varias
+regiones" and never appear in a region. The detail adds entity, executing unit, province and district
+when present, and "AVANCE FÍSICO 42 %" (`physical_progress`) as a plain bar, apart from the striped
+"GASTADO X % DEL COSTO". Its source line follows `data_source` (SSI or open data).
+
+Entidades: a Rankings tab (`/rankings?tab=entities&sort=…`) ranks `entity_comparison` in the scope and
+level, paged by the view, with the region comparison's sorts (S/, %, sin gasto reciente, gasto sobre el
+costo; only entities with a value above zero; the % sort needs more than S/ 1 M approved in the projects
+that increased). Tapping an entity opens `/entity?name=…&level=…`: its projects in the current region,
+with the project ranking tabs, filtered by the entity and its own level. The demo mode adds national and
+local projects marked "(demo)", one national project without department and one local project with
+physical progress and coordinates.
+
+The "Categorías" screen reads `department_function_summary_by_level` for a department and
+`function_summary_by_level` for all of Peru.
 
 Cost history: MEF only publishes the current cost, so Fiscus records its own history in
 `investment_cost_changes` from 27/10/2026 onwards
@@ -181,14 +216,15 @@ Sin gasto reciente: active projects (`status = 'ACTIVO'`, valid updated cost) th
 95 % of their cost and whose last accrual month is more than 12 months before the reference month, the
 latest `last_accrual_month` in the dataset (not today, so MEF publication delays do not inflate the list).
 The `stalled_investments` view (`supabase/migrations/20261029000000_create_stalled_investments.sql`)
-applies the rule and adds `months_without_accrual` and `pending_amount`. The app shows them as a
-"Sin gasto reciente" tab in Rankings, a block on home and a line on the detail screen. The demo mode adds
+applies the rule and adds `months_without_accrual` and `pending_amount`. The app reads
+`stalled_investments_by_level`, the same rule over every level against the reference month of the whole
+dataset (`accrual_reference_month_all_levels`), and shows them as a "Sin gasto reciente" tab in Rankings, a block on home and a line on the detail screen. The demo mode adds
 invented projects marked "(demo)" so these screens have something to show.
 
 Region picker: the selector in the header ("TODO EL PERÚ ▾" or the region name) opens the "Elegir región"
 screen (`/region`). Its first option is "Todo el Perú"; below, it compares all departments, sorted by total cost increase (S/ or %), "Sin gasto reciente"
-projects, or projects that spent more than their updated cost. It reads the `region_comparison` view
-(`supabase/migrations/20261030000000_create_region_comparison.sql`): cost figures only use valid updated
+projects, or projects that spent more than their updated cost. It reads `region_comparison_by_level` for
+the selected level: cost figures only use valid updated
 costs, and the increase total adds positive increases only (reductions are not netted). The current choice
 is marked "ACTUAL"; tapping an option selects it and returns to the previous screen. Departments without
 data, and every department while the comparison loads or fails, are listed alphabetically so picking a
@@ -197,11 +233,11 @@ region, and Buscar searches names nationwide (an exact CUI is always searched na
 `?tab=regions` links open the default Rankings tab.
 
 National home: "EL MAYOR AUMENTO DEL PAÍS" (with its region), the national top 5 of increases,
-"Regiones con más aumentos" (top 5 regions by total increase from `region_comparison`; tapping one selects
+"Regiones con más aumentos" (top 5 regions by total increase from `region_comparison_by_level`; tapping one selects
 it, "Ver las 25" opens the picker), then "Sin gasto reciente" and "Aumentos recientes" for all of Peru.
 A region's home keeps its own layout. The older `department_summary` view is unchanged but not used by the app.
 
-Comparar regiones (`/compare?a=4&b=8`, shareable): two departments side by side from `region_comparison`,
+Comparar regiones (`/compare?a=4&b=8`, shareable): two departments side by side from `region_comparison_by_level`,
 one row per metric (size, increases, execution) with both values printed and a mirrored bar pair (left
 region in ink, right in signal yellow with an ink outline), plus each region's project with the largest
 increase. Percent-of-projects rows divide by projects with a valid updated cost. Missing or unknown codes
@@ -213,7 +249,7 @@ region's home.
 Compartir: "COMPARTIR" on the detail screen renders a 1080x1350 (4:5) image of the project off screen,
 captures it with `react-native-view-shot` and previews that same PNG with "Compartir" and "Cancelar", so
 people see exactly what they send. The card reuses the detail rules (cost increase, invalid cost notice,
-spent share, overspend, unusual data, "Sin gasto") and cites the CUI, the MEF source and the data date. On
+spent share, overspend, unusual data, "Sin gasto") and cites the CUI, the MEF source (SSI or open data) and the date the figures last changed. On
 iOS and Android the PNG goes to the system share sheet through `expo-sharing`. On web, view-shot draws the
 DOM with `html2canvas-pro` (its optional web peer, loaded lazily as a separate chunk), then the page uses
 the Web Share API with the file when `navigator.canShare({ files })` allows it, otherwise it downloads
