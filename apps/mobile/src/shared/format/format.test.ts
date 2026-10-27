@@ -7,6 +7,7 @@ import {
   formatSignedSoles,
   formatSoles,
   formatSolesCompact,
+  formatSignedSolesCompact,
   formatYear,
   formatYears,
   yearsSince,
@@ -179,5 +180,25 @@ describe('formatSolesCompact', () => {
     expect(formatSolesCompact(845)).toBe('S/ 845');
     expect(formatSolesCompact(-950_000)).toBe('-S/ 950 mil');
     expect(formatSolesCompact(null)).toBe('—');
+  });
+});
+
+describe('formatSignedSolesCompact', () => {
+  it('prefixes increases with a plus sign', () => {
+    expect(formatSignedSolesCompact(44_000_000)).toBe('+S/ 44.0 M');
+    expect(formatSignedSolesCompact(440_442_502)).toBe('+S/ 440 M');
+    expect(formatSignedSolesCompact(950_000)).toBe('+S/ 950 mil');
+  });
+
+  it('prefixes decreases with a minus sign (U+2212)', () => {
+    expect(formatSignedSolesCompact(-2_000_000)).toBe('−S/ 2.0 M');
+    expect(formatSignedSolesCompact(-1_970)).toBe('−S/ 2 mil');
+  });
+
+  it('shows zero without a sign and a dash for missing values', () => {
+    expect(formatSignedSolesCompact(0)).toBe('S/ 0');
+    expect(formatSignedSolesCompact(0.2)).toBe('S/ 0');
+    expect(formatSignedSolesCompact(null)).toBe('—');
+    expect(formatSignedSolesCompact(Number.NaN)).toBe('—');
   });
 });

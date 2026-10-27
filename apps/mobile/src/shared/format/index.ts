@@ -59,6 +59,16 @@ export function formatSolesCompact(value: number | null): string {
   return (value < 0 ? '-' : '') + solesCompactMagnitude(Math.abs(value));
 }
 
+const MINUS = '−';
+
+/** Signed `formatSolesCompact` for changes: "+S/ 44.0 M", "−S/ 950 mil". Rounds to zero unsigned. */
+export function formatSignedSolesCompact(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return DASH;
+  const magnitude = solesCompactMagnitude(Math.abs(value));
+  if (magnitude === solesCompactMagnitude(0)) return magnitude;
+  return (value > 0 ? '+' : MINUS) + magnitude;
+}
+
 export function formatSignedSoles(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return DASH;
   if (value === 0) return solesMagnitude(0);
