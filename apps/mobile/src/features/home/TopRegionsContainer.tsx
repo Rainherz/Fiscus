@@ -7,9 +7,10 @@ import { TopRegionsSection, topRegionsByIncrease, type TopRegionsState } from '.
 interface Props {
   onPressRegion: (departmentCode: number) => void;
   onPressSeeAll: () => void;
+  onPressCompare: () => void;
 }
 
-export function TopRegionsContainer({ onPressRegion, onPressSeeAll }: Props) {
+export function TopRegionsContainer({ onPressRegion, onPressSeeAll, onPressCompare }: Props) {
   const comparison = useRegionComparison();
   const top = useMemo(() => topRegionsByIncrease(comparison.data ?? []), [comparison.data]);
   const state: TopRegionsState =
@@ -18,5 +19,12 @@ export function TopRegionsContainer({ onPressRegion, onPressSeeAll }: Props) {
       : comparison.status === 'error'
         ? { status: 'error', onRetry: () => comparison.refetch() }
         : { status: 'pending' };
-  return <TopRegionsSection state={state} onPressRegion={onPressRegion} onPressSeeAll={onPressSeeAll} />;
+  return (
+    <TopRegionsSection
+      state={state}
+      onPressRegion={onPressRegion}
+      onPressSeeAll={onPressSeeAll}
+      onPressCompare={onPressCompare}
+    />
+  );
 }

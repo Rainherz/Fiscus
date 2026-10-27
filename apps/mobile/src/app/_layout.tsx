@@ -76,6 +76,7 @@ export default function RootLayout() {
               }}>
               {/* The region picker covers the whole screen and slides up over the screen it was opened from. */}
               <Stack.Screen name="region" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="compare" />
             </Stack>
           </ScopeGate>
         </ScopeProvider>

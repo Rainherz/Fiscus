@@ -124,6 +124,15 @@ National home: "EL MAYOR AUMENTO DEL PAÍS" (with its region), the national top 
 it, "Ver las 25" opens the picker), then "Sin gasto reciente" and "Aumentos recientes" for all of Peru.
 A region's home keeps its own layout. The older `department_summary` view is unchanged but not used by the app.
 
+Comparar regiones (`/compare?a=4&b=8`, shareable): two departments side by side from `region_comparison`,
+one row per metric (size, increases, execution) with both values printed and a mirrored bar pair (left
+region in ink, right in signal yellow with an ink outline), plus each region's project with the largest
+increase. Percent-of-projects rows divide by projects with a valid updated cost. Missing or unknown codes
+fall back to the current region (or the largest total increase) and the next one by total increase, and the
+URL is rewritten. Choosing a region here never changes the app's scope. It opens from "Comparar dos
+regiones" on the national home and at the top of the picker, and from "Comparar con otra región" on a
+region's home.
+
 ## Daily ingest
 
 `ofi5.mef.gob.pe` drops TCP connections from GitHub-hosted runners (US datacenter IPs), so the ingest

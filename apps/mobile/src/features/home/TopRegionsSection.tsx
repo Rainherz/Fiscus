@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { rankRegions, type RegionComparison } from '@/features/investments/domain/regionComparison';
 import { REGIONS_EMPTY, regionDetail, regionName, regionNote, regionValue } from '@/features/regions/regionPresentation';
-import { colors, minTouch, space } from '@/shared/theme/tokens';
+import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
@@ -28,10 +28,12 @@ interface Props {
   onPressRegion: (departmentCode: number) => void;
   /** Opens the region picker with the 25 regions. */
   onPressSeeAll: () => void;
+  /** Opens the side-by-side comparison of two regions. */
+  onPressCompare?: () => void;
 }
 
 /** "Regiones con más aumentos" on the national home screen. Tapping a region selects it. */
-export function TopRegionsSection({ state, onPressRegion, onPressSeeAll }: Props) {
+export function TopRegionsSection({ state, onPressRegion, onPressSeeAll, onPressCompare }: Props) {
   return (
     <View style={styles.section}>
       <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.title}>
@@ -67,6 +69,17 @@ export function TopRegionsSection({ state, onPressRegion, onPressSeeAll }: Props
         style={({ pressed }) => [styles.seeAll, pressed && styles.seeAllPressed]}>
         <DisplayText size={18}>Ver las 25 →</DisplayText>
       </Pressable>
+      {onPressCompare ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Comparar dos regiones"
+          onPress={onPressCompare}
+          style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+          <DisplayText weight={900} size={20}>
+            Comparar dos regiones →
+          </DisplayText>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -82,4 +95,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.ink,
   },
   seeAllPressed: { backgroundColor: colors.concretePressed },
+  compare: {
+    minHeight: minTouch + 8,
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+    borderWidth: rule,
+    borderColor: colors.ink,
+    backgroundColor: colors.signal,
+  },
+  comparePressed: { backgroundColor: colors.signalPressed },
 });
