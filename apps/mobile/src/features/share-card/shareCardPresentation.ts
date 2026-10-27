@@ -12,7 +12,8 @@ import {
   formatSolesCompact,
   formatYear,
 } from '@/shared/format';
-import { SOURCE_NAME } from '@/shared/ui/DataFooter';
+import { MULTI_REGION_LABEL } from '@/features/department/departments';
+import { sourceNameOf } from '@/shared/ui/DataFooter';
 import { SPENT_ANOMALY_NOTICE, overspendSentence } from '@/shared/ui/HazardProgressBar';
 
 /** Pixel size of the shared image: 4:5 portrait, accepted as-is by WhatsApp, Instagram and X. */
@@ -108,11 +109,12 @@ export function shareCardContent(
   const spent = spentFor(inv, options.referenceMonth);
   const footer = [
     `CUI ${inv.cui}`,
-    `Fuente: ${SOURCE_NAME}`,
-    ...(inv.sourceUpdatedAt ? [`Datos al ${formatDate(inv.sourceUpdatedAt)}`] : []),
+    `Fuente: ${sourceNameOf(inv.dataSource)}`,
+    // source_updated_at moves only when the figures change.
+    ...(inv.sourceUpdatedAt ? [`Último cambio en los datos: ${formatDate(inv.sourceUpdatedAt)}`] : []),
   ].join(' · ');
   const brand = 'FISCUS';
-  const region = inv.departmentName ?? 'PERÚ';
+  const region = inv.departmentCode === null ? MULTI_REGION_LABEL.toUpperCase() : (inv.departmentName ?? 'PERÚ');
   const name = inv.name ? shortenName(inv.name) : 'Sin nombre';
   const heroSentence =
     hero.kind === 'figure' ? `${hero.label}: ${hero.text}` : [hero.text, hero.detail?.replace(/\.$/, '')].filter(Boolean).join('. ');

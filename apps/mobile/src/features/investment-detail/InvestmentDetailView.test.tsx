@@ -135,7 +135,19 @@ describe('InvestmentDetailView', () => {
   it('cites the source and its update date', async () => {
     await render(<InvestmentDetailView investment={full} now={NOW} />);
     expect(
-      screen.getByText('Fuente: MEF – Sistema de Seguimiento de Inversiones. Actualizado el 25/10/2026.'),
+      screen.getByText(
+        'Fuente: MEF – Sistema de Seguimiento de Inversiones. Último cambio en los datos del MEF: 25/10/2026.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/Actualizado el/)).toBeNull();
+  });
+
+  it('cites the open data for projects only the open-data file has', async () => {
+    await render(<InvestmentDetailView investment={{ ...full, dataSource: 'open_data' }} now={NOW} />);
+    expect(
+      screen.getByText(
+        'Fuente: MEF – Datos Abiertos, Detalle de inversiones. Último cambio en los datos del MEF: 25/10/2026.',
+      ),
     ).toBeOnTheScreen();
   });
 
@@ -184,6 +196,61 @@ describe('InvestmentDetailView', () => {
       expect(screen.queryByText(/^Sin gasto registrado/)).toBeNull();
       await rerender(<InvestmentDetailView investment={stalled} now={NOW} />);
       expect(screen.queryByText(/^Sin gasto registrado/)).toBeNull();
+    });
+  });
+
+  describe('levels, location and physical progress', () => {
+    const local: Investment = {
+      ...full,
+      governmentLevel: 'GL',
+      entity: 'MUNICIPALIDAD DISTRITAL DE CAYMA',
+      executingUnit: 'MUNICIPALIDAD DISTRITAL DE CAYMA',
+      province: 'AREQUIPA',
+      district: 'CAYMA',
+      physicalProgress: 42,
+      dataSource: 'open_data',
+    };
+
+    it('tags the level and lists entity, executing unit, province and district', async () => {
+      await render(<InvestmentDetailView investment={local} now={NOW} />);
+      expect(screen.getByLabelText('Gobierno local')).toBeOnTheScreen();
+      for (const [label, value] of [
+        ['Nivel de gobierno', 'Gobierno local'],
+        ['Entidad', 'MUNICIPALIDAD DISTRITAL DE CAYMA'],
+        ['Unidad ejecutora', 'MUNICIPALIDAD DISTRITAL DE CAYMA'],
+        ['Región', 'AREQUIPA'],
+        ['Provincia', 'AREQUIPA'],
+        ['Distrito', 'CAYMA'],
+      ]) {
+        expect(screen.getByLabelText(`${label}: ${value}`)).toBeOnTheScreen();
+      }
+    });
+
+    it('shows physical progress apart from the share of the cost spent', async () => {
+      await render(<InvestmentDetailView investment={local} now={NOW} />);
+      expect(screen.getByText('AVANCE FÍSICO 42 %')).toBeOnTheScreen();
+      expect(screen.getByText('GASTADO 18 % DEL COSTO')).toBeOnTheScreen();
+      expect(screen.getByRole('progressbar', { name: 'Avance físico: 42 por ciento, reportado al MEF' })).toBeOnTheScreen();
+      expect(screen.getByText('Avance de la obra reportado al MEF. No es lo gastado.')).toBeOnTheScreen();
+    });
+
+    it('leaves out physical progress, executing unit and location when the source has none', async () => {
+      await render(<InvestmentDetailView investment={full} now={NOW} />);
+      expect(screen.queryByText(/AVANCE FÍSICO/)).toBeNull();
+      expect(screen.queryByLabelText(/^Unidad ejecutora/)).toBeNull();
+      expect(screen.queryByLabelText(/^Provincia/)).toBeNull();
+      expect(screen.queryByLabelText(/^Distrito/)).toBeNull();
+    });
+
+    it('says "Varias regiones" for a national project without department', async () => {
+      await render(
+        <InvestmentDetailView
+          investment={{ ...local, governmentLevel: 'GN', departmentCode: null, departmentName: null, province: null, district: null }}
+          now={NOW}
+        />,
+      );
+      expect(screen.getByLabelText('Región: Varias regiones')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Nivel de gobierno: Gobierno nacional')).toBeOnTheScreen();
     });
   });
 });
