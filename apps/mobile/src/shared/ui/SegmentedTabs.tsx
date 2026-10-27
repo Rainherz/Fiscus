@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, type ScrollViewInstance } from 'react-native';
 
 import { colors, minTouch, rule, space } from '../theme/tokens';
 import { DisplayText } from './typography';
@@ -14,10 +15,23 @@ interface Props<K extends string> {
   onSelect: (key: K) => void;
 }
 
-/** Horizontally scrollable segmented control: ink outline, selected segment in ink with signal text. */
+/**
+ * Horizontally scrollable segmented control: ink outline, selected segment in ink with signal text.
+ * The selected segment is scrolled into view, so a tab opened from a link is visible.
+ */
 export function SegmentedTabs<K extends string>({ options, selected, onSelect }: Props<K>) {
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const [offsets, setOffsets] = useState<Partial<Record<K, number>>>({});
+  const selectedOffset = offsets[selected];
+
+  useEffect(() => {
+    if (selectedOffset === undefined) return;
+    scrollRef.current?.scrollTo({ x: Math.max(0, selectedOffset - space.lg), animated: true });
+  }, [selectedOffset]);
+
   return (
     <ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityRole="tablist"
@@ -31,6 +45,10 @@ export function SegmentedTabs<K extends string>({ options, selected, onSelect }:
             accessibilityLabel={option.label}
             accessibilityState={{ selected: isSelected }}
             onPress={() => onSelect(option.key)}
+            onLayout={(event) => {
+              const { x } = event.nativeEvent.layout;
+              setOffsets((current) => (current[option.key] === x ? current : { ...current, [option.key]: x }));
+            }}
             style={({ pressed }) => [
               styles.tab,
               isSelected && styles.selected,

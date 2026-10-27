@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 
 import { AppHeader } from './AppHeader';
 import { HazardProgressBar } from './HazardProgressBar';
@@ -120,6 +121,16 @@ describe('SegmentedTabs', () => {
     expect(screen.getByRole('tab', { name: 'Mayor costo' })).not.toBeSelected();
     await fireEvent.press(screen.getByRole('tab', { name: 'Mayor costo' }));
     expect(onSelect).toHaveBeenCalledWith('b');
+  });
+
+  it('scrolls the selected tab into view once it is laid out', async () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+    await render(<SegmentedTabs options={options} selected="b" onSelect={jest.fn()} />);
+    await fireEvent(screen.getByRole('tab', { name: 'Mayor costo' }), 'layout', {
+      nativeEvent: { layout: { x: 600, y: 0, width: 120, height: 48 } },
+    });
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 600 - 20, animated: true });
+    scrollTo.mockRestore();
   });
 });
 
