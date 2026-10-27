@@ -62,6 +62,23 @@ describe('RankingRow', () => {
     expect(screen.getByText('Sin nombre')).toBeOnTheScreen();
   });
 
+  it('can show several detail lines instead of a value', async () => {
+    await render(
+      <RankingRow
+        rank={1}
+        name="Obra"
+        detail={['Sin gasto desde abr 2025', 'Gastó 32 % · S/ 202 M por ejecutar']}
+        onPress={() => {}}
+      />,
+    );
+    expect(screen.getByText('Sin gasto desde abr 2025')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', {
+        name: '1. Obra, Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
+      }),
+    ).toBeOnTheScreen();
+  });
+
   it('can show a secondary detail line', async () => {
     await render(
       <RankingRow rank={1} name="Obra" value="S/ 10 M" detail="CUI 2088142" onPress={() => {}} />,

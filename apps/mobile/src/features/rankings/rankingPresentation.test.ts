@@ -1,6 +1,13 @@
 import { mapInvestmentRow } from '../investments/domain/mappers';
 import { sampleRow } from '../investments/adapters/sampleData';
-import { RANKING_OPTIONS, rankingDetail, rankingNote, rankingValue } from './rankingPresentation';
+import {
+  RANKING_OPTIONS,
+  RANKING_TABS,
+  isRankingTab,
+  rankingDetail,
+  rankingNote,
+  rankingValue,
+} from './rankingPresentation';
 
 const majes = mapInvestmentRow(
   sampleRow({
@@ -14,13 +21,22 @@ const majes = mapInvestmentRow(
 const now = new Date('2026-10-26T12:00:00Z');
 
 describe('ranking presentation', () => {
-  it('labels the four rankings in Spanish', () => {
+  it('labels the four rankings and "Sin gasto reciente" in Spanish', () => {
     expect(RANKING_OPTIONS.map((o) => o.label)).toEqual([
       'Mayor aumento (S/)',
       'Mayor aumento (%)',
       'Mayor costo',
       'Más tiempo en curso',
+      'Sin gasto reciente',
     ]);
+    expect(RANKING_OPTIONS.map((o) => o.key)).toEqual(RANKING_TABS);
+  });
+
+  it('recognizes tab names from the route', () => {
+    expect(isRankingTab('stalled')).toBe(true);
+    expect(isRankingTab('cost')).toBe(true);
+    expect(isRankingTab('other')).toBe(false);
+    expect(isRankingTab(undefined)).toBe(false);
   });
 
   it('shows the ranked metric for each kind', () => {

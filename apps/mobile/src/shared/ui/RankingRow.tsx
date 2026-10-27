@@ -6,8 +6,10 @@ import { BodyText, MonoText } from './typography';
 interface Props {
   rank: number;
   name: string | null;
-  value: string;
-  detail?: string;
+  /** The ranked metric, right-aligned. Rows ranked by a sentence can leave it out. */
+  value?: string;
+  /** Secondary factual lines under the name. */
+  detail?: string | string[];
   onPress: () => void;
   /** Background the row sits on, to pick the pressed color. */
   tone?: 'concrete' | 'signal';
@@ -15,10 +17,12 @@ interface Props {
 
 export function RankingRow({ rank, name, value, detail, onPress, tone = 'concrete' }: Props) {
   const title = name ?? 'Sin nombre';
+  const lines = detail === undefined ? [] : Array.isArray(detail) ? detail : [detail];
+  const summary = value ?? lines.join(', ');
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${rank}. ${title}, ${value}`}
+      accessibilityLabel={`${rank}. ${title}, ${summary}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
@@ -31,15 +35,17 @@ export function RankingRow({ rank, name, value, detail, onPress, tone = 'concret
         <BodyText weight={600} size={14} numberOfLines={2}>
           {title}
         </BodyText>
-        {detail ? (
-          <MonoText size={11} muted>
-            {detail}
+        {lines.map((line) => (
+          <MonoText key={line} size={11} muted>
+            {line}
           </MonoText>
-        ) : null}
+        ))}
       </View>
-      <MonoText bold size={13} style={styles.value}>
-        {value}
-      </MonoText>
+      {value !== undefined ? (
+        <MonoText bold size={13} style={styles.value}>
+          {value}
+        </MonoText>
+      ) : null}
     </Pressable>
   );
 }

@@ -1,29 +1,54 @@
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
-import type { Investment, RankingKind } from '@/features/investments/domain/investment';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { SegmentedTabs } from '@/shared/ui/SegmentedTabs';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { MonoText } from '@/shared/ui/typography';
 
-import { RANKING_OPTIONS, rankingDetail, rankingNote, rankingValue } from './rankingPresentation';
+import { STALLED_EMPTY, stalledRowDetail } from '../stalled/stalledPresentation';
+import {
+  RANKING_OPTIONS,
+  rankingDetail,
+  rankingNote,
+  rankingValue,
+  type RankingList,
+  type RankingTab,
+} from './rankingPresentation';
+
+interface Row {
+  cui: string;
+  name: string | null;
+  value?: string;
+  detail: string | string[];
+}
+
+function toRows(list: RankingList, now: Date): Row[] {
+  if (list.kind === 'stalled') {
+    return list.items.map((item) => ({ cui: item.cui, name: item.name, detail: stalledRowDetail(item) }));
+  }
+  const { kind } = list;
+  return list.items.map((item) => ({
+    cui: item.cui,
+    name: item.name,
+    value: rankingValue(kind, item, now),
+    detail: rankingDetail(kind, item),
+  }));
+}
 
 interface Props {
-  kind: RankingKind;
-  items: Investment[];
+  list: RankingList;
   now: Date;
   status: 'pending' | 'error' | 'success';
   isFetchingMore: boolean;
-  onSelectKind: (kind: RankingKind) => void;
+  onSelectKind: (kind: RankingTab) => void;
   onEndReached: () => void;
   onRetry: () => void;
   onPressInvestment: (cui: string) => void;
 }
 
 export function RankingsView({
-  kind,
-  items,
+  list,
   now,
   status,
   isFetchingMore,
@@ -32,7 +57,9 @@ export function RankingsView({
   onRetry,
   onPressInvestment,
 }: Props) {
+  const { kind } = list;
   const note = rankingNote(kind);
+  const rows = toRows(list, now);
 
   return (
     <View style={styles.screen}>
@@ -47,15 +74,15 @@ export function RankingsView({
       <FlatList
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        data={items}
-        keyExtractor={(item) => item.cui}
-        renderItem={({ item, index }) => (
+        data={rows}
+        keyExtractor={(row) => row.cui}
+        renderItem={({ item: row, index }) => (
           <RankingRow
             rank={index + 1}
-            name={item.name}
-            value={rankingValue(kind, item, now)}
-            detail={rankingDetail(kind, item)}
-            onPress={() => onPressInvestment(item.cui)}
+            name={row.name}
+            value={row.value}
+            detail={row.detail}
+            onPress={() => onPressInvestment(row.cui)}
           />
         )}
         onEndReached={onEndReached}
@@ -66,7 +93,10 @@ export function RankingsView({
           ) : status === 'error' ? (
             <StateMessage kind="error" onRetry={onRetry} />
           ) : (
-            <StateMessage kind="empty" message="No hay proyectos para este ranking en esta región." />
+            <StateMessage
+              kind="empty"
+              message={kind === 'stalled' ? STALLED_EMPTY : 'No hay proyectos para este ranking en esta región.'}
+            />
           )
         }
         ListFooterComponent={

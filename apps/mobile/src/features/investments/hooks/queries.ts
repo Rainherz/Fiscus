@@ -22,9 +22,10 @@ export function useTopIncreases(departmentCode: number, count: number) {
   });
 }
 
-export function useRanking(kind: RankingKind, departmentCode: number) {
+export function useRanking(kind: RankingKind, departmentCode: number, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useInfiniteQuery({
+    enabled: options.enabled,
     queryKey: ['ranking', kind, departmentCode],
     queryFn: ({ pageParam }) =>
       repository.findMany(buildRankingQuery({ kind, departmentCode, page: pageParam })),
@@ -101,9 +102,10 @@ export function useRecentCostIncreases(departmentCode: number, limit: number) {
 }
 
 /** "Sin gasto reciente" ranking, paged. */
-export function useStalledInvestments(departmentCode: number) {
+export function useStalledInvestments(departmentCode: number, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useInfiniteQuery({
+    enabled: options.enabled,
     queryKey: ['stalled-investments', departmentCode],
     queryFn: ({ pageParam }) => repository.getStalledInvestments({ departmentCode, page: pageParam }),
     initialPageParam: 0,
