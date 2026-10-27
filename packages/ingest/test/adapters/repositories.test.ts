@@ -70,6 +70,15 @@ describe("toInvestmentRow", () => {
     expect(row).not.toHaveProperty("spent_anomaly");
     expect(row).not.toHaveProperty("ingested_at");
   });
+
+  it("claims the row for the SSI so the open-data ingest never overwrites SSI figures", () => {
+    expect(toInvestmentRow(investment("1")).data_source).toBe("ssi");
+  });
+
+  it("labels rows without a government level as GR (the SSI report is requested with tipo GR)", () => {
+    expect(toInvestmentRow({ ...investment("1"), governmentLevel: null }).government_level).toBe("GR");
+    expect(toInvestmentRow({ ...investment("1"), governmentLevel: "GR" }).government_level).toBe("GR");
+  });
 });
 
 describe("SupabaseInvestmentRepository", () => {

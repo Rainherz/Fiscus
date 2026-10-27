@@ -16,13 +16,18 @@ export interface SupabaseRepositoryOptions {
   chunkSize?: number;
 }
 
-/** Investment -> `investments` row. Metrics are omitted: they are generated columns in Postgres. */
+/**
+ * Investment -> `investments` row. Metrics are omitted: they are generated columns in Postgres.
+ * data_source = 'ssi' claims the row for the SSI: the open-data ingest then leaves the SSI columns
+ * alone (see supabase/migrations/20261031000000_open_data_investments.sql).
+ */
 export function toInvestmentRow(investment: Investment) {
   return {
     cui: investment.cui,
     snip_code: investment.snipCode,
     name: investment.name,
-    government_level: investment.governmentLevel,
+    // The report is requested with tipo "GR", so every row is a regional-government investment.
+    government_level: investment.governmentLevel ?? "GR",
     sector: investment.sector,
     entity: investment.entity,
     status: investment.status,
@@ -49,6 +54,7 @@ export function toInvestmentRow(investment: Investment) {
     department_code: investment.departmentCode,
     department_name: investment.departmentName,
     source_updated_at: investment.sourceUpdatedAt,
+    data_source: "ssi",
   };
 }
 
