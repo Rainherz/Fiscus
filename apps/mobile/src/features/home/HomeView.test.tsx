@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 import { NOW, arequipa, majes } from '@/test/fixtures';
 
@@ -94,5 +95,30 @@ describe('HomeView', () => {
       <HomeView hero={null} ranking={[]} now={NOW} onPressInvestment={() => {}} onPressSeeAll={() => {}} />,
     );
     expect(screen.getByText('No hay proyectos con aumento de costo en esta región.')).toBeOnTheScreen();
+  });
+
+  it('renders the recent increases it is given, with or without a hero', async () => {
+    const { rerender } = await render(
+      <HomeView
+        hero={majes}
+        ranking={arequipa.slice(1)}
+        now={NOW}
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        recentIncreases={<Text>recientes</Text>}
+      />,
+    );
+    expect(screen.getByText('recientes')).toBeOnTheScreen();
+    await rerender(
+      <HomeView
+        hero={null}
+        ranking={[]}
+        now={NOW}
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        recentIncreases={<Text>recientes</Text>}
+      />,
+    );
+    expect(screen.getByText('recientes')).toBeOnTheScreen();
   });
 });

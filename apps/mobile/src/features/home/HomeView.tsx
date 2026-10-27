@@ -26,14 +26,25 @@ interface Props {
   now: Date;
   onPressInvestment: (cui: string) => void;
   onPressSeeAll: () => void;
+  /** "Aumentos recientes" section, shown after the ranking. */
+  recentIncreases?: ReactNode;
   footer?: ReactNode;
 }
 
-export function HomeView({ hero, ranking, now, onPressInvestment, onPressSeeAll, footer }: Props) {
+export function HomeView({
+  hero,
+  ranking,
+  now,
+  onPressInvestment,
+  onPressSeeAll,
+  recentIncreases,
+  footer,
+}: Props) {
   if (!hero) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         <StateMessage kind="empty" message="No hay proyectos con aumento de costo en esta región." />
+        {recentIncreases}
         {footer}
       </ScrollView>
     );
@@ -113,6 +124,8 @@ export function HomeView({ hero, ranking, now, onPressInvestment, onPressSeeAll,
           </Pressable>
         </View>
       ) : null}
+
+      {recentIncreases}
 
       {footer}
     </ScrollView>
