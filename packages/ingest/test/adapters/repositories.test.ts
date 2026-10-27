@@ -16,9 +16,9 @@ function investment(cui: string): Investment {
       cui,
       snipCode: "143835",
       name: "OBRA",
-      viableAmount: 100,
-      updatedCost: 150,
-      accruedTotal: 75,
+      viableAmount: 100_000,
+      updatedCost: 150_000,
+      accruedTotal: 75_000,
       registeredAt: "28/01/2010",
       firstAccrualMonth: "2010-08",
     },
@@ -53,9 +53,9 @@ describe("toInvestmentRow", () => {
     expect(row).toMatchObject({
       cui: "1",
       snip_code: "143835",
-      viable_amount: 100,
-      updated_cost: 150,
-      accrued_total: 75,
+      viable_amount: 100_000,
+      updated_cost: 150_000,
+      accrued_total: 75_000,
       registered_at: "2010-01-28",
       first_accrual_month: "2010-08-01",
       pim_year: 2023,
@@ -66,6 +66,7 @@ describe("toInvestmentRow", () => {
     expect(row).not.toHaveProperty("cost_increase");
     expect(row).not.toHaveProperty("cost_increase_pct");
     expect(row).not.toHaveProperty("execution_progress");
+    expect(row).not.toHaveProperty("updated_cost_valid");
     expect(row).not.toHaveProperty("ingested_at");
   });
 });
@@ -142,7 +143,7 @@ describe("JsonFileInvestmentRepository", () => {
 
     const written = JSON.parse(await readFile(join(dir, "investments-04.json"), "utf8"));
     expect(written.map((i: Investment) => i.cui)).toEqual(["1", "2"]);
-    expect(written[0].costIncrease).toBe(50);
+    expect(written[0].costIncrease).toBe(50_000);
     const run = JSON.parse(await readFile(join(dir, "run.json"), "utf8"));
     expect(run.rowsUpserted).toBe(2);
   });
