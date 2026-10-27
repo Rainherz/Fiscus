@@ -27,7 +27,7 @@ apps/mobile/src/
                  department, home, rankings, categories, search, investment-detail (container + view)
   shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
-.github/workflows/     ingest.yml (daily cron), ci.yml (typecheck + tests)
+.github/workflows/     ingest.yml (manual ingest), ci.yml (typecheck + tests)
 ```
 
 The XLSX parser uses `exceljs`. It is maintained on npm, has TypeScript types, and exposes typed
@@ -84,6 +84,48 @@ the QR code that `start` prints. If the network blocks LAN, use `pnpm --filter @
 The "Categorías" screen reads the `department_function_summary` view
 (`supabase/migrations/20261026120000_create_department_function_summary.sql`), so apply that
 migration before you use it.
+
+## Daily ingest
+
+`ofi5.mef.gob.pe` drops TCP connections from GitHub-hosted runners (US datacenter IPs), so the ingest
+cannot run on a GitHub Actions schedule. It runs from a machine in Peru through a systemd user timer:
+
+```ini
+# ~/.config/systemd/user/fiscus-ingest.service
+[Unit]
+Description=Fiscus: ingest MEF SSI report into Supabase
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/Fiscus
+# .env.local holds SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+EnvironmentFile=/path/to/Fiscus/.env.local
+ExecStart=/path/to/pnpm ingest
+TimeoutStartSec=90min
+```
+
+```ini
+# ~/.config/systemd/user/fiscus-ingest.timer
+[Timer]
+OnCalendar=*-*-* 04:00:00 America/Lima
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
+```
+
+```sh
+systemctl --user daemon-reload
+systemctl --user enable --now fiscus-ingest.timer
+systemctl --user start fiscus-ingest        # run now
+journalctl --user -u fiscus-ingest -f       # follow logs
+```
+
+`Persistent=true` runs a missed ingest at the next login when the machine was off at 04:00.
+The `ingest.yml` workflow is kept for manual dispatch only.
 
 ## Secrets (GitHub Actions)
 
