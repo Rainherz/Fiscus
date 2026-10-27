@@ -2,10 +2,15 @@
   "name": "fiscus",
   "private": true,
   "packageManager": "pnpm@11.20.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "ingest": "pnpm --filter @fiscus/ingest ingest"
+  },
+  "devDependencies": {
+    "supabase": "^2.122.0"
   }
 }
