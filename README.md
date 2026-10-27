@@ -81,15 +81,22 @@ pnpm --filter @fiscus/mobile export:web        # static web build in apps/mobile
 To run the app on a phone, install Expo Go, keep the phone on the same network as your computer, and scan
 the QR code that `start` prints. If the network blocks LAN, use `pnpm --filter @fiscus/mobile exec expo start --tunnel`.
 
-The "Categorías" screen reads the `department_function_summary` view
-(`supabase/migrations/20261026120000_create_department_function_summary.sql`), so apply that
-migration before you use it.
+Scope: every screen shows either all of Peru ("TODO EL PERÚ", the default) or one department. The last
+choice is kept on the device with `@react-native-async-storage/async-storage` (localStorage on web); if
+the storage fails, the app falls back to all of Peru. The screens wait until the stored choice is read, so
+they never fetch or show the wrong scope (the header shows a placeholder meanwhile). Repository methods
+take an optional `departmentCode`: undefined means all of Peru, and the query specs drop the department
+filter. National reads stay paged or limited, never whole-table fetches.
+
+The "Categorías" screen reads the `department_function_summary` view for a department
+(`supabase/migrations/20261026120000_create_department_function_summary.sql`) and the `function_summary`
+view for all of Peru, so apply those migrations before you use it.
 
 Cost history: MEF only publishes the current cost, so Fiscus records its own history in
 `investment_cost_changes` from 27/10/2026 onwards
 (`supabase/migrations/20261027200000_create_investment_cost_changes.sql`). Every investment starts with a
 `baseline` row; triggers add a `changed` row when `viable_amount` or `updated_cost` changes. The detail
-screen shows this as "Historial del costo", and home lists the department's latest increases under
+screen shows this as "Historial del costo", and home lists the latest increases of the selected scope under
 "Aumentos recientes". Earlier history is unknown. The demo mode includes an invented history for Majes
 Siguas II, only so these screens have something to show.
 
@@ -101,15 +108,21 @@ applies the rule and adds `months_without_accrual` and `pending_amount`. The app
 "Sin gasto reciente" tab in Rankings, a block on home and a line on the detail screen. The demo mode adds
 invented projects marked "(demo)" so these screens have something to show.
 
-Region picker: the region selector in the header ("AREQUIPA ▾") opens the "Elegir región" screen
-(`/region`), which compares all departments, sorted by total cost increase (S/ or %), "Sin gasto reciente"
+Region picker: the selector in the header ("TODO EL PERÚ ▾" or the region name) opens the "Elegir región"
+screen (`/region`). Its first option is "Todo el Perú"; below, it compares all departments, sorted by total cost increase (S/ or %), "Sin gasto reciente"
 projects, or projects that spent more than their updated cost. It reads the `region_comparison` view
 (`supabase/migrations/20261030000000_create_region_comparison.sql`): cost figures only use valid updated
-costs, and the increase total adds positive increases only (reductions are not netted). The current region
-is marked "ACTUAL"; tapping a region selects it and returns to the previous screen. Departments without
+costs, and the increase total adds positive increases only (reductions are not netted). The current choice
+is marked "ACTUAL"; tapping an option selects it and returns to the previous screen. Departments without
 data, and every department while the comparison loads or fails, are listed alphabetically so picking a
-region never depends on it. Rankings only ranks projects of the selected region; old `?tab=regions` links
-open its default tab. The older `department_summary` view is unchanged but not used by the app.
+region never depends on it. Rankings, Categorías and Buscar work within the selected scope; listing all of Peru, every row shows its
+region, and Buscar searches names nationwide (an exact CUI is always searched nationwide). Old
+`?tab=regions` links open the default Rankings tab.
+
+National home: "EL MAYOR AUMENTO DEL PAÍS" (with its region), the national top 5 of increases,
+"Regiones con más aumentos" (top 5 regions by total increase from `region_comparison`; tapping one selects
+it, "Ver las 25" opens the picker), then "Sin gasto reciente" and "Aumentos recientes" for all of Peru.
+A region's home keeps its own layout. The older `department_summary` view is unchanged but not used by the app.
 
 ## Daily ingest
 
