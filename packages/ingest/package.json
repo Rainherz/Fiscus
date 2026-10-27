@@ -6,10 +6,12 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "ingest": "NODE_EXTRA_CA_CERTS=./certs/entrust-ov-tls-issuing-rsa-ca2.pem tsx src/cli.ts"
+    "ingest": "NODE_EXTRA_CA_CERTS=./certs/entrust-ov-tls-issuing-rsa-ca2.pem tsx src/cli.ts",
+    "ingest:open-data": "tsx src/openDataCli.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
+    "csv-parse": "^7.0.3",
     "exceljs": "^4.4.0"
   },
   "devDependencies": {

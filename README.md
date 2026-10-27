@@ -3,24 +3,87 @@
 Read-only public dashboard of Peruvian government investment projects. This repository holds the data
 backend (a daily ingest of MEF data into Supabase) and the app in `apps/mobile` (iOS, Android and web).
 
-## Data source
+## Data sources
+
+Two MEF sources load the same `investments` table, keyed by CUI.
+
+### SSI report (regional governments, daily from Peru)
 
 MEF "Seguimiento de Inversiones" (SSI) report, downloaded as XLSX per department:
 
 - `POST https://ofi5.mef.gob.pe/inviertews/Ssi/expRepSSIDet`
 - Body: `{"sect":"","plie":"<1..25>","dpto":0,"prov":0,"dist":0,"tipo":"GR"}`. `plie` is the department code.
 - Each call takes about 50 s, so departments are fetched one after another. Each attempt has a 120 s timeout and is retried 3 times with exponential backoff.
+- Regional governments (GR) only, including closed projects. The host blocks GitHub runners, so it runs from a machine in Peru (see "Daily ingest").
+
+### Open data (every level, active projects, GitHub Actions)
+
+`https://fs.datosabiertos.mef.gob.pe/datastorefiles/DETALLE_INVERSIONES.csv`: about 250 MB, UTF-8 with
+BOM, every field quoted, about 150,000 rows. It lists only ACTIVE investments, of national (GN), regional
+(GR) and local (GL) governments, with location (ubigeo, coordinates), physical progress and the
+executing unit. MEF does not refresh it every day.
+
+- `OpenDataCsvSource` sends a HEAD request first. When `Last-Modified` and `Content-Length` match the
+  last successful ingest in `source_snapshots`, the run logs it and exits 0 without downloading
+  (`--force` ingests anyway).
+- The file is streamed and parsed row by row with `csv-parse` (never loaded whole). `ALTERNATIVA`
+  (free text, about 37 % of the bytes) is dropped by the parser, and unmapped columns are never stored.
+- `accrued_total = DEVEN_ACUMUL_ANIO_ANT + DEV_ANIO_ACTUAL`, rounded to cents. This matches the SSI total
+  to the cent (CUI 2094808: S/ 1,459,731,800.72). `PIM_ANIO_ACTUAL` and `DEV_ANIO_ACTUAL` go into the
+  existing `pim` and `accrued_year` columns, which hold the same figures in the SSI.
+- Coordinates outside Peru's bounding box (latitude -19 to 0, longitude -82 to -68), including the
+  source's `0.0`, are stored as null. `physical_progress` is null unless `TIENE_AVAN_FISICO = SI` and
+  the value is between 0 and 100. `ULTIMO_DEVENGADO`-style `yyyymm` months become first-of-month dates.
+- `department_code` comes from the first two digits of `UBIGEO` (INEI department codes match 1-25), then
+  from the `DEPARTAMENTO` name when the ubigeo is blank. Multi-department national investments
+  (ubigeo `99...`) have no department and only count nationwide.
+- Rows without CUI (67 in the October 2026 file) are skipped; a repeated CUI keeps the last row.
+- Rows are upserted 1,000 at a time through `public.upsert_open_data_investments`. Ownership rule
+  (`data_source`): once the SSI has loaded an investment (`ssi`), the open-data ingest only fills the
+  columns the SSI lacks (location, coordinates, physical progress, previous-years accrual, pending
+  balance, executing unit, `open_data_updated_at`). The SSI figures stay untouched, because they are
+  refreshed daily and the open-data file can be days older, and the cost history does not log
+  back-and-forth changes. Investments only the file has (`open_data`) get every column.
+- `.github/workflows/open-data-ingest.yml` runs it on manual dispatch only (`force` input) for now. The
+  daily schedule (10:00 UTC, 05:00 Lima, after the SSI run) is enabled once the app filters by
+  `government_level`.
+- Unchanged rows are not rewritten. The `touch_ingested_at` trigger skips an update when no data column
+  changed, for both ingests. `ingested_at`, `source_updated_at` and `open_data_updated_at` therefore
+  move only when the data changes; whole-source freshness is in `ingest_runs` (SSI) and
+  `source_snapshots` (open data). The detail screen's "Actualizado el" (`source_updated_at`) now reads
+  as the date of the report the current values came from.
+
+Views. The existing views (`region_comparison`, `stalled_investments`, `accrual_reference_month`,
+`function_summary`, `department_function_summary`, `department_summary`) now filter
+`government_level = 'GR'` explicitly, so their numbers stay the same when national and local rows
+arrive. New `*_by_level` views (`region_comparison_by_level`, `stalled_investments_by_level`,
+`function_summary_by_level`, `department_function_summary_by_level`) have a `government_level` column
+(`GN`, `GR`, `GL`, or `ALL` for every level) for the app to filter on. `region_comparison_by_level`
+only has the 25 departments. **The app also reads `investments` and `investment_cost_changes`
+directly. Those reads need a level filter before the open-data workflow runs against production,
+otherwise rankings, search and "Aumentos recientes" will start to include national and local
+projects.**
+
+Size (measured on Postgres 17 with the October 2026 file plus 27,296 SSI-like GR rows, autovacuum off):
+`investments` takes 142 MB after the first load of both sources (111 MB heap, 31 MB indexes) and
+`investment_cost_changes` 28 MB (one `first_seen` row per investment). A second identical ingest of both
+sources adds 0 bytes. A run where about 1 % of the rows change adds about 1.3 MB to `investments` and
+0.3 MB to the history.
 
 ## Layout
 
 ```
 packages/ingest/src/
-  domain/        Investment type, normalizers, cost metrics, department codes (pure)
-  ports/         InvestmentSource, InvestmentRepository
+  domain/        Investment and OpenDataInvestment mappers, normalizers, cost metrics,
+                 department codes (pure)
+  ports/         InvestmentSource, InvestmentRepository, OpenDataSource, OpenDataRepository
   adapters/      MefXlsxSource (HTTP + XLSX), ssiReportParser, SupabaseInvestmentRepository,
-                 JsonFileInvestmentRepository (dry-run)
-  application/   runIngest (per-department fault isolation)
-  cli.ts         entrypoint
+                 JsonFileInvestmentRepository (dry-run), OpenDataCsvSource (HEAD + streamed CSV),
+                 SupabaseOpenDataRepository, DryRunOpenDataRepository
+  application/   runIngest (per-department fault isolation), runOpenDataIngest (snapshot check,
+                 chunked upsert)
+  cli.ts         SSI entrypoint
+  openDataCli.ts open-data entrypoint
 apps/mobile/src/
   app/           Expo Router routes: (tabs) index, rankings, categories, search; region; investment/[cui]; category/[fn]
   features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
@@ -28,7 +91,8 @@ apps/mobile/src/
                  share-card (share image: presentation, card, capture and share)
   shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
-.github/workflows/     ingest.yml (manual ingest), ci.yml (typecheck + tests)
+.github/workflows/     ingest.yml (manual SSI ingest), open-data-ingest.yml (manual open-data ingest),
+                       ci.yml (typecheck + tests)
 ```
 
 The XLSX parser uses `exceljs`. It is maintained on npm, has TypeScript types, and exposes typed
@@ -52,6 +116,18 @@ DEPARTMENTS=4,15 pnpm ingest --dry-run --out /absolute/path
 # Real run into Supabase
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest
 ```
+
+```sh
+# Open data. Dry run: streams the file and prints counts by level, coordinates, duplicates...
+pnpm ingest:open-data --dry-run
+pnpm ingest:open-data --dry-run --source /path/to/DETALLE_INVERSIONES.csv --out /absolute/rows.ndjson
+pnpm ingest:open-data --dry-run --limit 1000
+# Real run (skips when the file is unchanged since the last ingest; --force ingests anyway)
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:open-data [--force]
+```
+
+`--source` takes a URL or a local path (default: the MEF URL); `--out` writes the exact rows a real run
+would send, as NDJSON; `--limit N` stops after N rows and never records the snapshot.
 
 Leave `DEPARTMENTS` unset to ingest all 25 departments. The process exits non-zero only when every
 department fails. Rows without a CUI are skipped and counted (`rowsSkipped`, `ingest_runs.rows_skipped`).
@@ -201,11 +277,13 @@ The public dashboard reads with the anon key. RLS lets the anon key run SELECT a
   `http://crt.sectigo.com/EntrustOVTLSIssuingRSACA2.crt`) is committed as
   `packages/ingest/certs/entrust-ov-tls-issuing-rsa-ca2.pem` and loaded with `NODE_EXTRA_CA_CERTS`
   (in the `ingest` script and in the workflow). If MEF rotates its certificate, replace that file.
-- **Regional governments only.** The ingest requests `tipo: "GR"`. National and local governments are
-  not included yet.
-- **PIM year label is unverified.** The report headers say `PIM 2023` / `DEVENGADO 2023` even in 2026
-  reports. The columns are matched by prefix (`PIM yyyy`, `DEVENGADO yyyy`), and the header year is
-  stored in `pim_year` as-is. Do not present it as the current-year budget until this is confirmed with MEF.
+- **National and local governments come only from open data.** The SSI ingest requests `tipo: "GR"`.
+  The open-data file has GN and GL too, but only active projects, so closed national and local
+  projects are not in Fiscus.
+- **PIM year label.** The SSI report headers say `PIM 2023` / `DEVENGADO 2023` even in 2026 reports, and
+  SSI rows store that header year in `pim_year`. The open-data file has the same figures as
+  `PIM_ANIO_ACTUAL` / `DEV_ANIO_ACTUAL` with `ANIO_PROCESO = 2026` (checked on CUIs 2114611 and
+  2322636), so they are the current-year budget and accrual. Open-data rows store `pim_year = 2026`.
 - `execution_progress` is null when `accrued_total` is empty. It is not coerced to 0, because the source
   does not say whether empty means "no accrual" or "unknown".
 - **`execution_progress` is money, not physical progress.** It is `accrued_total / updated_cost`, the

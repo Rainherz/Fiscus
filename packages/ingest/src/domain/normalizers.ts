@@ -55,3 +55,21 @@ export function parseYearMonth(value: unknown): string | null {
   if (!match) return null;
   return isoDate(Number(match[1]), Number(match[2]), 1);
 }
+
+/** yyyy-mm-dd or "yyyy-mm-dd hh:mm:ss" -> yyyy-mm-dd (the time part is dropped) */
+export function parseIsoDate(value: unknown): string | null {
+  const text = parseText(value);
+  if (text === null) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/.exec(text);
+  if (!match) return null;
+  return isoDate(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
+/** yyyymm -> yyyy-mm-01 (first day of the month) */
+export function parseCompactYearMonth(value: unknown): string | null {
+  const text = parseText(value);
+  if (text === null) return null;
+  const match = /^(\d{4})(\d{2})$/.exec(text);
+  if (!match) return null;
+  return isoDate(Number(match[1]), Number(match[2]), 1);
+}
