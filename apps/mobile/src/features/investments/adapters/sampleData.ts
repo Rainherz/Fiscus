@@ -194,6 +194,8 @@ export const EDGE_CASE_SAMPLE: InvestmentRow[] = [
   }),
 ];
 
+const DEMO_REGIONAL_ENTITY = 'GOBIERNO REGIONAL AREQUIPA (demo)';
+
 /**
  * DEMO ONLY, not MEF data: invented projects and figures so the demo mode can show "Sin gasto
  * reciente". Three meet the rule; the fourth has a recent accrual and sets the reference month
@@ -203,6 +205,7 @@ export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
   sampleRow({
     cui: '9900001',
     name: 'Planta de tratamiento de aguas residuales (demo)',
+    entity: DEMO_REGIONAL_ENTITY,
     function: 'SANEAMIENTO',
     viable: 184_500_000,
     updated: 184_500_000,
@@ -212,6 +215,7 @@ export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
   sampleRow({
     cui: '9900002',
     name: 'Mejoramiento de carretera departamental (demo)',
+    entity: DEMO_REGIONAL_ENTITY,
     function: 'TRANSPORTE',
     viable: 62_300_000,
     updated: 62_300_000,
@@ -221,6 +225,7 @@ export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
   sampleRow({
     cui: '9900003',
     name: 'Institución educativa secundaria (demo)',
+    entity: DEMO_REGIONAL_ENTITY,
     function: 'EDUCACION',
     viable: 18_750_000,
     updated: 18_750_000,
@@ -230,6 +235,7 @@ export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
   sampleRow({
     cui: '9900004',
     name: 'Ampliación de canal de riego (demo)',
+    entity: DEMO_REGIONAL_ENTITY,
     function: 'AGRARIA',
     viable: 40_000_000,
     updated: 40_000_000,
@@ -238,8 +244,110 @@ export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
   }),
 ];
 
+const DEMO_MINISTRY = 'MINISTERIO DE TRANSPORTES Y COMUNICACIONES (demo)';
+const DEMO_CAYMA = 'MUNICIPALIDAD DISTRITAL DE CAYMA (demo)';
+
+/**
+ * DEMO ONLY, not MEF data: invented national (GN) and local (GL) projects, as the open-data ingest
+ * loads them, so the demo mode exercises the level filter, the entity ranking and the detail
+ * (physical progress, location). One national project spans several departments (no department):
+ * it only appears nationwide.
+ */
+export const LEVELS_DEMO_SAMPLE: InvestmentRow[] = [
+  sampleRow({
+    cui: '9900101',
+    name: 'Red vial nacional tramo multirregional (demo)',
+    level: 'GN',
+    entity: DEMO_MINISTRY,
+    executingUnit: 'PROVIAS NACIONAL (demo)',
+    function: 'TRANSPORTE',
+    viable: 2_400_000_000,
+    updated: 3_150_000_000,
+    progress: 0.36,
+    physicalProgress: 31,
+    viabilityAt: '2014-03-12',
+    lastAccrualMonth: '2026-09-01',
+    departmentCode: null,
+    departmentName: null,
+    dataSource: 'open_data',
+  }),
+  sampleRow({
+    cui: '9900102',
+    name: 'Puente vehicular sobre el río Chili (demo)',
+    level: 'GN',
+    entity: DEMO_MINISTRY,
+    executingUnit: 'PROVIAS NACIONAL (demo)',
+    function: 'TRANSPORTE',
+    viable: 180_000_000,
+    updated: 236_000_000,
+    progress: 0.58,
+    viabilityAt: '2019-08-01',
+    lastAccrualMonth: '2026-10-01',
+    province: 'AREQUIPA',
+    district: 'AREQUIPA',
+    dataSource: 'open_data',
+  }),
+  sampleRow({
+    cui: '9900201',
+    name: 'Mejoramiento de pistas y veredas en Cayma (demo)',
+    level: 'GL',
+    entity: DEMO_CAYMA,
+    executingUnit: DEMO_CAYMA,
+    function: 'TRANSPORTE',
+    viable: 8_600_000,
+    updated: 12_900_000,
+    progress: 0.61,
+    physicalProgress: 42,
+    viabilityAt: '2021-05-20',
+    lastAccrualMonth: '2026-10-01',
+    province: 'AREQUIPA',
+    district: 'CAYMA',
+    coordinates: { latitude: -16.3667, longitude: -71.55 },
+    dataSource: 'open_data',
+  }),
+  sampleRow({
+    cui: '9900202',
+    name: 'Ampliación del servicio de agua potable en Cayma (demo)',
+    level: 'GL',
+    entity: DEMO_CAYMA,
+    executingUnit: DEMO_CAYMA,
+    function: 'SANEAMIENTO',
+    viable: 4_200_000,
+    updated: 4_950_000,
+    progress: 0.22,
+    viabilityAt: '2023-02-14',
+    lastAccrualMonth: '2026-08-01',
+    province: 'AREQUIPA',
+    district: 'CAYMA',
+    dataSource: 'open_data',
+  }),
+  sampleRow({
+    cui: '9900203',
+    name: 'Mercado de abastos de San Jerónimo (demo)',
+    level: 'GL',
+    entity: 'MUNICIPALIDAD DISTRITAL DE SAN JERONIMO (demo)',
+    function: 'COMERCIO',
+    viable: 15_000_000,
+    updated: 21_300_000,
+    progress: 0.47,
+    physicalProgress: 55,
+    viabilityAt: '2020-11-09',
+    lastAccrualMonth: '2026-07-01',
+    departmentCode: 8,
+    departmentName: 'CUSCO',
+    province: 'CUSCO',
+    district: 'SAN JERONIMO',
+    dataSource: 'open_data',
+  }),
+];
+
 /** Rows behind the demo mode (EXPO_PUBLIC_USE_MOCK=1). */
-export const MOCK_ROWS: InvestmentRow[] = [...AREQUIPA_SAMPLE, ...EDGE_CASE_SAMPLE, ...STALLED_DEMO_SAMPLE];
+export const MOCK_ROWS: InvestmentRow[] = [
+  ...AREQUIPA_SAMPLE,
+  ...EDGE_CASE_SAMPLE,
+  ...STALLED_DEMO_SAMPLE,
+  ...LEVELS_DEMO_SAMPLE,
+];
 
 type Amount = number | string | null | undefined;
 const amount = (value: Amount): number | null => (value === null || value === undefined ? null : Number(value));
