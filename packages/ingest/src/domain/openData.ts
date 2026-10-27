@@ -72,13 +72,17 @@ export interface OpenDataInvestment {
   longitude: number | null;
   /** Last-Modified of the open-data file. */
   sourceUpdatedAt: string | null;
-  /** When this ingest saw the investment in the file. */
-  sourceSeenAt: string;
+  /**
+   * Start of this ingest run. The database keeps it only when the row is inserted or its data
+   * changes, so it reads "last open-data run that brought new data for the investment".
+   */
+  openDataUpdatedAt: string;
 }
 
 export interface OpenDataContext {
   sourceUpdatedAt: string | null;
-  seenAt: string;
+  /** Start of the ingest run. */
+  runAt: string;
 }
 
 /** Peru's bounding box. 0.0 (the source's "no coordinates") falls outside it. */
@@ -172,6 +176,6 @@ export function mapOpenDataRecord(
     latitude: coordinates?.latitude ?? null,
     longitude: coordinates?.longitude ?? null,
     sourceUpdatedAt: context.sourceUpdatedAt,
-    sourceSeenAt: context.seenAt,
+    openDataUpdatedAt: context.runAt,
   };
 }

@@ -7,7 +7,7 @@
 --   'ssi'       the SSI has loaded the investment. The SSI owns every column it publishes; the
 --               open-data ingest only fills the columns the SSI does not have (location,
 --               physical progress, previous-years accrual, pending balance, executing unit,
---               source_seen_at). The SSI ingest sends data_source = 'ssi', so it also claims rows
+--               open_data_updated_at). The SSI ingest sends data_source = 'ssi', so it also claims rows
 --               first inserted by the open-data ingest.
 --   'open_data' only the open-data file has the investment (GN, GL, or a GR row the SSI has not
 --               loaded yet). The open-data ingest writes every column it has.
@@ -25,6 +25,40 @@
 -- row (grouping sets), so the app can filter by level, including "all levels".
 -- Note: the app also reads public.investments and public.investment_cost_changes directly; those
 -- reads need a government_level filter before the open-data ingest is enabled (see README).
+--
+-- Unchanged rows are not rewritten. Both ingests upsert every row on every run; the BEFORE UPDATE
+-- trigger below now skips an update when no data column changed, so a repeated ingest creates no
+-- new row versions (no table bloat), keeps ingested_at, and logs no cost history. Freshness of a
+-- whole source lives in ingest_runs (SSI) and source_snapshots (open data).
+
+-- touch_ingested_at (20261026000000) now also decides whether an update happens at all.
+-- Ignored in the comparison:
+--   ingested_at, open_data_updated_at  bookkeeping set by the writer;
+--   source_updated_at                  the SSI report timestamp changes every day even when the
+--                                      figures do not, so it is only refreshed together with a real
+--                                      change (it reads "report the current values came from");
+--   generated columns                  NEW has them null in a BEFORE trigger; they derive from the
+--                                      compared columns anyway.
+-- A new generated or bookkeeping column must be added to this list, or every upsert will rewrite.
+-- Returning null skips the row: no new tuple, no AFTER UPDATE trigger (cost history), and it is
+-- not counted in the statement's row count.
+create or replace function public.touch_ingested_at() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  ignored constant text[] := array[
+    'ingested_at', 'open_data_updated_at', 'source_updated_at',
+    'cost_increase', 'cost_increase_pct', 'execution_progress', 'updated_cost_valid', 'spent_anomaly'
+  ];
+begin
+  if (to_jsonb(new) - ignored) = (to_jsonb(old) - ignored) then
+    return null;
+  end if;
+  new.ingested_at := now();
+  return new;
+end;
+$$;
 
 -- Every row loaded so far comes from the SSI GR report.
 update public.investments set government_level = 'GR' where government_level is null;
@@ -42,7 +76,7 @@ alter table public.investments
   add column executing_unit         text,
   add column data_source            text not null default 'ssi'
                                     check (data_source in ('ssi', 'open_data')),
-  add column source_seen_at         timestamptz,
+  add column open_data_updated_at         timestamptz,
   add constraint investments_coordinates_pair_check
     check ((latitude is null) = (longitude is null)),
   -- NOT VALID: enforced for new and updated rows without failing on unexpected legacy values.
@@ -63,7 +97,10 @@ comment on column public.investments.pending_balance is 'SALDO_EJECUTAR as publi
 comment on column public.investments.executing_unit is 'Budget execution unit (open data, NOMBRE_UEP).';
 comment on column public.investments.data_source is
   'ssi: the SSI owns the columns it publishes. open_data: only the open-data file has the investment.';
-comment on column public.investments.source_seen_at is 'Last open-data ingest whose file contained the investment.';
+comment on column public.investments.open_data_updated_at is
+  'Start of the last open-data ingest that inserted the investment or changed its data. Source freshness: source_snapshots.';
+comment on column public.investments.source_updated_at is
+  'Timestamp of the MEF report or file the current values came from. Refreshed only when the data changes (see touch_ingested_at).';
 comment on column public.investments.pim is
   'Current-year modified budget (PIM). Same figure in the SSI ("PIM yyyy") and open data (PIM_ANIO_ACTUAL).';
 comment on column public.investments.accrued_year is
@@ -101,7 +138,8 @@ grant select on public.source_snapshots to anon, authenticated;
 
 -- Open-data upsert with the ownership rule above. Called by the ingest (service role) with a JSON
 -- array of rows; the column list is the whitelist (generated columns cannot be written).
--- Rows must have distinct CUIs within one call.
+-- Rows must have distinct CUIs within one call. Returns the rows inserted or changed: rows whose
+-- data is unchanged are skipped by touch_ingested_at and not counted.
 create function public.upsert_open_data_investments(rows jsonb)
 returns integer
 language plpgsql
@@ -117,7 +155,7 @@ begin
     accrued_previous_years, accrued_total, first_accrual_month, last_accrual_month,
     pending_balance, dispute_cost, guarantee_amount, concurrent_control_cost, physical_progress,
     department_code, department_name, province, district, ubigeo, latitude, longitude,
-    source_updated_at, source_seen_at, data_source
+    source_updated_at, open_data_updated_at, data_source
   )
   select
     r.cui, r.snip_code, r.name, r.government_level, r.sector, r.entity, r.executing_unit, r.status,
@@ -127,7 +165,7 @@ begin
     r.last_accrual_month, r.pending_balance, r.dispute_cost, r.guarantee_amount,
     r.concurrent_control_cost, r.physical_progress, r.department_code, r.department_name,
     r.province, r.district, r.ubigeo, r.latitude, r.longitude, r.source_updated_at,
-    r.source_seen_at, 'open_data'
+    r.open_data_updated_at, 'open_data'
   from jsonb_to_recordset(rows) as r (
     cui text, snip_code text, name text, government_level text, sector text, entity text,
     executing_unit text, status text, situation text, beneficiaries bigint, registered_at date,
@@ -139,7 +177,7 @@ begin
     concurrent_control_cost numeric, physical_progress numeric, department_code int,
     department_name text, province text, district text, ubigeo text,
     latitude double precision, longitude double precision, source_updated_at timestamptz,
-    source_seen_at timestamptz
+    open_data_updated_at timestamptz
   )
   on conflict (cui) do update set
     -- Columns only the open-data file has: always refreshed.
@@ -152,7 +190,7 @@ begin
     ubigeo                 = excluded.ubigeo,
     latitude               = excluded.latitude,
     longitude              = excluded.longitude,
-    source_seen_at         = excluded.source_seen_at,
+    open_data_updated_at         = excluded.open_data_updated_at,
     -- Columns the SSI also publishes: kept when the SSI owns the row.
     snip_code               = case when i.data_source = 'ssi' then i.snip_code else excluded.snip_code end,
     name                    = case when i.data_source = 'ssi' then i.name else excluded.name end,

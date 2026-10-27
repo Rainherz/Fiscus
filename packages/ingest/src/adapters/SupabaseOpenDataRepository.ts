@@ -63,7 +63,7 @@ export function toOpenDataRow(investment: OpenDataInvestment) {
     latitude: investment.latitude,
     longitude: investment.longitude,
     source_updated_at: investment.sourceUpdatedAt,
-    source_seen_at: investment.sourceSeenAt,
+    open_data_updated_at: investment.openDataUpdatedAt,
   };
 }
 
@@ -103,9 +103,10 @@ export class SupabaseOpenDataRepository implements OpenDataRepository {
 
   async upsertOpenDataInvestments(rows: readonly OpenDataInvestment[]): Promise<number> {
     if (rows.length === 0) return 0;
-    const { error } = await this.client.rpc("upsert_open_data_investments", { rows: rows.map(toOpenDataRow) });
+    const { data, error } = await this.client.rpc("upsert_open_data_investments", { rows: rows.map(toOpenDataRow) });
     if (error) throw new Error(`upsert_open_data_investments failed: ${error.message}`);
-    return rows.length;
+    // The function returns the rows it inserted or changed; unchanged rows are skipped.
+    return asNumberOrNull(data) ?? rows.length;
   }
 
   async recordSnapshot(snapshot: SourceSnapshot): Promise<void> {

@@ -31,7 +31,7 @@ function investment(cui: string): OpenDataInvestment {
       FECHA_REGISTRO: "2020-01-02 00:00:00",
       ULTIMO_DEVENGADO: "202610",
     },
-    { sourceUpdatedAt: "2026-10-25T18:31:25.000Z", seenAt: "2026-10-26T10:00:00.000Z" },
+    { sourceUpdatedAt: "2026-10-25T18:31:25.000Z", runAt: "2026-10-26T10:00:00.000Z" },
   );
   if (!mapped) throw new Error("fixture must have a CUI");
   return mapped;
@@ -86,7 +86,7 @@ describe("toOpenDataRow", () => {
       latitude: -13.5,
       longitude: -71.9,
       source_updated_at: "2026-10-25T18:31:25.000Z",
-      source_seen_at: "2026-10-26T10:00:00.000Z",
+      open_data_updated_at: "2026-10-26T10:00:00.000Z",
     });
   });
 });
@@ -98,11 +98,13 @@ class FakeClient implements OpenDataClient {
   snapshotRow: Record<string, unknown> | null = null;
   rpcError: string | null = null;
 
+  rpcWritten: number | null = null;
+
   async rpc(fn: string, args: { rows: unknown[] }) {
     this.rpcCalls.push({ fn, rows: args.rows });
     return this.rpcError
       ? { data: null, error: { message: this.rpcError } }
-      : { data: args.rows.length, error: null };
+      : { data: this.rpcWritten ?? args.rows.length, error: null };
   }
 
   from(table: string) {
@@ -133,6 +135,14 @@ describe("SupabaseOpenDataRepository", () => {
     expect(client.rpcCalls).toHaveLength(1);
     expect(client.rpcCalls[0]!.fn).toBe("upsert_open_data_investments");
     expect(client.rpcCalls[0]!.rows).toEqual([toOpenDataRow(investment("1")), toOpenDataRow(investment("2"))]);
+  });
+
+  it("returns the number of rows the function actually wrote", async () => {
+    const client = new FakeClient();
+    client.rpcWritten = 0;
+    await expect(
+      new SupabaseOpenDataRepository(client).upsertOpenDataInvestments([investment("1"), investment("2")]),
+    ).resolves.toBe(0);
   });
 
   it("throws with the database message when the upsert fails", async () => {

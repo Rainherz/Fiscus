@@ -26,8 +26,10 @@ export interface OpenDataIngestSummary {
   rowsWithoutCui: number;
   /** Rows whose CUI already appeared earlier in the file (the last one wins). */
   duplicates: number;
-  /** Distinct CUIs written. */
+  /** Distinct CUIs sent to the repository. */
   rowsUpserted: number;
+  /** Rows the repository inserted or changed (unchanged rows are skipped). */
+  rowsChanged: number;
   /** The following counts are over distinct CUIs (first occurrence). */
   byLevel: Record<string, number>;
   withCoordinates: number;
@@ -71,6 +73,7 @@ export async function runOpenDataIngest({
     rowsWithoutCui: 0,
     duplicates: 0,
     rowsUpserted: 0,
+    rowsChanged: 0,
     byLevel: {},
     withCoordinates: 0,
     withoutDepartment: 0,
@@ -85,7 +88,7 @@ export async function runOpenDataIngest({
     return { ...summary, skipped: true, finishedAt: now().toISOString() };
   }
 
-  const context = { sourceUpdatedAt: file.lastModified, seenAt: startedAt };
+  const context = { sourceUpdatedAt: file.lastModified, runAt: startedAt };
   const seen = new Set<string>();
   let pending = new Map<string, OpenDataInvestment>();
 
@@ -93,7 +96,7 @@ export async function runOpenDataIngest({
     if (pending.size === 0) return;
     const rows = [...pending.values()];
     pending = new Map();
-    await repository.upsertOpenDataInvestments(rows);
+    summary.rowsChanged += await repository.upsertOpenDataInvestments(rows);
   };
 
   const track = (investment: OpenDataInvestment) => {

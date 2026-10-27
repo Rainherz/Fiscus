@@ -41,11 +41,17 @@ executing unit. MEF does not refresh it every day.
 - Rows are upserted 1,000 at a time through `public.upsert_open_data_investments`. Ownership rule
   (`data_source`): once the SSI has loaded an investment (`ssi`), the open-data ingest only fills the
   columns the SSI lacks (location, coordinates, physical progress, previous-years accrual, pending
-  balance, executing unit, `source_seen_at`). The SSI figures stay untouched, because they are
+  balance, executing unit, `open_data_updated_at`). The SSI figures stay untouched, because they are
   refreshed daily and the open-data file can be days older, and the cost history does not log
   back-and-forth changes. Investments only the file has (`open_data`) get every column.
-- `.github/workflows/open-data-ingest.yml` runs it daily at 10:00 UTC (05:00 Lima, after the SSI run)
-  and on manual dispatch (`force` input).
+- `.github/workflows/open-data-ingest.yml` runs it on manual dispatch only (`force` input) for now. The
+  daily schedule (10:00 UTC, 05:00 Lima, after the SSI run) is enabled once the app filters by
+  `government_level`.
+- Unchanged rows are not rewritten. The `touch_ingested_at` trigger skips an update when no data column
+  changed, for both ingests. `ingested_at`, `source_updated_at` and `open_data_updated_at` therefore
+  move only when the data changes; whole-source freshness is in `ingest_runs` (SSI) and
+  `source_snapshots` (open data). The detail screen's "Actualizado el" (`source_updated_at`) now reads
+  as the date of the report the current values came from.
 
 Views. The existing views (`region_comparison`, `stalled_investments`, `accrual_reference_month`,
 `function_summary`, `department_function_summary`, `department_summary`) now filter
@@ -58,11 +64,11 @@ directly. Those reads need a level filter before the open-data workflow runs aga
 otherwise rankings, search and "Aumentos recientes" will start to include national and local
 projects.**
 
-Size (measured on Postgres 17 with the October 2026 file plus 27,296 SSI-like GR rows): `investments`
-takes 142 MB right after the first load (127 MB after `VACUUM FULL`: 104 MB heap, 24 MB indexes) and
-`investment_cost_changes` 26-28 MB (one `first_seen` row per new investment). Each ingest rewrites every
-row it receives, so until autovacuum reuses the space the table can reach about twice its live size
-(248 MB measured after a second full ingest).
+Size (measured on Postgres 17 with the October 2026 file plus 27,296 SSI-like GR rows, autovacuum off):
+`investments` takes 142 MB after the first load of both sources (111 MB heap, 31 MB indexes) and
+`investment_cost_changes` 28 MB (one `first_seen` row per investment). A second identical ingest of both
+sources adds 0 bytes. A run where about 1 % of the rows change adds about 1.3 MB to `investments` and
+0.3 MB to the history.
 
 ## Layout
 
@@ -84,7 +90,7 @@ apps/mobile/src/
                  department, home, rankings, regions, categories, search, investment-detail (container + view)
   shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
-.github/workflows/     ingest.yml (manual SSI ingest), open-data-ingest.yml (daily open data),
+.github/workflows/     ingest.yml (manual SSI ingest), open-data-ingest.yml (manual open-data ingest),
                        ci.yml (typecheck + tests)
 ```
 

@@ -30,7 +30,7 @@ describe("runOpenDataIngest", () => {
       governmentLevel: "GL",
       departmentCode: 8,
       sourceUpdatedAt: FILE.lastModified,
-      sourceSeenAt: NOW.toISOString(),
+      openDataUpdatedAt: NOW.toISOString(),
     });
     expect(repository.snapshots.get(OPEN_DATA_SOURCE)).toEqual({
       source: OPEN_DATA_SOURCE,
@@ -38,6 +38,45 @@ describe("runOpenDataIngest", () => {
       contentLength: FILE.contentLength,
       ingestedAt: NOW.toISOString(),
       rowsUpserted: 2,
+    });
+  });
+
+  describe("unchanged rows", () => {
+    it("counts the rows the database actually wrote", async () => {
+      const { source, repository } = setup([row("1"), row("2")]);
+
+      const first = await runOpenDataIngest({ source, repository, now: () => NOW, log: silent });
+
+      expect(first).toMatchObject({ rowsUpserted: 2, rowsChanged: 2 });
+    });
+
+    it("writes nothing on a forced re-run of the same file", async () => {
+      const { source, repository } = setup([row("1"), row("2", { MONTO_VIABLE: "5" })]);
+      await runOpenDataIngest({ source, repository, now: () => NOW, log: silent });
+      const later = new Date("2026-10-27T10:00:00.000Z");
+
+      const second = await runOpenDataIngest({ source, repository, force: true, now: () => later, log: silent });
+
+      expect(second).toMatchObject({ rowsUpserted: 2, rowsChanged: 0 });
+      expect(repository.investments.get("1")?.openDataUpdatedAt).toBe(NOW.toISOString());
+    });
+
+    it("writes only the rows whose data changed", async () => {
+      const first = setup([row("1"), row("2")]);
+      await runOpenDataIngest({ ...first, now: () => NOW, log: silent });
+      const later = new Date("2026-10-27T10:00:00.000Z");
+      const source = new FakeOpenDataSource(FILE, [row("1"), row("2", { MONTO_VIABLE: "9" })]);
+
+      const second = await runOpenDataIngest({
+        source,
+        repository: first.repository,
+        force: true,
+        now: () => later,
+        log: silent,
+      });
+
+      expect(second.rowsChanged).toBe(1);
+      expect(first.repository.investments.get("2")?.openDataUpdatedAt).toBe(later.toISOString());
     });
   });
 

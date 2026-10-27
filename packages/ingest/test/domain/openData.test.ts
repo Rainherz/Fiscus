@@ -8,7 +8,7 @@ import {
 
 const context: OpenDataContext = {
   sourceUpdatedAt: "2026-10-25T18:31:25.000Z",
-  seenAt: "2026-10-26T10:00:00.000Z",
+  runAt: "2026-10-26T10:00:00.000Z",
 };
 
 /** A real row of DETALLE_INVERSIONES.csv (CUI 2114611, GR Arequipa), ALTERNATIVA dropped. */
@@ -103,7 +103,7 @@ describe("mapOpenDataRecord", () => {
       latitude: -16.4285,
       longitude: -71.5065,
       sourceUpdatedAt: "2026-10-25T18:31:25.000Z",
-      sourceSeenAt: "2026-10-26T10:00:00.000Z",
+      openDataUpdatedAt: "2026-10-26T10:00:00.000Z",
     });
   });
 

@@ -2,7 +2,19 @@ import type { OpenDataCsvRecord, OpenDataInvestment } from "../../src/domain/ope
 import type { OpenDataRepository, SourceSnapshot } from "../../src/ports/OpenDataRepository.js";
 import type { OpenDataFileInfo, OpenDataSource } from "../../src/ports/OpenDataSource.js";
 
-/** Keeps rows by CUI like the database upsert; rejects duplicate CUIs within one call like Postgres. */
+/** Keys ignored when deciding whether a row changed (mirrors public.touch_ingested_at). */
+const BOOKKEEPING = new Set(["openDataUpdatedAt", "sourceUpdatedAt"]);
+
+function sameData(a: OpenDataInvestment, b: OpenDataInvestment): boolean {
+  const strip = (row: OpenDataInvestment) =>
+    JSON.stringify(Object.entries(row).filter(([key]) => !BOOKKEEPING.has(key)));
+  return strip(a) === strip(b);
+}
+
+/**
+ * Keeps rows by CUI like the database upsert; rejects duplicate CUIs within one call like Postgres.
+ * Returns the rows actually written: unchanged rows are skipped like the database trigger does.
+ */
 export class InMemoryOpenDataRepository implements OpenDataRepository {
   readonly investments = new Map<string, OpenDataInvestment>();
   readonly snapshots = new Map<string, SourceSnapshot>();
@@ -19,8 +31,14 @@ export class InMemoryOpenDataRepository implements OpenDataRepository {
     if (new Set(rows.map((r) => r.cui)).size !== rows.length) {
       throw new Error("ON CONFLICT DO UPDATE command cannot affect row a second time");
     }
-    for (const row of rows) this.investments.set(row.cui, row);
-    return rows.length;
+    let written = 0;
+    for (const row of rows) {
+      const current = this.investments.get(row.cui);
+      if (current && sameData(current, row)) continue;
+      this.investments.set(row.cui, row);
+      written++;
+    }
+    return written;
   }
 
   async recordSnapshot(snapshot: SourceSnapshot): Promise<void> {
