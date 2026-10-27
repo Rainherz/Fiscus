@@ -133,6 +133,6 @@ export function normalizeInvestment(
     sourceUpdatedAt: context.sourceUpdatedAt,
     costIncrease: costIncrease({ viableAmount, updatedCost }),
     costIncreasePct: costIncreasePct({ viableAmount, updatedCost }),
-    executionProgress: executionProgress({ accruedTotal, updatedCost }),
+    executionProgress: executionProgress({ accruedTotal, updatedCost, viableAmount }),
   };
 }

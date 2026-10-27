@@ -1,8 +1,8 @@
 name: Fiscus ingest
 
+# No schedule: the MEF SSI host drops connections from GitHub-hosted runners (US datacenter IPs).
+# The daily run happens from a machine in Peru (see README, "Daily ingest"). Manual dispatch kept for retries.
 on:
-  schedule:
-    - cron: "0 9 * * *" # 09:00 UTC = 04:00 Lima
   workflow_dispatch:
     inputs:
       departments:

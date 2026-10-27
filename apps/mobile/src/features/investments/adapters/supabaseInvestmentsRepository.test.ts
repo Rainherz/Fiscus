@@ -1,0 +1,222 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { COST_CHANGE_COLUMNS, STALLED_INVESTMENT_COLUMNS } from '../domain/mappers';
+import { buildRankingQuery, buildSearchQuery, buildFunctionQuery } from '../domain/queries';
+import { createSupabaseInvestmentsRepository } from './supabaseInvestmentsRepository';
+import { sampleRow } from './sampleData';
+
+type Call = [string, ...unknown[]];
+
+/** Chainable PostgREST builder fake that records every call and resolves to `result`. */
+function fakeClient(result: { data: unknown; error: { message: string } | null; count?: number | null }) {
+  const calls: Call[] = [];
+  const builder: Record<string, unknown> = {};
+  for (const method of ['select', 'eq', 'gt', 'gte', 'ilike', 'not', 'is', 'order', 'range', 'limit']) {
+    builder[method] = (...args: unknown[]) => {
+      calls.push([method, ...args]);
+      return builder;
+    };
+  }
+  builder.maybeSingle = () => {
+    calls.push(['maybeSingle']);
+    return Promise.resolve(result);
+  };
+  builder.then = (resolve: (value: unknown) => unknown, reject: (e: unknown) => unknown) =>
+    Promise.resolve(result).then(resolve, reject);
+  const client = {
+    from: (table: string) => {
+      calls.push(['from', table]);
+      return builder;
+    },
+  } as unknown as SupabaseClient;
+  return { client, calls };
+}
+
+describe('supabase investments repository', () => {
+  it('translates a ranking query into PostgREST calls with nulls last', async () => {
+    const { client, calls } = fakeClient({ data: [sampleRow({ cui: '1' })], error: null });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    const items = await repo.findMany(buildRankingQuery({ kind: 'cost', departmentCode: 4, page: 1 }));
+
+    expect(items.map((i) => i.cui)).toEqual(['1']);
+    expect(calls).toEqual([
+      ['from', 'investments'],
+      ['select', expect.stringContaining('cost_increase_pct')],
+      ['eq', 'department_code', 4],
+      ['eq', 'updated_cost_valid', true],
+      ['order', 'updated_cost', { ascending: false, nullsFirst: false }],
+      ['order', 'cui', { ascending: true, nullsFirst: false }],
+      ['range', 30, 59],
+    ]);
+  });
+
+  it('translates comparison, ilike and null filters', async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    await repo.findMany(buildRankingQuery({ kind: 'increase-pct', departmentCode: 4, page: 0 }));
+    await repo.findMany(buildSearchQuery('obra', 4)!);
+    await repo.findMany(buildFunctionQuery({ departmentCode: 4, fn: null, page: 0 }));
+
+    expect(calls).toContainEqual(['gte', 'viable_amount', 1_000_000]);
+    expect(calls).toContainEqual(['gt', 'cost_increase_pct', 0]);
+    expect(calls).toContainEqual(['ilike', 'name', '%obra%']);
+    expect(calls).toContainEqual(['is', 'function', null]);
+  });
+
+  it('throws when Supabase returns an error', async () => {
+    const { client } = fakeClient({ data: null, error: { message: 'boom' } });
+    const repo = createSupabaseInvestmentsRepository(client);
+    await expect(repo.findByCui('1')).rejects.toThrow('boom');
+  });
+
+  it('reads function summaries for a department from the per-department view', async () => {
+    const { client, calls } = fakeClient({
+      data: [{ department_code: 4, function: 'SALUD', investment_count: 3, total_updated_cost: '10', total_cost_increase: '2' }],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.functionSummaries(4)).toEqual([
+      { function: 'SALUD', investmentCount: 3, totalUpdatedCost: 10, totalCostIncrease: 2 },
+    ]);
+    expect(calls[0]).toEqual(['from', 'department_function_summary']);
+    expect(calls).toContainEqual(['eq', 'department_code', 4]);
+  });
+
+  it('reads the most recent ingest run', async () => {
+    const { client, calls } = fakeClient({
+      data: { started_at: 'a', finished_at: 'b' },
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.lastIngestRun()).toEqual({ startedAt: 'a', finishedAt: 'b' });
+    expect(calls).toContainEqual(['order', 'finished_at', { ascending: false }]);
+    expect(calls).toContainEqual(['limit', 1]);
+  });
+});
+
+describe('supabase cost history', () => {
+  const changeRow = {
+    id: '3',
+    cui: '2088142',
+    change_kind: 'changed',
+    observed_at: '2026-11-03T10:00:00+00:00',
+    source_updated_at: null,
+    previous_viable_amount: '1338419640',
+    viable_amount: '1338419640',
+    previous_updated_cost: '5101412126',
+    updated_cost: '5145412126',
+    accrued_total: null,
+    updated_cost_delta: '44000000',
+  };
+
+  it('reads the history of one investment, oldest first', async () => {
+    const { client, calls } = fakeClient({ data: [changeRow], error: null });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    const history = await repo.getCostHistory('2088142');
+
+    expect(history).toEqual([expect.objectContaining({ id: 3, kind: 'changed', updatedCostDelta: 44_000_000 })]);
+    expect(calls).toEqual([
+      ['from', 'investment_cost_changes'],
+      ['select', COST_CHANGE_COLUMNS],
+      ['eq', 'cui', '2088142'],
+      ['order', 'observed_at', { ascending: true }],
+      ['order', 'id', { ascending: true }],
+    ]);
+  });
+
+  it('reads recent increases of a department through the embedded investment, newest first', async () => {
+    const { client, calls } = fakeClient({
+      data: [{ ...changeRow, investments: { name: 'Majes Siguas II etapa', department_code: 4 } }],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    const increases = await repo.getRecentCostIncreases({ departmentCode: 4, limit: 5 });
+
+    expect(increases).toEqual([
+      expect.objectContaining({ cui: '2088142', name: 'Majes Siguas II etapa', updatedCostDelta: 44_000_000 }),
+    ]);
+    expect(calls).toEqual([
+      ['from', 'investment_cost_changes'],
+      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`],
+      ['eq', 'change_kind', 'changed'],
+      ['gt', 'updated_cost_delta', 0],
+      ['eq', 'investments.department_code', 4],
+      ['order', 'observed_at', { ascending: false }],
+      ['order', 'id', { ascending: false }],
+      ['limit', 5],
+    ]);
+  });
+
+  it('throws when Supabase returns an error', async () => {
+    const { client } = fakeClient({ data: null, error: { message: 'boom' } });
+    const repo = createSupabaseInvestmentsRepository(client);
+    await expect(repo.getCostHistory('1')).rejects.toThrow('boom');
+    await expect(repo.getRecentCostIncreases({ departmentCode: 4, limit: 5 })).rejects.toThrow('boom');
+  });
+});
+
+describe('supabase stalled investments', () => {
+  const stalledRow = {
+    ...sampleRow({ cui: '7', updated: 297_000_000, progress: 0.32, lastAccrualMonth: '2025-04-01' }),
+    months_without_accrual: 18,
+    pending_amount: '201960000',
+  };
+
+  it('reads a page of the view for a department, largest pending amount first', async () => {
+    const { client, calls } = fakeClient({ data: [stalledRow], error: null });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    const items = await repo.getStalledInvestments({ departmentCode: 23, page: 1, pageSize: 10 });
+
+    expect(items).toEqual([
+      expect.objectContaining({ cui: '7', monthsWithoutAccrual: 18, pendingAmount: 201_960_000 }),
+    ]);
+    expect(calls).toEqual([
+      ['from', 'stalled_investments'],
+      ['select', STALLED_INVESTMENT_COLUMNS],
+      ['eq', 'department_code', 23],
+      ['order', 'pending_amount', { ascending: false, nullsFirst: false }],
+      ['order', 'cui', { ascending: true, nullsFirst: false }],
+      ['range', 10, 19],
+    ]);
+  });
+
+  it('counts the department rows without fetching them', async () => {
+    const { client, calls } = fakeClient({ data: null, error: null, count: 12 });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.countStalledInvestments(23)).toBe(12);
+    expect(calls).toEqual([
+      ['from', 'stalled_investments'],
+      ['select', 'cui', { count: 'exact', head: true }],
+      ['eq', 'department_code', 23],
+    ]);
+  });
+
+  it('reads the reference month of the accrual data', async () => {
+    const { client, calls } = fakeClient({ data: { reference_month: '2026-10-01' }, error: null });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.getAccrualReferenceMonth()).toBe('2026-10-01');
+    expect(calls).toEqual([['from', 'accrual_reference_month'], ['select', 'reference_month'], ['maybeSingle']]);
+  });
+
+  it('has no reference month when the view is empty', async () => {
+    const { client } = fakeClient({ data: { reference_month: null }, error: null });
+    expect(await createSupabaseInvestmentsRepository(client).getAccrualReferenceMonth()).toBeNull();
+  });
+
+  it('throws when Supabase returns an error', async () => {
+    const { client } = fakeClient({ data: null, error: { message: 'boom' } });
+    const repo = createSupabaseInvestmentsRepository(client);
+    await expect(repo.getStalledInvestments({ departmentCode: 4, page: 0 })).rejects.toThrow('boom');
+    await expect(repo.countStalledInvestments(4)).rejects.toThrow('boom');
+    await expect(repo.getAccrualReferenceMonth()).rejects.toThrow('boom');
+  });
+});

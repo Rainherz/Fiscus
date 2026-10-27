@@ -6,7 +6,7 @@ import { FakeInvestmentSource, InMemoryInvestmentRepository } from "./fakes.js";
 const report = (cuis: Array<string | null>): SourceReport => ({
   sourceUpdatedAt: "2026-10-26T18:41:38-05:00",
   pimYear: 2023,
-  records: cuis.map((cui, i) => ({ cui, viableAmount: 100, updatedCost: 120 + i, accruedTotal: 60 })),
+  records: cuis.map((cui, i) => ({ cui, viableAmount: 100_000, updatedCost: 120_000 + i * 1000, accruedTotal: 60_000 })),
 });
 
 const clock = () => {
@@ -30,7 +30,7 @@ describe("runIngest", () => {
       departmentCode: 15,
       departmentName: "Lima",
       pimYear: 2023,
-      costIncrease: 20,
+      costIncrease: 20_000,
       executionProgress: 0.5,
     });
   });
@@ -54,7 +54,7 @@ describe("runIngest", () => {
 
     expect(summary.rowsUpserted).toBe(1);
     expect(summary.duplicatesDropped).toBe(1);
-    expect(repository.investments.get("a")?.updatedCost).toBe(121);
+    expect(repository.investments.get("a")?.updatedCost).toBe(121_000);
   });
 
   it("continues after a department fails and records the run", async () => {
