@@ -33,7 +33,7 @@ describe('ranking presentation', () => {
   it('adds a factual detail line', () => {
     expect(rankingDetail('increase-amount', majes)).toBe('S/ 1,338 M → S/ 5,148 M');
     expect(rankingDetail('increase-pct', majes)).toBe('S/ 1,338 M → S/ 5,148 M');
-    expect(rankingDetail('cost', majes)).toBe('Avance 18 %');
+    expect(rankingDetail('cost', majes)).toBe('Gastado 18 % del costo');
     expect(rankingDetail('duration', majes)).toBe('Viable desde 10/01/2008');
   });
 

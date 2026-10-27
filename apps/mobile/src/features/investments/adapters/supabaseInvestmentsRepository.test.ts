@@ -43,7 +43,7 @@ describe('supabase investments repository', () => {
       ['from', 'investments'],
       ['select', expect.stringContaining('cost_increase_pct')],
       ['eq', 'department_code', 4],
-      ['not', 'updated_cost', 'is', null],
+      ['eq', 'updated_cost_valid', true],
       ['order', 'updated_cost', { ascending: false, nullsFirst: false }],
       ['order', 'cui', { ascending: true, nullsFirst: false }],
       ['range', 30, 59],

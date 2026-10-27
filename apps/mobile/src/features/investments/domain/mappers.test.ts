@@ -1,4 +1,4 @@
-import { mapFunctionSummaryRow, mapIngestRunRow, mapInvestmentRow } from './mappers';
+import { INVESTMENT_COLUMNS, mapFunctionSummaryRow, mapIngestRunRow, mapInvestmentRow } from './mappers';
 
 const row = {
   cui: '2088142',
@@ -16,6 +16,7 @@ const row = {
   last_accrual_month: '2026-09-01',
   viable_amount: '1338419640',
   updated_cost: 5147912126,
+  updated_cost_valid: true,
   accrued_total: '926624182.68',
   cost_increase: '3809492486',
   cost_increase_pct: 284.6278,
@@ -43,6 +44,7 @@ describe('mapInvestmentRow', () => {
       lastAccrualMonth: '2026-09-01',
       viableAmount: 1338419640,
       updatedCost: 5147912126,
+      updatedCostValid: true,
       accruedTotal: 926624182.68,
       costIncrease: 3809492486,
       costIncreasePct: 284.6278,
@@ -67,6 +69,29 @@ describe('mapInvestmentRow', () => {
     expect(mapped.viableAmount).toBeNull();
     expect(mapped.executionProgress).toBeNull();
     expect(mapped.costIncreasePct).toBeNull();
+  });
+});
+
+describe('mapInvestmentRow cost validity', () => {
+  it('flags an updated cost the source publishes as a placeholder', () => {
+    const mapped = mapInvestmentRow({
+      ...row,
+      updated_cost: '10',
+      updated_cost_valid: false,
+      cost_increase: null,
+      cost_increase_pct: null,
+      execution_progress: null,
+    });
+    expect(mapped.updatedCost).toBe(10);
+    expect(mapped.updatedCostValid).toBe(false);
+  });
+
+  it('treats a missing flag as not valid', () => {
+    expect(mapInvestmentRow({ ...row, updated_cost_valid: null }).updatedCostValid).toBe(false);
+  });
+
+  it('selects the validity flag from the database', () => {
+    expect(INVESTMENT_COLUMNS.split(',')).toContain('updated_cost_valid');
   });
 });
 

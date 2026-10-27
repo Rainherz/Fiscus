@@ -8,6 +8,7 @@ const rows = [
   sampleRow({ cui: '3', name: 'Posta pequeña', function: 'SALUD', viable: 100_000, updated: 900_000, progress: 1, viabilityAt: '2020-01-01' }),
   sampleRow({ cui: '4', name: 'Puente Lima', function: 'TRANSPORTE', viable: 50_000_000, updated: 40_000_000, progress: 0.9, viabilityAt: '2012-01-01', departmentCode: 15 }),
   sampleRow({ cui: '5', name: 'Sin función', function: null, viable: 10_000_000, updated: null, progress: null, viabilityAt: null }),
+  sampleRow({ cui: '6', name: 'Costo de relleno', function: 'SALUD', viable: 166_262_211, updated: 10, accrued: 5_000_000, viabilityAt: '2009-01-01' }),
 ];
 
 const repo = createInMemoryInvestmentsRepository({
@@ -24,6 +25,23 @@ describe('in-memory investments repository', () => {
     expect(carretera.costIncreasePct).toBe(150);
     expect(carretera.accruedTotal).toBe(100_000_000);
     expect(carretera.executionProgress).toBeCloseTo(0.2);
+  });
+
+  it('derives null metrics and an invalid flag for placeholder costs, like the database', async () => {
+    const placeholder = await repo.findByCui('6');
+    expect(placeholder?.updatedCost).toBe(10);
+    expect(placeholder?.updatedCostValid).toBe(false);
+    expect(placeholder?.accruedTotal).toBe(5_000_000);
+    expect(placeholder?.costIncrease).toBeNull();
+    expect(placeholder?.costIncreasePct).toBeNull();
+    expect(placeholder?.executionProgress).toBeNull();
+    expect((await repo.findByCui('5'))?.updatedCostValid).toBe(false);
+    expect((await repo.findByCui('1'))?.updatedCostValid).toBe(true);
+  });
+
+  it('keeps invalid source costs out of the cost ranking', async () => {
+    const items = await repo.findMany(buildRankingQuery({ kind: 'cost', departmentCode: 4, page: 0 }));
+    expect(cuis(items)).toEqual(['2', '1', '3']);
   });
 
   it('applies the increase ranking within the department', async () => {
@@ -43,7 +61,7 @@ describe('in-memory investments repository', () => {
 
   it('orders by oldest viability for the duration ranking', async () => {
     const items = await repo.findMany(buildRankingQuery({ kind: 'duration', departmentCode: 4, page: 0 }));
-    expect(cuis(items)).toEqual(['2', '1', '3']);
+    expect(cuis(items)).toEqual(['6', '2', '1', '3']);
   });
 
   it('searches names case-insensitively', async () => {
@@ -52,7 +70,7 @@ describe('in-memory investments repository', () => {
   });
 
   it('filters by function, including missing functions', async () => {
-    expect(cuis(await repo.findMany(buildFunctionQuery({ departmentCode: 4, fn: 'SALUD', page: 0 })))).toEqual(['1', '3']);
+    expect(cuis(await repo.findMany(buildFunctionQuery({ departmentCode: 4, fn: 'SALUD', page: 0 })))).toEqual(['1', '3', '6']);
     expect(cuis(await repo.findMany(buildFunctionQuery({ departmentCode: 4, fn: null, page: 0 })))).toEqual(['5']);
   });
 
@@ -64,7 +82,7 @@ describe('in-memory investments repository', () => {
   it('aggregates functions for a department, largest cost first', async () => {
     expect(await repo.functionSummaries(4)).toEqual([
       { function: 'TRANSPORTE', investmentCount: 1, totalUpdatedCost: 500_000_000, totalCostIncrease: 300_000_000 },
-      { function: 'SALUD', investmentCount: 2, totalUpdatedCost: 150_900_000, totalCostIncrease: 50_800_000 },
+      { function: 'SALUD', investmentCount: 3, totalUpdatedCost: 150_900_010, totalCostIncrease: 50_800_000 },
       { function: null, investmentCount: 1, totalUpdatedCost: null, totalCostIncrease: null },
     ]);
   });

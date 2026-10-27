@@ -7,10 +7,10 @@ import { SegmentedTabs } from './SegmentedTabs';
 import { StateMessage } from './StateMessage';
 
 describe('HazardProgressBar', () => {
-  it('exposes progress to assistive technologies', async () => {
+  it('exposes the spent share to assistive technologies', async () => {
     await render(<HazardProgressBar ratio={0.18} />);
     const bar = screen.getByRole('progressbar');
-    expect(bar).toHaveAccessibleName('Avance de ejecución: 18 por ciento');
+    expect(bar).toHaveAccessibleName('Gastado: 18 por ciento del costo actualizado');
     expect(bar).toHaveAccessibilityValue({ min: 0, max: 100, now: 18 });
   });
 
@@ -20,13 +20,24 @@ describe('HazardProgressBar', () => {
     await rerender(<HazardProgressBar ratio={1.4} />);
     expect(screen.getByTestId('hazard-fill')).toHaveStyle({ width: '100%' });
     expect(screen.getByRole('progressbar')).toHaveAccessibleName(
-      'Avance de ejecución: 140 por ciento',
+      'Gastado: 140 por ciento del costo actualizado',
     );
+  });
+
+  it('states the overspend below the bar when spending exceeds the updated cost', async () => {
+    await render(<HazardProgressBar ratio={1.019} overspend={26_754_508.49} />);
+    expect(screen.getByText('Gastó S/ 26.8 M más que su costo actualizado')).toBeOnTheScreen();
+    expect(screen.getByTestId('hazard-fill')).toHaveStyle({ width: '100%' });
+  });
+
+  it('shows no overspend line at or below 100%', async () => {
+    await render(<HazardProgressBar ratio={0.5} overspend={0} />);
+    expect(screen.queryByText(/más que su costo actualizado/)).toBeNull();
   });
 
   it('describes unknown progress', async () => {
     await render(<HazardProgressBar ratio={null} />);
-    expect(screen.getByRole('progressbar')).toHaveAccessibleName('Avance de ejecución: sin dato');
+    expect(screen.getByRole('progressbar')).toHaveAccessibleName('Gastado: sin dato');
     expect(screen.getByTestId('hazard-fill')).toHaveStyle({ width: '0%' });
   });
 });

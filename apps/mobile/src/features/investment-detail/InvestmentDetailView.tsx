@@ -1,6 +1,10 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import type { Investment } from '@/features/investments/domain/investment';
+import {
+  hasInvalidUpdatedCost,
+  spentOverUpdatedCost,
+  type Investment,
+} from '@/features/investments/domain/investment';
 import {
   formatDate,
   formatInteger,
@@ -23,6 +27,7 @@ interface Props {
 }
 
 const DASH = '—';
+const INVALID_COST_NOTICE = 'Costo actualizado no válido en la fuente MEF';
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -38,6 +43,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 export function InvestmentDetailView({ investment: inv, now }: Props) {
+  const invalidCost = hasInvalidUpdatedCost(inv);
   const increased = (inv.costIncrease ?? 0) > 0;
   const viable = formatSoles(inv.viableAmount);
   const updated = formatSoles(inv.updatedCost);
@@ -85,29 +91,44 @@ export function InvestmentDetailView({ investment: inv, now }: Props) {
           <MonoText size={11} muted>
             CUESTA HOY (COSTO ACTUALIZADO)
           </MonoText>
-          <DisplayText
-            weight={900}
-            size={56}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            accessibilityLabel={`Costo actualizado: ${updated}`}>
-            {updated}
-          </DisplayText>
+          {invalidCost ? (
+            <View style={styles.notice}>
+              <MonoText bold size={14}>
+                {INVALID_COST_NOTICE}
+              </MonoText>
+              <MonoText size={11} muted>
+                {`El MEF publica ${updated} como costo actualizado. No se calculan el aumento ni el porcentaje gastado.`}
+              </MonoText>
+            </View>
+          ) : (
+            <DisplayText
+              weight={900}
+              size={56}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              accessibilityLabel={`Costo actualizado: ${updated}`}>
+              {updated}
+            </DisplayText>
+          )}
         </View>
-        <View style={[styles.increase, increased && styles.increaseUp]}>
-          <MonoText size={11} style={styles.increaseLabel}>
-            AUMENTO
-          </MonoText>
-          <MonoText bold size={15}>
-            {`${formatSignedSoles(inv.costIncrease)} · ${formatSignedPercent(inv.costIncreasePct)}`}
-          </MonoText>
-        </View>
+        {invalidCost ? null : (
+          <View style={[styles.increase, increased && styles.increaseUp]}>
+            <MonoText size={11} style={styles.increaseLabel}>
+              AUMENTO
+            </MonoText>
+            <MonoText bold size={15}>
+              {`${formatSignedSoles(inv.costIncrease)} · ${formatSignedPercent(inv.costIncreasePct)}`}
+            </MonoText>
+          </View>
+        )}
       </View>
 
-      <View style={styles.progress}>
-        <MonoText bold size={12}>{`AVANCE ${formatProgress(inv.executionProgress)}`}</MonoText>
-        <HazardProgressBar ratio={inv.executionProgress} />
-      </View>
+      {invalidCost ? null : (
+        <View style={styles.progress}>
+          <MonoText bold size={12}>{`GASTADO ${formatProgress(inv.executionProgress)} DEL COSTO`}</MonoText>
+          <HazardProgressBar ratio={inv.executionProgress} overspend={spentOverUpdatedCost(inv)} />
+        </View>
+      )}
 
       <View style={styles.facts}>
         {facts.map(([label, value]) => (
@@ -138,6 +159,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   increaseUp: { backgroundColor: colors.signal },
+  notice: {
+    borderWidth: rule,
+    borderColor: colors.ink,
+    borderStyle: 'dashed',
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    gap: space.xs,
+  },
   increaseLabel: { color: colors.ink },
   progress: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },
   facts: { marginTop: space.xl, marginHorizontal: space.lg },

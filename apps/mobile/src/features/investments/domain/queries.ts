@@ -13,12 +13,14 @@ export type InvestmentColumn =
   | 'department_code'
   | 'viable_amount'
   | 'updated_cost'
+  | 'updated_cost_valid'
   | 'cost_increase'
   | 'cost_increase_pct'
   | 'viability_at';
 
 export type Filter =
-  | { column: InvestmentColumn; op: 'eq' | 'gt' | 'gte'; value: string | number }
+  | { column: InvestmentColumn; op: 'eq'; value: string | number | boolean }
+  | { column: InvestmentColumn; op: 'gt' | 'gte'; value: string | number }
   | { column: InvestmentColumn; op: 'ilike'; value: string }
   | { column: InvestmentColumn; op: 'notNull' | 'isNull' };
 
@@ -51,20 +53,24 @@ function inDepartment(departmentCode: number): Filter {
   return { column: 'department_code', op: 'eq', value: departmentCode };
 }
 
+/** Placeholder costs in the source would distort cost-based rankings and the home hero. */
+const validUpdatedCost: Filter = { column: 'updated_cost_valid', op: 'eq', value: true };
+
 const RANKINGS: Record<RankingKind, { filters: Filter[]; order: Order }> = {
   'increase-amount': {
-    filters: [{ column: 'cost_increase', op: 'gt', value: 0 }],
+    filters: [validUpdatedCost, { column: 'cost_increase', op: 'gt', value: 0 }],
     order: { column: 'cost_increase', ascending: false },
   },
   'increase-pct': {
     filters: [
+      validUpdatedCost,
       { column: 'viable_amount', op: 'gte', value: PCT_RANKING_MIN_VIABLE_AMOUNT },
       { column: 'cost_increase_pct', op: 'gt', value: 0 },
     ],
     order: { column: 'cost_increase_pct', ascending: false },
   },
   cost: {
-    filters: [{ column: 'updated_cost', op: 'notNull' }],
+    filters: [validUpdatedCost],
     order: { column: 'updated_cost', ascending: false },
   },
   duration: {

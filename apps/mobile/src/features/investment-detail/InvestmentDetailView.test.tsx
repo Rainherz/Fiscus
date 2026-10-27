@@ -27,8 +27,45 @@ describe('InvestmentDetailView', () => {
     expect(screen.getByLabelText('Costo actualizado: S/ 5,148 M')).toBeOnTheScreen();
     expect(screen.getByText('+S/ 3,809 M · +285%')).toBeOnTheScreen();
     expect(screen.getByRole('progressbar')).toHaveAccessibleName(
-      'Avance de ejecución: 18 por ciento',
+      'Gastado: 18 por ciento del costo actualizado',
     );
+    expect(screen.getByText('GASTADO 18 % DEL COSTO')).toBeOnTheScreen();
+  });
+
+  it('states how much spending exceeds the updated cost', async () => {
+    await render(
+      <InvestmentDetailView
+        investment={{ ...full, updatedCost: 1_432_976_292.23, accruedTotal: 1_459_731_800.72, executionProgress: 1.0187 }}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByText('GASTADO 102 % DEL COSTO')).toBeOnTheScreen();
+    expect(screen.getByText('Gastó S/ 26.8 M más que su costo actualizado')).toBeOnTheScreen();
+  });
+
+  it('replaces the metrics with a notice when the source cost is a placeholder', async () => {
+    await render(
+      <InvestmentDetailView
+        investment={{
+          ...full,
+          updatedCost: 10,
+          updatedCostValid: false,
+          costIncrease: null,
+          costIncreasePct: null,
+          executionProgress: null,
+        }}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByText('Costo actualizado no válido en la fuente MEF')).toBeOnTheScreen();
+    expect(
+      screen.getByText('El MEF publica S/ 10 como costo actualizado. No se calculan el aumento ni el porcentaje gastado.'),
+    ).toBeOnTheScreen();
+    expect(screen.queryByLabelText(/^Costo actualizado:/)).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.queryByText(/GASTADO/)).toBeNull();
+    expect(screen.queryByText(/AUMENTO/)).toBeNull();
+    expect(screen.getByTestId('viable-amount')).not.toHaveStyle({ textDecorationLine: 'line-through' });
   });
 
   it('strikes through the approved amount when the cost went up', async () => {

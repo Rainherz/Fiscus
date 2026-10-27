@@ -6,6 +6,7 @@ import {
   formatSignedPercent,
   formatSignedSoles,
   formatSoles,
+  formatSolesCompact,
   formatYear,
   formatYears,
   yearsSince,
@@ -151,5 +152,32 @@ describe('formatYear', () => {
   it('extracts the calendar year', () => {
     expect(formatYear('2008-01-10')).toBe('2008');
     expect(formatYear(null)).toBe('—');
+  });
+});
+
+describe('formatSolesCompact', () => {
+  it('keeps one decimal for millions below S/ 100 M', () => {
+    expect(formatSolesCompact(26_754_508.49)).toBe('S/ 26.8 M');
+    expect(formatSolesCompact(1_000_000)).toBe('S/ 1.0 M');
+  });
+
+  it('shows whole millions from S/ 100 M up', () => {
+    expect(formatSolesCompact(440_442_502)).toBe('S/ 440 M');
+    expect(formatSolesCompact(5_147_912_126)).toBe('S/ 5,148 M');
+  });
+
+  it('shows thousands as "mil" below S/ 1 M', () => {
+    expect(formatSolesCompact(950_000)).toBe('S/ 950 mil');
+    expect(formatSolesCompact(1_499)).toBe('S/ 1 mil');
+  });
+
+  it('moves to millions instead of showing "1,000 mil"', () => {
+    expect(formatSolesCompact(999_700)).toBe('S/ 1.0 M');
+  });
+
+  it('shows small amounts in full, keeps the sign and dashes unknowns', () => {
+    expect(formatSolesCompact(845)).toBe('S/ 845');
+    expect(formatSolesCompact(-950_000)).toBe('-S/ 950 mil');
+    expect(formatSolesCompact(null)).toBe('—');
   });
 });

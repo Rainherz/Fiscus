@@ -2,7 +2,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 
 import { createInMemoryInvestmentsRepository } from './adapters/inMemoryInvestmentsRepository';
-import { AREQUIPA_SAMPLE } from './adapters/sampleData';
+import { MOCK_ROWS } from './adapters/sampleData';
 import { createSupabaseInvestmentsRepository } from './adapters/supabaseInvestmentsRepository';
 import type { DataSource } from './dataSource';
 import type { InvestmentsRepository } from './ports/InvestmentsRepository';
@@ -11,7 +11,7 @@ import type { InvestmentsRepository } from './ports/InvestmentsRepository';
 export function createRepository(source: Exclude<DataSource, { kind: 'missing-config' }>): InvestmentsRepository {
   if (source.kind === 'mock') {
     return createInMemoryInvestmentsRepository({
-      rows: AREQUIPA_SAMPLE,
+      rows: MOCK_ROWS,
       lastRun: { startedAt: '2026-10-26T05:00:00Z', finishedAt: '2026-10-26T05:30:00Z' },
     });
   }

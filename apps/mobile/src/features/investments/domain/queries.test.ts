@@ -11,6 +11,7 @@ describe('buildRankingQuery', () => {
     expect(buildRankingQuery({ kind: 'increase-amount', departmentCode: 4, page: 0 })).toEqual({
       filters: [
         { column: 'department_code', op: 'eq', value: 4 },
+        { column: 'updated_cost_valid', op: 'eq', value: true },
         { column: 'cost_increase', op: 'gt', value: 0 },
       ],
       order: [
@@ -26,17 +27,18 @@ describe('buildRankingQuery', () => {
     expect(PCT_RANKING_MIN_VIABLE_AMOUNT).toBe(1_000_000);
     expect(query.filters).toEqual([
       { column: 'department_code', op: 'eq', value: 4 },
+      { column: 'updated_cost_valid', op: 'eq', value: true },
       { column: 'viable_amount', op: 'gte', value: 1_000_000 },
       { column: 'cost_increase_pct', op: 'gt', value: 0 },
     ]);
     expect(query.order[0]).toEqual({ column: 'cost_increase_pct', ascending: false });
   });
 
-  it('ranks by current cost', () => {
+  it('ranks by current cost, skipping invalid source costs', () => {
     const query = buildRankingQuery({ kind: 'cost', departmentCode: 15, page: 0 });
     expect(query.filters).toEqual([
       { column: 'department_code', op: 'eq', value: 15 },
-      { column: 'updated_cost', op: 'notNull' },
+      { column: 'updated_cost_valid', op: 'eq', value: true },
     ]);
     expect(query.order[0]).toEqual({ column: 'updated_cost', ascending: false });
   });

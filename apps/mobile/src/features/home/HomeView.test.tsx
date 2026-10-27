@@ -33,10 +33,10 @@ describe('HomeView', () => {
     expect(screen.getByText(' aprobado en 2008')).toBeOnTheScreen();
     expect(screen.getByText('S/ 5,148 M')).toBeOnTheScreen();
     expect(screen.getByText(' cuesta hoy')).toBeOnTheScreen();
-    expect(screen.getByText('AVANCE 18 %')).toBeOnTheScreen();
+    expect(screen.getByText('GASTADO 18 % DEL COSTO')).toBeOnTheScreen();
     expect(screen.getByText('18 AÑOS EN CURSO')).toBeOnTheScreen();
     expect(screen.getByRole('progressbar')).toHaveAccessibleName(
-      'Avance de ejecución: 18 por ciento',
+      'Gastado: 18 por ciento del costo actualizado',
     );
   });
 

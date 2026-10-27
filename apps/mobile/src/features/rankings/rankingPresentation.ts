@@ -38,7 +38,7 @@ export function rankingDetail(kind: RankingKind, investment: Investment): string
     case 'increase-pct':
       return `${formatSoles(investment.viableAmount)} → ${formatSoles(investment.updatedCost)}`;
     case 'cost':
-      return `Avance ${formatProgress(investment.executionProgress)}`;
+      return `Gastado ${formatProgress(investment.executionProgress)} del costo`;
     case 'duration':
       return `Viable desde ${formatDate(investment.viabilityAt)}`;
   }

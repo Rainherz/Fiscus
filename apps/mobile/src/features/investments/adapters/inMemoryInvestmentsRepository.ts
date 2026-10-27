@@ -3,7 +3,7 @@ import { mapInvestmentRow, type InvestmentRow } from '../domain/mappers';
 import type { Filter, InvestmentColumn, InvestmentQuery, Order } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
-type Value = string | number | null;
+type Value = string | number | boolean | null;
 
 function read(row: InvestmentRow, column: InvestmentColumn): Value {
   const value = row[column];
@@ -34,9 +34,9 @@ function matches(row: InvestmentRow, filter: Filter): boolean {
     case 'eq':
       return value !== null && value === filter.value;
     case 'gt':
-      return value !== null && value > filter.value;
+      return typeof value === typeof filter.value && (value as string | number) > filter.value;
     case 'gte':
-      return value !== null && value >= filter.value;
+      return typeof value === typeof filter.value && (value as string | number) >= filter.value;
     case 'ilike':
       return typeof value === 'string' && likeToRegExp(filter.value).test(value);
     case 'notNull':
@@ -53,7 +53,7 @@ function compare(a: InvestmentRow, b: InvestmentRow, orders: Order[]): number {
     if (x === y) continue;
     if (x === null) return 1; // nulls last
     if (y === null) return -1;
-    const result = x < y ? -1 : 1;
+    const result = (x as string | number) < (y as string | number) ? -1 : 1;
     return ascending ? result : -result;
   }
   return 0;

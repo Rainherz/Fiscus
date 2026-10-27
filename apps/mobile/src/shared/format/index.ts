@@ -45,6 +45,20 @@ export function formatSoles(value: number | null): string {
   return (value < 0 ? '-' : '') + solesMagnitude(Math.abs(value));
 }
 
+function solesCompactMagnitude(abs: number): string {
+  const thousands = Math.round(abs / 1000);
+  if (abs >= 100 * MILLION) return `S/ ${groupThousands(Math.round(abs / MILLION).toString())} M`;
+  if (abs >= MILLION || thousands >= 1000) return `S/ ${(abs / MILLION).toFixed(1)} M`;
+  if (Math.round(abs) >= 1000) return `S/ ${Math.max(thousands, 1)} mil`;
+  return `S/ ${Math.round(abs)}`;
+}
+
+/** Shorter amounts for sentences: "S/ 26.8 M", "S/ 950 mil". */
+export function formatSolesCompact(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return DASH;
+  return (value < 0 ? '-' : '') + solesCompactMagnitude(Math.abs(value));
+}
+
 export function formatSignedSoles(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return DASH;
   if (value === 0) return solesMagnitude(0);
@@ -58,7 +72,7 @@ export function formatSignedPercent(value: number | null): string {
   return (rounded > 0 ? '+' : '-') + groupThousands(Math.abs(rounded).toString()) + '%';
 }
 
-/** `ratio` is accrued / updated cost (1 = fully accrued). Values above 1 are kept as-is. */
+/** `ratio` is accrued / updated cost (share spent, 1 = all of it). Values above 1 are kept as-is. */
 export function formatProgress(ratio: number | null): string {
   if (ratio === null || !Number.isFinite(ratio)) return DASH;
   return `${formatInteger(ratio * 100)} %`;

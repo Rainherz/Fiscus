@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { Investment } from '@/features/investments/domain/investment';
+import { spentOverUpdatedCost, type Investment } from '@/features/investments/domain/investment';
 import {
   formatProgress,
   formatSignedPercent,
@@ -73,12 +73,12 @@ export function HomeView({ hero, ranking, now, onPressInvestment, onPressSeeAll,
 
       <View style={styles.progress}>
         <View style={styles.progressLabels}>
-          <MonoText bold size={12}>{`AVANCE ${formatProgress(hero.executionProgress)}`}</MonoText>
+          <MonoText bold size={12}>{`GASTADO ${formatProgress(hero.executionProgress)} DEL COSTO`}</MonoText>
           {years !== null ? (
             <MonoText bold size={12}>{`${formatYears(years).toUpperCase()} EN CURSO`}</MonoText>
           ) : null}
         </View>
-        <HazardProgressBar ratio={hero.executionProgress} />
+        <HazardProgressBar ratio={hero.executionProgress} overspend={spentOverUpdatedCost(hero)} />
       </View>
 
       {ranking.length > 0 ? (
