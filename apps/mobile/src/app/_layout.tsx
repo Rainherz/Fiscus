@@ -71,8 +71,10 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: colors.concrete },
-            }}
-          />
+            }}>
+            {/* The region picker covers the whole screen and slides up over the screen it was opened from. */}
+            <Stack.Screen name="region" options={{ animation: 'slide_from_bottom' }} />
+          </Stack>
         </DepartmentProvider>
       </RepositoryProvider>
     </QueryClientProvider>

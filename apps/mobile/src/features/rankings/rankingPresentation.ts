@@ -12,8 +12,12 @@ import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 import type { Investment, RankingKind } from '../investments/domain/investment';
 import type { StalledInvestment } from '../investments/domain/stalled';
 
-/** Tabs of the Rankings screen: the investment rankings, "Sin gasto reciente" and "Regiones". */
-export type RankingTab = RankingKind | 'stalled' | 'regions';
+/**
+ * Tabs of the Rankings screen: the investment rankings and "Sin gasto reciente", all within the
+ * selected region. The comparison of regions is the region picker (`/region`); an old
+ * `?tab=regions` link is not a tab any more, so it opens the default one.
+ */
+export type RankingTab = RankingKind | 'stalled';
 
 export const RANKING_TABS: readonly RankingTab[] = [
   'increase-amount',
@@ -21,7 +25,6 @@ export const RANKING_TABS: readonly RankingTab[] = [
   'cost',
   'duration',
   'stalled',
-  'regions',
 ];
 
 export function isRankingTab(value: unknown): value is RankingTab {
@@ -39,7 +42,6 @@ export const RANKING_OPTIONS: readonly { key: RankingTab; label: string }[] = [
   { key: 'cost', label: 'Mayor costo' },
   { key: 'duration', label: 'Más tiempo en curso' },
   { key: 'stalled', label: 'Sin gasto reciente' },
-  { key: 'regions', label: 'Regiones' },
 ];
 
 /** The metric a project is ranked by. */

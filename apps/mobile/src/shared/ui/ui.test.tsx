@@ -80,6 +80,13 @@ describe('RankingRow', () => {
     ).toBeOnTheScreen();
   });
 
+  it('marks the current row for sight and screen readers', async () => {
+    await render(<RankingRow rank={1} name="Arequipa" value="+S/ 3,809 M" selected onPress={() => {}} />);
+    const row = screen.getByRole('button', { name: '1. Arequipa, +S/ 3,809 M, actual' });
+    expect(row).toBeSelected();
+    expect(screen.getByText('ACTUAL')).toBeOnTheScreen();
+  });
+
   it('can show a secondary detail line', async () => {
     await render(
       <RankingRow rank={1} name="Obra" value="S/ 10 M" detail="CUI 2088142" onPress={() => {}} />,

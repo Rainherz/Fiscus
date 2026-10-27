@@ -1,7 +1,9 @@
 import type { RegionComparison } from '../investments/domain/regionComparison';
 import {
+  ALPHABETICAL_DEPARTMENTS,
   REGIONS_HEADER_NOTE,
   REGION_SORT_OPTIONS,
+  departmentsWithoutData,
   isRegionSort,
   regionDetail,
   regionName,
@@ -86,5 +88,22 @@ describe('region presentation', () => {
     expect(regionNote('increase-pct')).toBe('Aumentos sumados sobre el monto viable de los proyectos que aumentaron.');
     expect(regionNote('stalled')).toMatch(/^Proyectos activos que gastaron entre 5 % y 95 %/);
     expect(regionNote('overspent')).toBe('Proyectos cuyo gasto acumulado supera su costo actualizado.');
+  });
+});
+
+describe('region picker lists', () => {
+  it('lists every department alphabetically for the fallback list', () => {
+    expect(ALPHABETICAL_DEPARTMENTS).toHaveLength(25);
+    expect(ALPHABETICAL_DEPARTMENTS.slice(0, 3).map((d) => d.name)).toEqual(['Amazonas', 'Áncash', 'Apurímac']);
+    expect(ALPHABETICAL_DEPARTMENTS.at(-1)?.name).toBe('Ucayali');
+  });
+
+  it('finds the departments the comparison has no data for', () => {
+    const present = ALPHABETICAL_DEPARTMENTS.filter((d) => d.code !== 7 && d.code !== 17).map((d) => ({
+      ...arequipa,
+      departmentCode: d.code,
+    }));
+    expect(departmentsWithoutData(present).map((d) => d.name)).toEqual(['Callao', 'Madre de Dios']);
+    expect(departmentsWithoutData([])).toHaveLength(25);
   });
 });
