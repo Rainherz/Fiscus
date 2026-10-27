@@ -154,9 +154,19 @@ The public dashboard reads with the anon key. RLS lets the anon key run SELECT a
   share of the updated cost already spent. The app labels it "Gastado X % del costo". It can exceed
   100 % legitimately (about 12 % of projects with data): the bar is capped at 100 % and the app states
   the overspend in soles instead.
-- **Placeholder updated costs.** MEF publishes some `updated_cost` values like S/ 1, 3, 5 or 10.
-  Values below S/ 1,000 are treated as invalid: `updated_cost_valid` is false and `cost_increase`,
-  `cost_increase_pct` and `execution_progress` are null
-  (`supabase/migrations/20261027000000_invalidate_placeholder_updated_cost.sql`). The app keeps
-  those projects out of the home hero and the increase and cost rankings, and shows
-  "Costo actualizado no válido en la fuente MEF" on their detail screen.
+- **Placeholder and truncated updated costs.** MEF publishes some `updated_cost` values like S/ 1,
+  3, 5 or 10, and others that look truncated (e.g. S/ 4,558.66 for a project with a S/ 1,990,720
+  viable amount, which would read as 31,206 % spent). An updated cost is invalid when it is below
+  S/ 1,000, or below 1 % of a positive `viable_amount` (only the S/ 1,000 floor applies when the
+  viable amount is missing or not positive). Then `updated_cost_valid` is false and
+  `cost_increase`, `cost_increase_pct` and `execution_progress` are null
+  (`supabase/migrations/20261027000000_invalidate_placeholder_updated_cost.sql` and
+  `20261028000000_relative_updated_cost_validity_and_spent_anomaly.sql`; mirrored in
+  `packages/ingest/src/domain/metrics.ts`). The app keeps those projects out of the home hero and
+  the increase and cost rankings, and shows "Costo actualizado no válido en la fuente MEF" on their
+  detail screen.
+- **Unusual accrued totals.** Some projects have a coherent updated cost but an accrued total far
+  above it (e.g. CUI 2057689: S/ 18.8 M accrued against S/ 299,700, 6,262 %). They stay visible:
+  `spent_anomaly` is true when `execution_progress` is above 10, and the app adds
+  "Dato inusual en la fuente MEF: lo gastado supera 10 veces el costo actualizado." under the bar
+  (detail screen and home hero), next to the usual overspend line.
