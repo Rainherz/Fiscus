@@ -1,7 +1,7 @@
 # Fiscus
 
-Read-only public dashboard of Peruvian government investment projects. This repository currently holds
-the data backend: a daily ingest of MEF data into Supabase. The mobile app will live in `apps/mobile`.
+Read-only public dashboard of Peruvian government investment projects. This repository holds the data
+backend (a daily ingest of MEF data into Supabase) and the app in `apps/mobile` (iOS, Android and web).
 
 ## Data source
 
@@ -21,6 +21,11 @@ packages/ingest/src/
                  JsonFileInvestmentRepository (dry-run)
   application/   runIngest (per-department fault isolation)
   cli.ts         entrypoint
+apps/mobile/src/
+  app/           Expo Router routes: (tabs) index, rankings, categories, search; investment/[cui]; category/[fn]
+  features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
+                 department, home, rankings, categories, search, investment-detail (container + view)
+  shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
 .github/workflows/     ingest.yml (daily cron), ci.yml (typecheck + tests)
 ```
@@ -52,6 +57,33 @@ department fails. Rows without a CUI are skipped and counted (`rowsSkipped`, `in
 
 Apply the schema with the Supabase CLI (`supabase db push`) or by pasting
 `supabase/migrations/*.sql` into the SQL editor.
+
+## Mobile and web app
+
+Expo SDK 58 with Expo Router, TanStack Query and `@supabase/supabase-js`. It reads with the public anon
+key, and RLS keeps that key read-only.
+
+```sh
+cp apps/mobile/.env.example apps/mobile/.env   # then set EXPO_PUBLIC_SUPABASE_ANON_KEY
+pnpm --filter @fiscus/mobile start             # QR code for Expo Go; press w for web
+pnpm --filter @fiscus/mobile web               # web only
+pnpm --filter @fiscus/mobile test
+pnpm --filter @fiscus/mobile typecheck
+pnpm --filter @fiscus/mobile export:web        # static web build in apps/mobile/dist
+```
+
+| Variable | Purpose |
+|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Project URL (public) |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Anon key (public, read-only through RLS). Never use the service role key here. |
+| `EXPO_PUBLIC_USE_MOCK` | `1` uses bundled sample records from Arequipa, so no credentials are needed |
+
+To run the app on a phone, install Expo Go, keep the phone on the same network as your computer, and scan
+the QR code that `start` prints. If the network blocks LAN, use `pnpm --filter @fiscus/mobile exec expo start --tunnel`.
+
+The "Categorías" screen reads the `department_function_summary` view
+(`supabase/migrations/20261026120000_create_department_function_summary.sql`), so apply that
+migration before you use it.
 
 ## Secrets (GitHub Actions)
 
