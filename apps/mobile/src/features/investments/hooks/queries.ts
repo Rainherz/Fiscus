@@ -81,3 +81,21 @@ export function useLastIngestRun() {
     staleTime: 60 * 60 * 1000,
   });
 }
+
+/** "Historial del costo" on the detail screen. */
+export function useCostHistory(cui: string) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['cost-history', cui],
+    queryFn: () => repository.getCostHistory(cui),
+  });
+}
+
+/** "Aumentos recientes" on the home screen. */
+export function useRecentCostIncreases(departmentCode: number, limit: number) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['recent-cost-increases', departmentCode, limit],
+    queryFn: () => repository.getRecentCostIncreases({ departmentCode, limit }),
+  });
+}

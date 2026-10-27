@@ -1,4 +1,4 @@
-import type { InvestmentRow } from '../domain/mappers';
+import type { CostChangeRow, InvestmentRow } from '../domain/mappers';
 
 interface SampleInput {
   cui: string;
@@ -174,3 +174,84 @@ export const EDGE_CASE_SAMPLE: InvestmentRow[] = [
 
 /** Rows behind the demo mode (EXPO_PUBLIC_USE_MOCK=1). */
 export const MOCK_ROWS: InvestmentRow[] = [...AREQUIPA_SAMPLE, ...EDGE_CASE_SAMPLE];
+
+type Amount = number | string | null | undefined;
+const amount = (value: Amount): number | null => (value === null || value === undefined ? null : Number(value));
+
+interface ChangeInput {
+  cui: string;
+  kind: CostChangeRow['change_kind'];
+  observedAt: string;
+  previousViable?: Amount;
+  viable: Amount;
+  previousUpdated?: Amount;
+  updated: Amount;
+  accrued: Amount;
+}
+
+/** Builds an `investment_cost_changes` row, deriving updated_cost_delta like the generated column. */
+function sampleChange(id: number, input: ChangeInput): CostChangeRow {
+  const previousUpdated = amount(input.previousUpdated);
+  const updated = amount(input.updated);
+  return {
+    id,
+    cui: input.cui,
+    change_kind: input.kind,
+    observed_at: input.observedAt,
+    source_updated_at: null,
+    previous_viable_amount: amount(input.previousViable),
+    viable_amount: amount(input.viable),
+    previous_updated_cost: previousUpdated,
+    updated_cost: updated,
+    accrued_total: amount(input.accrued),
+    updated_cost_delta: updated !== null && previousUpdated !== null ? updated - previousUpdated : null,
+  };
+}
+
+const BASELINE_AT = '2026-10-27T10:00:00Z';
+const MAJES_CUI = '2088142';
+
+/**
+ * DEMO ONLY, not MEF data: an invented cost history for Majes Siguas II so the demo mode can show
+ * the history timeline and the recent increases. It ends at the sample row's current values.
+ */
+const MAJES_DEMO_HISTORY: Omit<ChangeInput, 'cui' | 'accrued'>[] = [
+  { kind: 'baseline', observedAt: BASELINE_AT, viable: 1_300_000_000, updated: 5_101_412_126 },
+  {
+    kind: 'changed',
+    observedAt: '2026-11-03T10:00:00Z',
+    previousViable: 1_300_000_000,
+    viable: 1_300_000_000,
+    previousUpdated: 5_101_412_126,
+    updated: 5_145_412_126,
+  },
+  {
+    kind: 'changed',
+    observedAt: '2026-11-17T10:00:00Z',
+    previousViable: 1_300_000_000,
+    viable: 1_338_419_640,
+    previousUpdated: 5_145_412_126,
+    updated: 5_147_912_126,
+  },
+];
+
+function mockCostChanges(rows: InvestmentRow[]): CostChangeRow[] {
+  const inputs = rows.flatMap((row): ChangeInput[] =>
+    row.cui === MAJES_CUI
+      ? MAJES_DEMO_HISTORY.map((entry) => ({ ...entry, cui: row.cui, accrued: row.accrued_total }))
+      : [
+          {
+            cui: row.cui,
+            kind: 'baseline',
+            observedAt: BASELINE_AT,
+            viable: row.viable_amount,
+            updated: row.updated_cost,
+            accrued: row.accrued_total,
+          },
+        ],
+  );
+  return inputs.map((input, index) => sampleChange(index + 1, input));
+}
+
+/** Cost history behind the demo mode: a baseline for every mock row, plus the Majes demo history. */
+export const MOCK_COST_CHANGES: CostChangeRow[] = mockCostChanges(MOCK_ROWS);

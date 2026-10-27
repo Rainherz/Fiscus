@@ -1,4 +1,12 @@
-import { INVESTMENT_COLUMNS, mapFunctionSummaryRow, mapIngestRunRow, mapInvestmentRow } from './mappers';
+import {
+  COST_CHANGE_COLUMNS,
+  INVESTMENT_COLUMNS,
+  mapCostChangeRow,
+  mapFunctionSummaryRow,
+  mapIngestRunRow,
+  mapInvestmentRow,
+  mapRecentCostIncreaseRow,
+} from './mappers';
 
 const row = {
   cui: '2088142',
@@ -135,5 +143,82 @@ describe('mapIngestRunRow', () => {
     expect(
       mapIngestRunRow({ started_at: '2026-10-26T05:00:00Z', finished_at: '2026-10-26T05:30:00Z' }),
     ).toEqual({ startedAt: '2026-10-26T05:00:00Z', finishedAt: '2026-10-26T05:30:00Z' });
+  });
+});
+
+describe('mapCostChangeRow', () => {
+  it('maps a cost change, reading PostgREST numeric strings', () => {
+    expect(
+      mapCostChangeRow({
+        id: 7,
+        cui: '2088142',
+        change_kind: 'changed',
+        observed_at: '2026-11-03T10:00:00+00:00',
+        source_updated_at: '2026-11-03T05:00:00+00:00',
+        previous_viable_amount: '1338419640',
+        viable_amount: '1338419640',
+        previous_updated_cost: '5101412126',
+        updated_cost: '5145412126',
+        accrued_total: null,
+        updated_cost_delta: '44000000',
+      }),
+    ).toEqual({
+      id: 7,
+      cui: '2088142',
+      kind: 'changed',
+      observedAt: '2026-11-03T10:00:00+00:00',
+      sourceUpdatedAt: '2026-11-03T05:00:00+00:00',
+      previousViableAmount: 1_338_419_640,
+      viableAmount: 1_338_419_640,
+      previousUpdatedCost: 5_101_412_126,
+      updatedCost: 5_145_412_126,
+      accruedTotal: null,
+      updatedCostDelta: 44_000_000,
+    });
+  });
+
+  it('selects every column it maps', () => {
+    expect(COST_CHANGE_COLUMNS.split(',')).toEqual(
+      expect.arrayContaining(['id', 'cui', 'change_kind', 'observed_at', 'updated_cost_delta']),
+    );
+  });
+});
+
+describe('mapRecentCostIncreaseRow', () => {
+  it('adds the embedded investment name', () => {
+    const mapped = mapRecentCostIncreaseRow({
+      id: 8,
+      cui: '2088142',
+      change_kind: 'changed',
+      observed_at: '2026-11-03T10:00:00Z',
+      source_updated_at: null,
+      previous_viable_amount: null,
+      viable_amount: null,
+      previous_updated_cost: 1,
+      updated_cost: 3,
+      accrued_total: null,
+      updated_cost_delta: 2,
+      investments: { name: 'Majes Siguas II etapa', department_code: 4 },
+    });
+    expect(mapped.name).toBe('Majes Siguas II etapa');
+    expect(mapped.updatedCostDelta).toBe(2);
+  });
+
+  it('keeps a missing investment name as null', () => {
+    const mapped = mapRecentCostIncreaseRow({
+      id: 9,
+      cui: '1',
+      change_kind: 'changed',
+      observed_at: '2026-11-03T10:00:00Z',
+      source_updated_at: null,
+      previous_viable_amount: null,
+      viable_amount: null,
+      previous_updated_cost: 1,
+      updated_cost: 3,
+      accrued_total: null,
+      updated_cost_delta: 2,
+      investments: null,
+    });
+    expect(mapped.name).toBeNull();
   });
 });

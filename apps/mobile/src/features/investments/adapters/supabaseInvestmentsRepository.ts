@@ -1,13 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
+  COST_CHANGE_COLUMNS,
   INVESTMENT_COLUMNS,
+  mapCostChangeRow,
   mapFunctionSummaryRow,
   mapIngestRunRow,
   mapInvestmentRow,
+  mapRecentCostIncreaseRow,
+  type CostChangeRow,
   type FunctionSummaryRow,
   type IngestRunRow,
   type InvestmentRow,
+  type RecentCostIncreaseRow,
 } from '../domain/mappers';
 import type { Filter, InvestmentQuery } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
@@ -57,6 +62,8 @@ function unwrap<T>(result: Result<T>): T {
 export function createSupabaseInvestmentsRepository(client: SupabaseClient): InvestmentsRepository {
   const table = (name: string) =>
     client.from(name).select(name === 'investments' ? INVESTMENT_COLUMNS : '*') as unknown as FilterBuilder;
+  const costChanges = (columns: string) =>
+    client.from('investment_cost_changes').select(columns) as unknown as FilterBuilder;
 
   return {
     async findMany(query: InvestmentQuery) {
@@ -89,6 +96,28 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
           .maybeSingle<IngestRunRow>(),
       );
       return row ? mapIngestRunRow(row) : null;
+    },
+    async getCostHistory(cui) {
+      const rows = unwrap(
+        (await costChanges(COST_CHANGE_COLUMNS)
+          .eq('cui', cui)
+          .order('observed_at', { ascending: true })
+          .order('id', { ascending: true })) as Result<CostChangeRow[]>,
+      );
+      return (rows ?? []).map(mapCostChangeRow);
+    },
+    async getRecentCostIncreases({ departmentCode, limit }) {
+      // `!inner` turns the embedded investment into a join, so its filter drops other departments.
+      const rows = unwrap(
+        (await costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`)
+          .eq('change_kind', 'changed')
+          .gt('updated_cost_delta', 0)
+          .eq('investments.department_code', departmentCode)
+          .order('observed_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(limit)) as Result<RecentCostIncreaseRow[]>,
+      );
+      return (rows ?? []).map(mapRecentCostIncreaseRow);
     },
   };
 }

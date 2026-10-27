@@ -1,5 +1,5 @@
-import { mapInvestmentRow } from '../domain/mappers';
-import { MOCK_ROWS, sampleRow } from './sampleData';
+import { mapCostChangeRow, mapInvestmentRow } from '../domain/mappers';
+import { MOCK_COST_CHANGES, MOCK_ROWS, sampleRow } from './sampleData';
 
 const mock = MOCK_ROWS.map(mapInvestmentRow);
 
@@ -68,5 +68,48 @@ describe('MOCK_ROWS', () => {
 
   it('has unique CUIs', () => {
     expect(new Set(mock.map((i) => i.cui)).size).toBe(mock.length);
+  });
+});
+
+describe('MOCK_COST_CHANGES', () => {
+  const changes = MOCK_COST_CHANGES.map(mapCostChangeRow);
+  const majesHistory = changes.filter((c) => c.cui === '2088142');
+
+  it('starts every mock investment with a baseline on the first day of the record', () => {
+    for (const row of MOCK_ROWS) {
+      const baselines = changes.filter((c) => c.cui === row.cui && c.kind === 'baseline');
+      expect(baselines).toHaveLength(1);
+      expect(baselines[0].observedAt.startsWith('2026-10-27')).toBe(true);
+    }
+  });
+
+  it('gives Majes Siguas II two later increases that end at its current values', () => {
+    expect(majesHistory.map((c) => c.kind)).toEqual(['baseline', 'changed', 'changed']);
+    const [, first, second] = majesHistory;
+    expect(first.updatedCostDelta).toBeGreaterThan(0);
+    expect(second.updatedCostDelta).toBeGreaterThan(0);
+    expect(first.previousUpdatedCost).toBe(majesHistory[0].updatedCost);
+    expect(second.previousUpdatedCost).toBe(first.updatedCost);
+    const majes = MOCK_ROWS.find((r) => r.cui === '2088142')!;
+    expect(second.updatedCost).toBe(majes.updated_cost);
+    expect(second.viableAmount).toBe(majes.viable_amount);
+  });
+
+  it('derives the delta the way the generated column does', () => {
+    for (const c of changes) {
+      const expected =
+        c.updatedCost !== null && c.previousUpdatedCost !== null ? c.updatedCost - c.previousUpdatedCost : null;
+      expect(c.updatedCostDelta).toBe(expected);
+    }
+  });
+
+  it('keeps baselines equal to the current values when nothing changed later', () => {
+    const uchumayo = changes.filter((c) => c.cui === '2178454');
+    expect(uchumayo).toHaveLength(1);
+    expect(uchumayo[0].updatedCost).toBe(MOCK_ROWS.find((r) => r.cui === '2178454')!.updated_cost);
+  });
+
+  it('has unique ids', () => {
+    expect(new Set(changes.map((c) => c.id)).size).toBe(changes.length);
   });
 });

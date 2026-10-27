@@ -1,5 +1,11 @@
+import { isCostIncrease, type CostChange } from '../domain/costChange';
 import type { FunctionSummary, IngestRun } from '../domain/investment';
-import { mapInvestmentRow, type InvestmentRow } from '../domain/mappers';
+import {
+  mapCostChangeRow,
+  mapInvestmentRow,
+  type CostChangeRow,
+  type InvestmentRow,
+} from '../domain/mappers';
 import type { Filter, InvestmentColumn, InvestmentQuery, Order } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
@@ -64,12 +70,18 @@ const sumOrNull = (values: (number | null)[]): number | null => {
   return present.length ? present.reduce((a, b) => a + b, 0) : null;
 };
 
+/** Chronological order by observation time, then insertion order (id), like the database. */
+const byObservation = (a: CostChange, b: CostChange) =>
+  Date.parse(a.observedAt) - Date.parse(b.observedAt) || a.id - b.id;
+
 /** Repository over an array of rows. Backs the demo mode (EXPO_PUBLIC_USE_MOCK=1) and tests. */
 export function createInMemoryInvestmentsRepository(seed: {
   rows: InvestmentRow[];
   lastRun: IngestRun | null;
+  costChanges?: CostChangeRow[];
 }): InvestmentsRepository {
   const rows = seed.rows;
+  const changes = (seed.costChanges ?? []).map(mapCostChangeRow);
   return {
     async findMany(query: InvestmentQuery) {
       return rows
@@ -104,6 +116,21 @@ export function createInMemoryInvestmentsRepository(seed: {
     },
     async lastIngestRun() {
       return seed.lastRun;
+    },
+    async getCostHistory(cui) {
+      return changes.filter((change) => change.cui === cui).sort(byObservation);
+    },
+    async getRecentCostIncreases({ departmentCode, limit }) {
+      const investments = new Map(rows.map((row) => [row.cui, row]));
+      return changes
+        .filter(isCostIncrease)
+        .flatMap((change) => {
+          const investment = investments.get(change.cui);
+          if (investment?.department_code !== departmentCode) return [];
+          return [{ ...change, name: investment.name ?? null }];
+        })
+        .sort((a, b) => byObservation(b, a))
+        .slice(0, limit);
     },
   };
 }

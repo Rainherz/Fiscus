@@ -1,3 +1,4 @@
+import type { CostChangeRow } from '../domain/mappers';
 import { buildFunctionQuery, buildRankingQuery, buildSearchQuery } from '../domain/queries';
 import { createInMemoryInvestmentsRepository } from './inMemoryInvestmentsRepository';
 import { sampleRow } from './sampleData';
@@ -89,5 +90,55 @@ describe('in-memory investments repository', () => {
 
   it('returns the last ingest run', async () => {
     expect((await repo.lastIngestRun())?.finishedAt).toBe('2026-10-26T05:30:00Z');
+  });
+});
+
+describe('in-memory cost history', () => {
+  const change = (input: Partial<CostChangeRow> & Pick<CostChangeRow, 'id' | 'cui' | 'observed_at'>): CostChangeRow => ({
+    change_kind: 'changed',
+    source_updated_at: null,
+    previous_viable_amount: null,
+    viable_amount: null,
+    previous_updated_cost: null,
+    updated_cost: null,
+    accrued_total: null,
+    updated_cost_delta: null,
+    ...input,
+  });
+
+  const historyRepo = createInMemoryInvestmentsRepository({
+    rows,
+    lastRun: null,
+    costChanges: [
+      change({ id: 3, cui: '1', observed_at: '2026-11-10T10:00:00Z', updated_cost: 160, previous_updated_cost: 150, updated_cost_delta: 10 }),
+      change({ id: 1, cui: '1', observed_at: '2026-10-27T10:00:00Z', change_kind: 'baseline', updated_cost: 150 }),
+      change({ id: 2, cui: '2', observed_at: '2026-11-03T10:00:00Z', updated_cost_delta: 40 }),
+      change({ id: 4, cui: '2', observed_at: '2026-11-12T10:00:00Z', updated_cost_delta: -2 }),
+      change({ id: 5, cui: '4', observed_at: '2026-11-12T10:00:00Z', updated_cost_delta: 99 }),
+      change({ id: 6, cui: '3', observed_at: '2026-11-12T10:00:00Z', change_kind: 'first_seen', updated_cost_delta: null }),
+    ],
+  });
+
+  it('returns the history of one investment, oldest first', async () => {
+    expect((await historyRepo.getCostHistory('1')).map((c) => c.id)).toEqual([1, 3]);
+    expect(await historyRepo.getCostHistory('999')).toEqual([]);
+  });
+
+  it('returns increases in the department, newest first, with the investment name', async () => {
+    const increases = await historyRepo.getRecentCostIncreases({ departmentCode: 4, limit: 5 });
+    expect(increases.map((c) => [c.id, c.name])).toEqual([
+      [3, 'Hospital Norte'],
+      [2, 'Carretera Sur'],
+    ]);
+  });
+
+  it('limits the number of increases', async () => {
+    const increases = await historyRepo.getRecentCostIncreases({ departmentCode: 4, limit: 1 });
+    expect(increases.map((c) => c.id)).toEqual([3]);
+  });
+
+  it('has no history when seeded without cost changes', async () => {
+    expect(await repo.getCostHistory('1')).toEqual([]);
+    expect(await repo.getRecentCostIncreases({ departmentCode: 4, limit: 5 })).toEqual([]);
   });
 });

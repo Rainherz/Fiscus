@@ -1,3 +1,4 @@
+import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChange';
 import type { FunctionSummary, IngestRun, Investment } from './investment';
 
 type Numeric = number | string | null | undefined;
@@ -98,4 +99,48 @@ export function mapFunctionSummaryRow(row: FunctionSummaryRow): FunctionSummary 
 
 export function mapIngestRunRow(row: IngestRunRow): IngestRun {
   return { startedAt: row.started_at, finishedAt: row.finished_at };
+}
+
+/** Row shape of `public.investment_cost_changes`. */
+export interface CostChangeRow {
+  id: number | string;
+  cui: string;
+  change_kind: CostChangeKind;
+  observed_at: string;
+  source_updated_at: Text;
+  previous_viable_amount: Numeric;
+  viable_amount: Numeric;
+  previous_updated_cost: Numeric;
+  updated_cost: Numeric;
+  accrued_total: Numeric;
+  updated_cost_delta: Numeric;
+}
+
+export const COST_CHANGE_COLUMNS =
+  'id,cui,change_kind,observed_at,source_updated_at,previous_viable_amount,viable_amount,' +
+  'previous_updated_cost,updated_cost,accrued_total,updated_cost_delta';
+
+/** A cost change with its investment embedded through the `cui` foreign key. */
+export interface RecentCostIncreaseRow extends CostChangeRow {
+  investments: { name: Text; department_code: number } | null;
+}
+
+export function mapCostChangeRow(row: CostChangeRow): CostChange {
+  return {
+    id: Number(row.id),
+    cui: row.cui,
+    kind: row.change_kind,
+    observedAt: row.observed_at,
+    sourceUpdatedAt: toText(row.source_updated_at),
+    previousViableAmount: toNumber(row.previous_viable_amount),
+    viableAmount: toNumber(row.viable_amount),
+    previousUpdatedCost: toNumber(row.previous_updated_cost),
+    updatedCost: toNumber(row.updated_cost),
+    accruedTotal: toNumber(row.accrued_total),
+    updatedCostDelta: toNumber(row.updated_cost_delta),
+  };
+}
+
+export function mapRecentCostIncreaseRow(row: RecentCostIncreaseRow): RecentCostIncrease {
+  return { ...mapCostChangeRow(row), name: toText(row.investments?.name) };
 }
