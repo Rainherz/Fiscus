@@ -150,3 +150,13 @@ The public dashboard reads with the anon key. RLS lets the anon key run SELECT a
   stored in `pim_year` as-is. Do not present it as the current-year budget until this is confirmed with MEF.
 - `execution_progress` is null when `accrued_total` is empty. It is not coerced to 0, because the source
   does not say whether empty means "no accrual" or "unknown".
+- **`execution_progress` is money, not physical progress.** It is `accrued_total / updated_cost`, the
+  share of the updated cost already spent. The app labels it "Gastado X % del costo". It can exceed
+  100 % legitimately (about 12 % of projects with data): the bar is capped at 100 % and the app states
+  the overspend in soles instead.
+- **Placeholder updated costs.** MEF publishes some `updated_cost` values like S/ 1, 3, 5 or 10.
+  Values below S/ 1,000 are treated as invalid: `updated_cost_valid` is false and `cost_increase`,
+  `cost_increase_pct` and `execution_progress` are null
+  (`supabase/migrations/20261027000000_invalidate_placeholder_updated_cost.sql`). The app keeps
+  those projects out of the home hero and the increase and cost rankings, and shows
+  "Costo actualizado no válido en la fuente MEF" on their detail screen.
