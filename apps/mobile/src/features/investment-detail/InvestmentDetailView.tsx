@@ -6,6 +6,8 @@ import {
   spentOverUpdatedCost,
   type Investment,
 } from '@/features/investments/domain/investment';
+import { stalledStatus } from '@/features/investments/domain/stalled';
+import { stalledSinceSentence } from '@/features/stalled/stalledPresentation';
 import {
   formatDate,
   formatInteger,
@@ -27,6 +29,8 @@ interface Props {
   now: Date;
   /** "Historial del costo" section, shown after the cost figures. */
   costHistory?: ReactNode;
+  /** Latest accrual month of the dataset; null or absent while unknown. */
+  referenceMonth?: string | null;
 }
 
 const DASH = '—';
@@ -45,8 +49,9 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function InvestmentDetailView({ investment: inv, now, costHistory }: Props) {
+export function InvestmentDetailView({ investment: inv, now, costHistory, referenceMonth = null }: Props) {
   const invalidCost = hasInvalidUpdatedCost(inv);
+  const stalled = stalledStatus(inv, referenceMonth);
   const increased = (inv.costIncrease ?? 0) > 0;
   const viable = formatSoles(inv.viableAmount);
   const updated = formatSoles(inv.updatedCost);
@@ -134,6 +139,11 @@ export function InvestmentDetailView({ investment: inv, now, costHistory }: Prop
             overspend={spentOverUpdatedCost(inv)}
             anomaly={inv.spentAnomaly}
           />
+          {stalled ? (
+            <MonoText bold size={12} style={styles.stalled}>
+              {stalledSinceSentence(stalled)}
+            </MonoText>
+          ) : null}
         </View>
       )}
 
@@ -178,6 +188,11 @@ const styles = StyleSheet.create({
   },
   increaseLabel: { color: colors.ink },
   progress: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },
+  stalled: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.ink,
+    paddingLeft: space.sm,
+  },
   facts: { marginTop: space.xl, marginHorizontal: space.lg },
   fact: {
     borderTopWidth: rule,

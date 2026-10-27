@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useInvestment } from '@/features/investments/hooks/queries';
+import { useAccrualReferenceMonth, useInvestment } from '@/features/investments/hooks/queries';
 import { colors } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { StateMessage } from '@/shared/ui/StateMessage';
@@ -15,6 +15,7 @@ export function InvestmentDetailContainer() {
   const insets = useSafeAreaInsets();
   const { cui } = useLocalSearchParams<{ cui: string }>();
   const investment = useInvestment(cui);
+  const referenceMonth = useAccrualReferenceMonth();
 
   return (
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
@@ -32,6 +33,7 @@ export function InvestmentDetailContainer() {
         <InvestmentDetailView
           investment={investment.data}
           now={new Date()}
+          referenceMonth={referenceMonth.data ?? null}
           costHistory={<CostHistoryContainer cui={cui} />}
         />
       )}

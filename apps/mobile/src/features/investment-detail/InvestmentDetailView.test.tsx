@@ -148,4 +148,25 @@ describe('InvestmentDetailView', () => {
     await render(<InvestmentDetailView investment={full} now={NOW} costHistory={<Text>historial</Text>} />);
     expect(screen.getByText('historial')).toBeOnTheScreen();
   });
+
+  describe('without recent spending', () => {
+    const stalled: Investment = { ...full, status: 'ACTIVO', executionProgress: 0.32, lastAccrualMonth: '2025-04-01' };
+    const SENTENCE = 'Sin gasto registrado desde abr 2025 (18 meses).';
+
+    it('states since when there is no recorded spending when the project meets the rule', async () => {
+      await render(<InvestmentDetailView investment={stalled} now={NOW} referenceMonth="2026-10-01" />);
+      expect(screen.getByText(SENTENCE)).toBeOnTheScreen();
+    });
+
+    it('says nothing when the project has recent spending or the reference month is unknown', async () => {
+      const { rerender } = await render(
+        <InvestmentDetailView investment={{ ...stalled, lastAccrualMonth: '2025-10-01' }} now={NOW} referenceMonth="2026-10-01" />,
+      );
+      expect(screen.queryByText(/^Sin gasto registrado/)).toBeNull();
+      await rerender(<InvestmentDetailView investment={stalled} now={NOW} referenceMonth={null} />);
+      expect(screen.queryByText(/^Sin gasto registrado/)).toBeNull();
+      await rerender(<InvestmentDetailView investment={stalled} now={NOW} />);
+      expect(screen.queryByText(/^Sin gasto registrado/)).toBeNull();
+    });
+  });
 });
