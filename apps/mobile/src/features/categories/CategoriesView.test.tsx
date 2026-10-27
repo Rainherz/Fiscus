@@ -1,0 +1,40 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+
+import { CategoriesView } from './CategoriesView';
+
+const summaries = [
+  { function: 'TRANSPORTE', investmentCount: 120, totalUpdatedCost: 3_000_000_000, totalCostIncrease: 900_000_000 },
+  { function: 'EDUCACION Y CULTURA', investmentCount: 1, totalUpdatedCost: 2_000_000, totalCostIncrease: null },
+  { function: null, investmentCount: 3, totalUpdatedCost: null, totalCostIncrease: null },
+];
+
+describe('CategoriesView', () => {
+  it('lists function labels as published, with counts and totals', async () => {
+    await render(
+      <CategoriesView summaries={summaries} status="success" onRetry={() => {}} onPressCategory={() => {}} />,
+    );
+    expect(screen.getByText('TRANSPORTE')).toBeOnTheScreen();
+    expect(screen.getByText('120 proyectos')).toBeOnTheScreen();
+    expect(screen.getByText('S/ 3,000 M')).toBeOnTheScreen();
+    expect(screen.getByText('+S/ 900 M de aumento')).toBeOnTheScreen();
+    expect(screen.getByText('EDUCACION Y CULTURA')).toBeOnTheScreen();
+    expect(screen.getByText('1 proyecto')).toBeOnTheScreen();
+    expect(screen.getByText('Sin función registrada')).toBeOnTheScreen();
+  });
+
+  it('opens a category', async () => {
+    const onPressCategory = jest.fn();
+    await render(
+      <CategoriesView summaries={summaries} status="success" onRetry={() => {}} onPressCategory={onPressCategory} />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: /^TRANSPORTE/ }));
+    expect(onPressCategory).toHaveBeenCalledWith('TRANSPORTE');
+    await fireEvent.press(screen.getByRole('button', { name: /^Sin función registrada/ }));
+    expect(onPressCategory).toHaveBeenCalledWith(null);
+  });
+
+  it('shows the empty state', async () => {
+    await render(<CategoriesView summaries={[]} status="success" onRetry={() => {}} onPressCategory={() => {}} />);
+    expect(screen.getByText('No hay proyectos registrados en esta región.')).toBeOnTheScreen();
+  });
+});
