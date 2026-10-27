@@ -1,17 +1,17 @@
-import { useRecentCostIncreases } from '@/features/investments/hooks/queries';
+import { useRecentCostIncreases, type ReadScope } from '@/features/investments/hooks/queries';
 
 import { RecentIncreasesSection, type RecentIncreasesState } from './RecentIncreasesSection';
 
 const RECENT_INCREASES_COUNT = 5;
 
 interface Props {
-  /** Undefined lists all of Peru. */
-  departmentCode: number | undefined;
+  /** Department (undefined: all of Peru) and level of the list. */
+  read: ReadScope;
   onPressInvestment: (cui: string) => void;
 }
 
-export function RecentIncreasesContainer({ departmentCode, onPressInvestment }: Props) {
-  const increases = useRecentCostIncreases(departmentCode, RECENT_INCREASES_COUNT);
+export function RecentIncreasesContainer({ read, onPressInvestment }: Props) {
+  const increases = useRecentCostIncreases(read, RECENT_INCREASES_COUNT);
   const state: RecentIncreasesState =
     increases.status === 'success'
       ? { status: 'success', items: increases.data }
@@ -21,7 +21,7 @@ export function RecentIncreasesContainer({ departmentCode, onPressInvestment }: 
   return (
     <RecentIncreasesSection
       state={state}
-      national={departmentCode === undefined}
+      national={read.departmentCode === undefined}
       onPressInvestment={onPressInvestment}
     />
   );

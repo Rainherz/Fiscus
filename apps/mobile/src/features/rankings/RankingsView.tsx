@@ -1,13 +1,28 @@
+import type { ReactNode } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
+import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
+import type { Tag } from '@/shared/ui/LevelTag';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { SegmentedTabs } from '@/shared/ui/SegmentedTabs';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { MonoText } from '@/shared/ui/typography';
 
+import { levelTag } from '../government-level/levelPresentation';
 import { STALLED_EMPTY, stalledRowDetail } from '../stalled/stalledPresentation';
 import {
+  ENTITIES_EMPTY,
+  ENTITY_SORT_OPTIONS,
+  entityDetail,
+  entityKey,
+  entityNote,
+  entitySummary,
+  entityValue,
+  type EntitySort,
+} from './entityPresentation';
+import {
+  RANKINGS_SCREEN_OPTIONS,
   RANKING_OPTIONS,
   rankingDetail,
   rankingNote,
@@ -17,23 +32,58 @@ import {
 } from './rankingPresentation';
 
 interface Row {
-  cui: string;
+  key: string;
   name: string | null;
   value?: string;
   detail: string | string[];
+  summary?: string;
+  tag?: Tag;
+  onPress: () => void;
 }
 
-function toRows(list: RankingList, now: Date, national: boolean): Row[] {
-  if (list.kind === 'stalled') {
-    return list.items.map((item) => ({ cui: item.cui, name: item.name, detail: stalledRowDetail(item, { national }) }));
+interface RowActions {
+  onPressInvestment: (cui: string) => void;
+  onPressEntity: (entity: EntityComparison) => void;
+}
+
+function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySort, actions: RowActions): Row[] {
+  switch (list.kind) {
+    case 'entities':
+      return list.items.map((item) => ({
+        key: entityKey(item),
+        name: item.entity,
+        value: entityValue(sort, item),
+        detail: entityDetail(sort, item, { national }),
+        summary: entitySummary(sort, item),
+        tag: levelTag(item.governmentLevel),
+        onPress: () => actions.onPressEntity(item),
+      }));
+    case 'stalled':
+      return list.items.map((item) => ({
+        key: item.cui,
+        name: item.name,
+        detail: stalledRowDetail(item, { national }),
+        tag: levelTag(item.governmentLevel),
+        onPress: () => actions.onPressInvestment(item.cui),
+      }));
+    default: {
+      const { kind } = list;
+      return list.items.map((item) => ({
+        key: item.cui,
+        name: item.name,
+        value: rankingValue(kind, item, now),
+        detail: rankingDetail(kind, item, { national }),
+        tag: levelTag(item.governmentLevel),
+        onPress: () => actions.onPressInvestment(item.cui),
+      }));
+    }
   }
-  const { kind } = list;
-  return list.items.map((item) => ({
-    cui: item.cui,
-    name: item.name,
-    value: rankingValue(kind, item, now),
-    detail: rankingDetail(kind, item, { national }),
-  }));
+}
+
+function emptyMessage(kind: RankingTab, national: boolean): string {
+  if (kind === 'stalled') return STALLED_EMPTY;
+  if (kind === 'entities') return ENTITIES_EMPTY;
+  return `No hay proyectos para este ranking ${national ? 'en el país' : 'en esta región'}.`;
 }
 
 interface Props {
@@ -47,6 +97,14 @@ interface Props {
   onEndReached: () => void;
   onRetry: () => void;
   onPressInvestment: (cui: string) => void;
+  /** "screen": every tab of the Rankings screen; "projects": project rankings only (entity drill-down). */
+  options?: 'screen' | 'projects';
+  /** Sort of the "Entidades" tab. */
+  entitySort?: EntitySort;
+  onSelectEntitySort?: (sort: EntitySort) => void;
+  onPressEntity?: (entity: EntityComparison) => void;
+  /** Shown above the tabs (the entity drill-down names the entity). */
+  header?: ReactNode;
 }
 
 export function RankingsView({
@@ -59,15 +117,31 @@ export function RankingsView({
   onEndReached,
   onRetry,
   onPressInvestment,
+  options = 'screen',
+  entitySort = 'increase-amount',
+  onSelectEntitySort = () => {},
+  onPressEntity = () => {},
+  header,
 }: Props) {
   const { kind } = list;
-  const note = rankingNote(kind);
-  const rows = toRows(list, now, national);
+  const note = kind === 'entities' ? entityNote(entitySort, { national }) : rankingNote(kind);
+  const rows = toRows(list, now, national, entitySort, { onPressInvestment, onPressEntity });
+  const tabs: readonly { key: RankingTab; label: string }[] =
+    options === 'screen' ? RANKINGS_SCREEN_OPTIONS : RANKING_OPTIONS;
 
   return (
     <View style={styles.screen}>
       <View style={styles.tabs}>
-        <SegmentedTabs options={RANKING_OPTIONS} selected={kind} onSelect={onSelectKind} />
+        {header ? <View style={styles.header}>{header}</View> : null}
+        <SegmentedTabs options={tabs} selected={kind} onSelect={onSelectKind} />
+        {kind === 'entities' ? (
+          <SegmentedTabs
+            options={ENTITY_SORT_OPTIONS}
+            selected={entitySort}
+            onSelect={onSelectEntitySort}
+            accessibilityLabel="Ordenar entidades por"
+          />
+        ) : null}
         {note ? (
           <MonoText size={11} muted style={styles.note}>
             {note}
@@ -78,14 +152,16 @@ export function RankingsView({
         style={styles.list}
         contentContainerStyle={styles.listContent}
         data={rows}
-        keyExtractor={(row) => row.cui}
+        keyExtractor={(row) => row.key}
         renderItem={({ item: row, index }) => (
           <RankingRow
             rank={index + 1}
             name={row.name}
             value={row.value}
             detail={row.detail}
-            onPress={() => onPressInvestment(row.cui)}
+            summary={row.summary}
+            tag={row.tag}
+            onPress={row.onPress}
           />
         )}
         onEndReached={onEndReached}
@@ -96,14 +172,7 @@ export function RankingsView({
           ) : status === 'error' ? (
             <StateMessage kind="error" onRetry={onRetry} />
           ) : (
-            <StateMessage
-              kind="empty"
-              message={
-                kind === 'stalled'
-                  ? STALLED_EMPTY
-                  : `No hay proyectos para este ranking ${national ? 'en el país' : 'en esta región'}.`
-              }
-            />
+            <StateMessage kind="empty" message={emptyMessage(kind, national)} />
           )
         }
         ListFooterComponent={
@@ -124,6 +193,7 @@ const styles = StyleSheet.create({
     maxWidth: maxContentWidth,
     alignSelf: 'center',
   },
+  header: { paddingHorizontal: space.lg, gap: space.xs },
   note: { paddingHorizontal: space.lg },
   list: { flex: 1 },
   listContent: {

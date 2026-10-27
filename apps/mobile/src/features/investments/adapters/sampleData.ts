@@ -1,3 +1,4 @@
+import type { GovernmentLevel } from '../domain/governmentLevel';
 import type { CostChangeRow, InvestmentRow } from '../domain/mappers';
 
 interface SampleInput {
@@ -13,9 +14,20 @@ interface SampleInput {
   viabilityAt?: string | null;
   /** First day of the month of the last accrual. */
   lastAccrualMonth?: string | null;
-  departmentCode?: number;
+  /** Null: a national project spanning several departments. */
+  departmentCode?: number | null;
   departmentName?: string | null;
   status?: string | null;
+  /** Defaults to GR, the SSI level. */
+  level?: GovernmentLevel;
+  entity?: string | null;
+  executingUnit?: string | null;
+  province?: string | null;
+  district?: string | null;
+  physicalProgress?: number | null;
+  coordinates?: { latitude: number; longitude: number };
+  /** Defaults to the SSI. */
+  dataSource?: 'ssi' | 'open_data';
 }
 
 /** Mirror the database rule for MEF placeholder and truncated updated costs. */
@@ -47,7 +59,7 @@ export function sampleRow(input: SampleInput): InvestmentRow {
   return {
     cui: input.cui,
     name: input.name === undefined ? `Proyecto ${input.cui}` : input.name,
-    entity: null,
+    entity: input.entity ?? null,
     status: input.status === undefined ? 'ACTIVO' : input.status,
     situation: null,
     function: input.function === undefined ? null : input.function,
@@ -65,10 +77,18 @@ export function sampleRow(input: SampleInput): InvestmentRow {
     cost_increase: increase,
     cost_increase_pct: increase !== null && viable ? (increase / viable) * 100 : null,
     execution_progress: spentRatio,
-    department_code: input.departmentCode ?? 4,
+    department_code: input.departmentCode === undefined ? 4 : input.departmentCode,
     department_name: input.departmentName === undefined ? 'AREQUIPA' : input.departmentName,
     source_updated_at: '2026-10-26T05:00:00Z',
     spent_anomaly: spentRatio !== null && spentRatio > SPENT_ANOMALY_RATIO,
+    government_level: input.level ?? 'GR',
+    executing_unit: input.executingUnit ?? null,
+    province: input.province ?? null,
+    district: input.district ?? null,
+    physical_progress: input.physicalProgress ?? null,
+    data_source: input.dataSource ?? 'ssi',
+    latitude: input.coordinates?.latitude ?? null,
+    longitude: input.coordinates?.longitude ?? null,
   };
 }
 

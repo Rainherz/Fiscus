@@ -50,12 +50,30 @@ describe('SearchView', () => {
     await render(
       <SearchView {...base} text="hospital" status="success" results={[arequipa[3]]} onPressInvestment={onPressInvestment} />,
     );
-    await fireEvent.press(screen.getByRole('button', { name: '1. Hospital Maritza Campos Díaz, S/ 349 M' }));
+    await fireEvent.press(screen.getByRole('button', { name: '1. Hospital Maritza Campos Díaz, Gobierno regional, S/ 349 M' }));
     expect(onPressInvestment).toHaveBeenCalledWith('2322531');
   });
 
   it('says when nothing matched', async () => {
     await render(<SearchView {...base} text="xyz" status="success" results={[]} />);
     expect(screen.getByText('Sin resultados para “xyz”.')).toBeOnTheScreen();
+  });
+
+  it('tags results with their level and names the level searched', async () => {
+    await render(
+      <SearchView
+        {...base}
+        text="majes"
+        status="success"
+        results={[arequipa[0]]}
+        levelLabel="Gobiernos regionales"
+      />,
+    );
+    expect(screen.getByRole('button', { name: /^1\. Majes Siguas II etapa, Gobierno regional,/ })).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Escribe al menos 3 letras del nombre (en Arequipa, gobiernos regionales) o un CUI completo (todo el país, todos los niveles).',
+      ),
+    ).toBeOnTheScreen();
   });
 });

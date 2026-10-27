@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { COST_CHANGE_COLUMNS, REGION_COMPARISON_COLUMNS, STALLED_INVESTMENT_COLUMNS } from '../domain/mappers';
+import {
+  COST_CHANGE_COLUMNS,
+  ENTITY_COMPARISON_COLUMNS,
+  REGION_COMPARISON_COLUMNS,
+  STALLED_INVESTMENT_COLUMNS,
+} from '../domain/mappers';
 import { buildRankingQuery, buildSearchQuery, buildFunctionQuery } from '../domain/queries';
 import { createSupabaseInvestmentsRepository } from './supabaseInvestmentsRepository';
 import { sampleRow } from './sampleData';
@@ -71,7 +76,7 @@ describe('supabase investments repository', () => {
     await expect(repo.findByCui('1')).rejects.toThrow('boom');
   });
 
-  it('reads function summaries for a department from the per-department view', async () => {
+  it('reads function summaries for a department and every level from the per-department view', async () => {
     const { client, calls } = fakeClient({
       data: [{ department_code: 4, function: 'SALUD', investment_count: 3, total_updated_cost: '10', total_cost_increase: '2' }],
       error: null,
@@ -81,8 +86,23 @@ describe('supabase investments repository', () => {
     expect(await repo.functionSummaries(4)).toEqual([
       { function: 'SALUD', investmentCount: 3, totalUpdatedCost: 10, totalCostIncrease: 2 },
     ]);
-    expect(calls[0]).toEqual(['from', 'department_function_summary']);
-    expect(calls).toContainEqual(['eq', 'department_code', 4]);
+    expect(calls).toEqual([
+      ['from', 'department_function_summary_by_level'],
+      ['select', '*'],
+      ['eq', 'government_level', 'ALL'],
+      ['eq', 'department_code', 4],
+      ['order', 'total_updated_cost', { ascending: false, nullsFirst: false }],
+    ]);
+  });
+
+  it('reads function summaries of one level', async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await createSupabaseInvestmentsRepository(client).functionSummaries(undefined, 'GN');
+    expect(calls.slice(0, 3)).toEqual([
+      ['from', 'function_summary_by_level'],
+      ['select', '*'],
+      ['eq', 'government_level', 'GN'],
+    ]);
   });
 
   it('reads function summaries for all of Peru from the national view', async () => {
@@ -96,8 +116,9 @@ describe('supabase investments repository', () => {
       { function: 'SALUD', investmentCount: 30, totalUpdatedCost: 100, totalCostIncrease: null },
     ]);
     expect(calls).toEqual([
-      ['from', 'function_summary'],
+      ['from', 'function_summary_by_level'],
       ['select', '*'],
+      ['eq', 'government_level', 'ALL'],
       ['order', 'total_updated_cost', { ascending: false, nullsFirst: false }],
     ]);
   });
@@ -157,22 +178,28 @@ describe('supabase cost history', () => {
 
   it('reads recent increases of a department through the embedded investment, newest first', async () => {
     const { client, calls } = fakeClient({
-      data: [{ ...changeRow, investments: { name: 'Majes Siguas II etapa', department_code: 4 } }],
+      data: [{ ...changeRow, investments: { name: 'Majes Siguas II etapa', department_code: 4, government_level: 'GR' } }],
       error: null,
     });
     const repo = createSupabaseInvestmentsRepository(client);
 
-    const increases = await repo.getRecentCostIncreases({ departmentCode: 4, limit: 5 });
+    const increases = await repo.getRecentCostIncreases({ departmentCode: 4, level: 'GR', limit: 5 });
 
     expect(increases).toEqual([
-      expect.objectContaining({ cui: '2088142', name: 'Majes Siguas II etapa', updatedCostDelta: 44_000_000 }),
+      expect.objectContaining({
+        cui: '2088142',
+        name: 'Majes Siguas II etapa',
+        updatedCostDelta: 44_000_000,
+        governmentLevel: 'GR',
+      }),
     ]);
     expect(calls).toEqual([
       ['from', 'investment_cost_changes'],
-      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`],
+      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level)`],
       ['eq', 'change_kind', 'changed'],
       ['gt', 'updated_cost_delta', 0],
       ['eq', 'investments.department_code', 4],
+      ['eq', 'investments.government_level', 'GR'],
       ['order', 'observed_at', { ascending: false }],
       ['order', 'id', { ascending: false }],
       ['limit', 5],
@@ -191,7 +218,7 @@ describe('supabase cost history', () => {
     expect(increases).toEqual([expect.objectContaining({ cui: '2088142', departmentCode: 4 })]);
     expect(calls).toEqual([
       ['from', 'investment_cost_changes'],
-      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`],
+      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level)`],
       ['eq', 'change_kind', 'changed'],
       ['gt', 'updated_cost_delta', 0],
       ['order', 'observed_at', { ascending: false }],
@@ -219,15 +246,16 @@ describe('supabase stalled investments', () => {
     const { client, calls } = fakeClient({ data: [stalledRow], error: null });
     const repo = createSupabaseInvestmentsRepository(client);
 
-    const items = await repo.getStalledInvestments({ departmentCode: 23, page: 1, pageSize: 10 });
+    const items = await repo.getStalledInvestments({ departmentCode: 23, level: 'GL', page: 1, pageSize: 10 });
 
     expect(items).toEqual([
       expect.objectContaining({ cui: '7', monthsWithoutAccrual: 18, pendingAmount: 201_960_000 }),
     ]);
     expect(calls).toEqual([
-      ['from', 'stalled_investments'],
+      ['from', 'stalled_investments_by_level'],
       ['select', STALLED_INVESTMENT_COLUMNS],
       ['eq', 'department_code', 23],
+      ['eq', 'government_level', 'GL'],
       ['order', 'pending_amount', { ascending: false, nullsFirst: false }],
       ['order', 'cui', { ascending: true, nullsFirst: false }],
       ['range', 10, 19],
@@ -238,11 +266,12 @@ describe('supabase stalled investments', () => {
     const { client, calls } = fakeClient({ data: null, error: null, count: 12 });
     const repo = createSupabaseInvestmentsRepository(client);
 
-    expect(await repo.countStalledInvestments(23)).toBe(12);
+    expect(await repo.countStalledInvestments(23, 'GN')).toBe(12);
     expect(calls).toEqual([
-      ['from', 'stalled_investments'],
+      ['from', 'stalled_investments_by_level'],
       ['select', 'cui', { count: 'exact', head: true }],
       ['eq', 'department_code', 23],
+      ['eq', 'government_level', 'GN'],
     ]);
   });
 
@@ -250,7 +279,7 @@ describe('supabase stalled investments', () => {
     const page = fakeClient({ data: [stalledRow], error: null });
     await createSupabaseInvestmentsRepository(page.client).getStalledInvestments({ page: 0, pageSize: 3 });
     expect(page.calls).toEqual([
-      ['from', 'stalled_investments'],
+      ['from', 'stalled_investments_by_level'],
       ['select', STALLED_INVESTMENT_COLUMNS],
       ['order', 'pending_amount', { ascending: false, nullsFirst: false }],
       ['order', 'cui', { ascending: true, nullsFirst: false }],
@@ -260,7 +289,7 @@ describe('supabase stalled investments', () => {
     const count = fakeClient({ data: null, error: null, count: 4321 });
     expect(await createSupabaseInvestmentsRepository(count.client).countStalledInvestments(undefined)).toBe(4321);
     expect(count.calls).toEqual([
-      ['from', 'stalled_investments'],
+      ['from', 'stalled_investments_by_level'],
       ['select', 'cui', { count: 'exact', head: true }],
     ]);
   });
@@ -270,7 +299,11 @@ describe('supabase stalled investments', () => {
     const repo = createSupabaseInvestmentsRepository(client);
 
     expect(await repo.getAccrualReferenceMonth()).toBe('2026-10-01');
-    expect(calls).toEqual([['from', 'accrual_reference_month'], ['select', 'reference_month'], ['maybeSingle']]);
+    expect(calls).toEqual([
+      ['from', 'accrual_reference_month_all_levels'],
+      ['select', 'reference_month'],
+      ['maybeSingle'],
+    ]);
   });
 
   it('has no reference month when the view is empty', async () => {
@@ -304,7 +337,7 @@ describe('supabase region comparison', () => {
     stalled_pending_amount: '202000000',
   };
 
-  it('reads every department from the region_comparison view', async () => {
+  it('reads every department and level from the region_comparison_by_level view', async () => {
     const { client, calls } = fakeClient({ data: [regionRow], error: null });
     const repo = createSupabaseInvestmentsRepository(client);
 
@@ -326,14 +359,73 @@ describe('supabase region comparison', () => {
       },
     ]);
     expect(calls).toEqual([
-      ['from', 'region_comparison'],
+      ['from', 'region_comparison_by_level'],
       ['select', REGION_COMPARISON_COLUMNS],
+      ['eq', 'government_level', 'ALL'],
       ['order', 'department_code', { ascending: true }],
     ]);
+  });
+
+  it('reads the departments of one level', async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await createSupabaseInvestmentsRepository(client).getRegionComparison('GL');
+    expect(calls).toContainEqual(['eq', 'government_level', 'GL']);
   });
 
   it('throws when Supabase returns an error', async () => {
     const { client } = fakeClient({ data: null, error: { message: 'boom' } });
     await expect(createSupabaseInvestmentsRepository(client).getRegionComparison()).rejects.toThrow('boom');
+  });
+});
+
+describe('supabase entity comparison', () => {
+  it('reads a page of entities of a department and level, sorted by the view figure', async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        {
+          entity: 'MUNICIPALIDAD DISTRITAL DE CAYMA',
+          government_level: 'GL',
+          scope_department_code: 4,
+          department_code: 4,
+          department_name: 'AREQUIPA',
+          project_count: '12',
+          valid_cost_count: 10,
+          total_updated_cost: '50000000',
+          total_cost_increase: '8000000',
+          projects_with_increase: 3,
+          increased_viable_amount: '20000000',
+          cost_increase_pct: '40',
+          overspent_count: 1,
+          stalled_count: 2,
+          stalled_pending_amount: '7000000',
+        },
+      ],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    const entities = await repo.getEntityComparison({ sort: 'increase-amount', departmentCode: 4, level: 'GL', page: 1 });
+
+    expect(entities).toEqual([
+      expect.objectContaining({ entity: 'MUNICIPALIDAD DISTRITAL DE CAYMA', governmentLevel: 'GL', totalCostIncrease: 8_000_000 }),
+    ]);
+    expect(calls).toEqual([
+      ['from', 'entity_comparison'],
+      ['select', ENTITY_COMPARISON_COLUMNS],
+      ['eq', 'scope_department_code', 4],
+      ['eq', 'government_level', 'GL'],
+      ['gt', 'total_cost_increase', 0],
+      ['order', 'total_cost_increase', { ascending: false, nullsFirst: false }],
+      ['order', 'entity', { ascending: true, nullsFirst: false }],
+      ['order', 'government_level', { ascending: true, nullsFirst: false }],
+      ['range', 30, 59],
+    ]);
+  });
+
+  it('reads the national rows of every level', async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await createSupabaseInvestmentsRepository(client).getEntityComparison({ sort: 'stalled', level: 'ALL', page: 0 });
+    expect(calls).toContainEqual(['eq', 'scope_department_code', 0]);
+    expect(calls.some(([method, column]) => method === 'eq' && column === 'government_level')).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import type { StalledInvestment } from './stalled';
  * One department in the "Regiones" comparison. Cost figures only use investments with a valid
  * updated cost; the increase total counts positive increases only (reductions are excluded).
  *
- * Keep in sync with supabase/migrations/20261030000000_create_region_comparison.sql.
+ * Keep in sync with region_comparison_by_level (supabase/migrations/20261031000000_open_data_investments.sql).
  */
 export interface RegionComparison {
   departmentCode: number;
@@ -62,9 +62,13 @@ const sum = (values: (number | null)[]): number | null => {
   return present.length ? present.reduce((a, b) => a + b, 0) : null;
 };
 
-function groupByDepartment<T extends { departmentCode: number }>(items: readonly T[]): Map<number, T[]> {
+/** Projects without department (multi-department national ones) are left out, like the view. */
+function groupByDepartment<T extends { departmentCode: number | null }>(items: readonly T[]): Map<number, T[]> {
   const groups = new Map<number, T[]>();
-  for (const item of items) groups.set(item.departmentCode, [...(groups.get(item.departmentCode) ?? []), item]);
+  for (const item of items) {
+    const code = item.departmentCode;
+    if (code !== null) groups.set(code, [...(groups.get(code) ?? []), item]);
+  }
   return groups;
 }
 

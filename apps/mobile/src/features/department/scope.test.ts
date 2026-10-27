@@ -1,3 +1,4 @@
+import { regionLabel } from './departments';
 import {
   NATIONAL,
   departmentCodeOf,
@@ -38,6 +39,12 @@ describe('scope', () => {
 describe('withRegion', () => {
   it('puts the accented region name before a detail line', () => {
     expect(withRegion(8, 'CUI 123')).toBe('Cusco · CUI 123');
+  });
+
+  it('says "Varias regiones" for a national project without department', () => {
+    expect(withRegion(null, 'CUI 123')).toBe('Varias regiones · CUI 123');
+    expect(regionLabel(null)).toBe('Varias regiones');
+    expect(regionLabel(2)).toBe('Áncash');
   });
 });
 

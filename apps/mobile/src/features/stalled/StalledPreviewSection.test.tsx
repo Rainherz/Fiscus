@@ -32,10 +32,10 @@ describe('StalledPreviewSection', () => {
     expect(screen.getByText('14 proyectos en la región')).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {
-        name: '1. Hospital regional, Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
+        name: '1. Hospital regional, Gobierno regional, Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
       }),
     ).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: /^2\. Sin nombre, Sin gasto desde oct 2022/ })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /^2\. Sin nombre, Gobierno regional, Sin gasto desde oct 2022/ })).toBeOnTheScreen();
     expect(screen.queryByText(EMPTY)).toBeNull();
   });
 
@@ -51,7 +51,7 @@ describe('StalledPreviewSection', () => {
     expect(screen.getByText('4,321 proyectos en el país')).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {
-        name: '1. Hospital regional, Arequipa · Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
+        name: '1. Hospital regional, Gobierno regional, Arequipa · Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
       }),
     ).toBeOnTheScreen();
   });

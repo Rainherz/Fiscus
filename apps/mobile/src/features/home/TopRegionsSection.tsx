@@ -25,6 +25,8 @@ export type TopRegionsState =
 interface Props {
   /** Already ranked and cut (see topRegionsByIncrease). */
   state: TopRegionsState;
+  /** Which government levels the figures cover (see regionsNote). */
+  note?: string;
   onPressRegion: (departmentCode: number) => void;
   /** Opens the region picker with the 25 regions. */
   onPressSeeAll: () => void;
@@ -33,12 +35,17 @@ interface Props {
 }
 
 /** "Regiones con más aumentos" on the national home screen. Tapping a region selects it. */
-export function TopRegionsSection({ state, onPressRegion, onPressSeeAll, onPressCompare }: Props) {
+export function TopRegionsSection({ state, note, onPressRegion, onPressSeeAll, onPressCompare }: Props) {
   return (
     <View style={styles.section}>
       <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.title}>
         REGIONES CON MÁS AUMENTOS
       </DisplayText>
+      {note ? (
+        <MonoText size={11} muted style={styles.note}>
+          {note}
+        </MonoText>
+      ) : null}
       {state.status === 'pending' ? (
         <StateMessage kind="loading" />
       ) : state.status === 'error' ? (

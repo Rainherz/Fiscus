@@ -1,3 +1,5 @@
+import type { GovernmentLevel } from './governmentLevel';
+
 /**
  * One recorded value of an investment's cost (`public.investment_cost_changes`). MEF only publishes
  * the current cost, so Fiscus keeps its own record from 2026-10-27 onwards; earlier history is unknown.
@@ -30,6 +32,7 @@ export interface RecentCostIncrease extends CostChange {
   name: string | null;
   /** Department of the investment, shown when listing all of Peru. */
   departmentCode: number | null;
+  governmentLevel: GovernmentLevel | null;
 }
 
 /** First day of the record. Shown to readers, so it is a plain calendar date. */

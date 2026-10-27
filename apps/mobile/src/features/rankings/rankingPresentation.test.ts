@@ -2,7 +2,10 @@ import { mapInvestmentRow } from '../investments/domain/mappers';
 import { sampleRow } from '../investments/adapters/sampleData';
 import {
   RANKING_OPTIONS,
+  PROJECT_TABS,
+  RANKINGS_SCREEN_OPTIONS,
   RANKING_TABS,
+  isProjectTab,
   isRankingTab,
   rankingDetail,
   rankingNote,
@@ -29,7 +32,15 @@ describe('ranking presentation', () => {
       'Más tiempo en curso',
       'Sin gasto reciente',
     ]);
-    expect(RANKING_OPTIONS.map((o) => o.key)).toEqual(RANKING_TABS);
+    expect(RANKING_OPTIONS.map((o) => o.key)).toEqual(PROJECT_TABS);
+  });
+
+  it('adds "Entidades" as the last tab of the Rankings screen only', () => {
+    expect(RANKINGS_SCREEN_OPTIONS.map((o) => o.label).at(-1)).toBe('Entidades');
+    expect(RANKINGS_SCREEN_OPTIONS.map((o) => o.key)).toEqual(RANKING_TABS);
+    expect(isRankingTab('entities')).toBe(true);
+    expect(isProjectTab('entities')).toBe(false);
+    expect(isProjectTab('stalled')).toBe(true);
   });
 
   it('recognizes tab names from the route', () => {

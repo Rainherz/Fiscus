@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
+import type { LevelFilter } from '../domain/governmentLevel';
 import type { RankingKind } from '../domain/investment';
 import {
   PAGE_SIZE,
@@ -7,55 +8,62 @@ import {
   buildRankingQuery,
   buildSearchQuery,
 } from '../domain/queries';
+import type { RegionSort } from '../domain/regionComparison';
 import { useRepository } from '../RepositoryContext';
 import { nextPageParam } from './pagination';
 
+/**
+ * What every read is limited to: a department (undefined: all of Peru) and a government level
+ * ('ALL': every level). The entity drill-down adds one entity. It is part of every query key.
+ */
+export interface ReadScope {
+  departmentCode: number | undefined;
+  level: LevelFilter;
+  entity?: string;
+}
+
 /** Hero + "Ranking de aumentos" on the home screen. */
-export function useTopIncreases(departmentCode: number | undefined, count: number) {
+export function useTopIncreases(read: ReadScope, count: number) {
   const { repository } = useRepository();
   return useQuery({
-    queryKey: ['top-increases', departmentCode, count],
+    queryKey: ['top-increases', read, count],
     queryFn: () =>
-      repository.findMany(
-        buildRankingQuery({ kind: 'increase-amount', departmentCode, page: 0, pageSize: count }),
-      ),
+      repository.findMany(buildRankingQuery({ kind: 'increase-amount', ...read, page: 0, pageSize: count })),
   });
 }
 
-export function useRanking(kind: RankingKind, departmentCode: number | undefined, options: { enabled?: boolean } = {}) {
+export function useRanking(kind: RankingKind, read: ReadScope, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useInfiniteQuery({
     enabled: options.enabled,
-    queryKey: ['ranking', kind, departmentCode],
-    queryFn: ({ pageParam }) =>
-      repository.findMany(buildRankingQuery({ kind, departmentCode, page: pageParam })),
+    queryKey: ['ranking', kind, read],
+    queryFn: ({ pageParam }) => repository.findMany(buildRankingQuery({ kind, ...read, page: pageParam })),
     initialPageParam: 0,
     getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
   });
 }
 
-export function useFunctionInvestments(departmentCode: number | undefined, fn: string | null) {
+export function useFunctionInvestments(read: ReadScope, fn: string | null) {
   const { repository } = useRepository();
   return useInfiniteQuery({
-    queryKey: ['function-investments', departmentCode, fn],
-    queryFn: ({ pageParam }) =>
-      repository.findMany(buildFunctionQuery({ departmentCode, fn, page: pageParam })),
+    queryKey: ['function-investments', read, fn],
+    queryFn: ({ pageParam }) => repository.findMany(buildFunctionQuery({ ...read, fn, page: pageParam })),
     initialPageParam: 0,
     getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
   });
 }
 
-export function useFunctionSummaries(departmentCode: number | undefined) {
+export function useFunctionSummaries(read: ReadScope) {
   const { repository } = useRepository();
   return useQuery({
-    queryKey: ['function-summaries', departmentCode],
-    queryFn: () => repository.functionSummaries(departmentCode),
+    queryKey: ['function-summaries', read],
+    queryFn: () => repository.functionSummaries(read.departmentCode, read.level),
   });
 }
 
-export function useSearchInvestments(text: string, departmentCode: number | undefined) {
+export function useSearchInvestments(text: string, read: ReadScope) {
   const { repository } = useRepository();
-  const query = buildSearchQuery(text, departmentCode);
+  const query = buildSearchQuery(text, read.departmentCode, read.level);
   return {
     isSearchable: query !== null,
     ...useQuery({
@@ -93,35 +101,35 @@ export function useCostHistory(cui: string) {
 }
 
 /** "Aumentos recientes" on the home screen. */
-export function useRecentCostIncreases(departmentCode: number | undefined, limit: number) {
+export function useRecentCostIncreases(read: ReadScope, limit: number) {
   const { repository } = useRepository();
   return useQuery({
-    queryKey: ['recent-cost-increases', departmentCode, limit],
-    queryFn: () => repository.getRecentCostIncreases({ departmentCode, limit }),
+    queryKey: ['recent-cost-increases', read, limit],
+    queryFn: () => repository.getRecentCostIncreases({ ...read, limit }),
   });
 }
 
 /** "Sin gasto reciente" ranking, paged. */
-export function useStalledInvestments(departmentCode: number | undefined, options: { enabled?: boolean } = {}) {
+export function useStalledInvestments(read: ReadScope, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useInfiniteQuery({
     enabled: options.enabled,
-    queryKey: ['stalled-investments', departmentCode],
-    queryFn: ({ pageParam }) => repository.getStalledInvestments({ departmentCode, page: pageParam }),
+    queryKey: ['stalled-investments', read],
+    queryFn: ({ pageParam }) => repository.getStalledInvestments({ ...read, page: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
   });
 }
 
 /** "Sin gasto reciente" block on the home screen: how many, and the first few. */
-export function useStalledPreview(departmentCode: number | undefined, count: number) {
+export function useStalledPreview(read: ReadScope, count: number) {
   const { repository } = useRepository();
   return useQuery({
-    queryKey: ['stalled-preview', departmentCode, count],
+    queryKey: ['stalled-preview', read, count],
     queryFn: async () => {
       const [total, items] = await Promise.all([
-        repository.countStalledInvestments(departmentCode),
-        repository.getStalledInvestments({ departmentCode, page: 0, pageSize: count }),
+        repository.countStalledInvestments(read.departmentCode, read.level),
+        repository.getStalledInvestments({ ...read, page: 0, pageSize: count }),
       ]);
       return { total, items };
     },
@@ -138,11 +146,29 @@ export function useAccrualReferenceMonth() {
   });
 }
 
-/** "Regiones": every department at once (25 rows), sorted on the client. */
-export function useRegionComparison() {
+/** "Regiones": every department of one level at once (25 rows), sorted on the client. */
+export function useRegionComparison(level: LevelFilter) {
   const { repository } = useRepository();
   return useQuery({
-    queryKey: ['region-comparison'],
-    queryFn: () => repository.getRegionComparison(),
+    queryKey: ['region-comparison', level],
+    queryFn: () => repository.getRegionComparison(level),
+  });
+}
+
+/** "Entidades": thousands of entities nationwide, so the view sorts and pages them. */
+export function useEntityComparison(sort: RegionSort, read: ReadScope, options: { enabled?: boolean } = {}) {
+  const { repository } = useRepository();
+  return useInfiniteQuery({
+    enabled: options.enabled,
+    queryKey: ['entity-comparison', sort, read],
+    queryFn: ({ pageParam }) =>
+      repository.getEntityComparison({
+        sort,
+        departmentCode: read.departmentCode,
+        level: read.level,
+        page: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
   });
 }

@@ -67,6 +67,21 @@ describe('RankingRow', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it('shows a level tag before the detail and announces what it stands for', async () => {
+    await render(
+      <RankingRow
+        rank={3}
+        name="Pistas en Cayma"
+        value="+S/ 2 M"
+        detail="Arequipa · S/ 1 M → S/ 3 M"
+        tag={{ text: 'GL', label: 'Gobierno local' }}
+        onPress={() => {}}
+      />,
+    );
+    expect(screen.getByText('GL')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: '3. Pistas en Cayma, Gobierno local, +S/ 2 M' })).toBeOnTheScreen();
+  });
+
   it('labels projects without a name', async () => {
     await render(<RankingRow rank={1} name={null} value="S/ 10 M" onPress={() => {}} />);
     expect(screen.getByText('Sin nombre')).toBeOnTheScreen();
@@ -169,24 +184,31 @@ describe('SegmentedTabs', () => {
 describe('AppHeader', () => {
   it('shows the brand and the current department as a button', async () => {
     const onPress = jest.fn();
-    await render(<AppHeader scopeLabel="Arequipa" onPressScope={onPress} />);
+    await render(<AppHeader scopeLabel="Arequipa" levelLabel="Gobiernos locales" onPressScope={onPress} />);
     expect(screen.getByText('FISCUS')).toBeOnTheScreen();
     expect(screen.getByText('AREQUIPA ▾')).toBeOnTheScreen();
+    expect(screen.getByText('GOBIERNOS LOCALES')).toBeOnTheScreen();
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Cambiar región. Región actual: Arequipa' }),
+      screen.getByRole('button', {
+        name: 'Cambiar región o nivel de gobierno. Región actual: Arequipa. Nivel: Gobiernos locales',
+      }),
     );
     expect(onPress).toHaveBeenCalled();
   });
 
   it('labels all of Peru', async () => {
-    await render(<AppHeader scopeLabel="Todo el Perú" onPressScope={jest.fn()} />);
+    await render(<AppHeader scopeLabel="Todo el Perú" levelLabel="Todos los niveles" onPressScope={jest.fn()} />);
     expect(screen.getByText('TODO EL PERÚ ▾')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Cambiar región. Región actual: Todo el Perú' })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', {
+        name: 'Cambiar región o nivel de gobierno. Región actual: Todo el Perú. Nivel: Todos los niveles',
+      }),
+    ).toBeOnTheScreen();
   });
 
   it('shows a placeholder instead of a scope while the last choice is being read', async () => {
     const onPress = jest.fn();
-    await render(<AppHeader scopeLabel={null} onPressScope={onPress} />);
+    await render(<AppHeader scopeLabel={null} levelLabel={null} onPressScope={onPress} />);
     expect(screen.getByText('FISCUS')).toBeOnTheScreen();
     expect(screen.queryByText(/▾/)).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();

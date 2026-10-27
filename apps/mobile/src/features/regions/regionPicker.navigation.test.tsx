@@ -59,7 +59,10 @@ const routes = {
   region: Region,
 };
 
-const headerSelector = (name: string) => screen.findByRole('button', { name: `Cambiar región. Región actual: ${name}` });
+const headerSelector = (name: string) =>
+  screen.findByRole('button', {
+    name: `Cambiar región o nivel de gobierno. Región actual: ${name}. Nivel: Todos los niveles`,
+  });
 
 describe('region picker navigation', () => {
   it('opens from the header selector', async () => {

@@ -16,6 +16,7 @@ const regions = [
 ];
 
 const baseProps = {
+  level: 'ALL' as const,
   pair: { a: 4, b: 8 },
   status: 'success' as const,
   regions,
@@ -119,7 +120,10 @@ describe('CompareView', () => {
 
   it('states the scope of the data and goes back', async () => {
     await render(<CompareView {...baseProps} />);
-    expect(screen.getByText('Solo inversiones de gobiernos regionales. Montos en soles corrientes.')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Todos los niveles de gobierno. No incluye proyectos de varias regiones. Montos en soles corrientes.'),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/Solo inversiones de gobiernos regionales/)).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Volver' }));
     expect(baseProps.onBack).toHaveBeenCalled();
   });

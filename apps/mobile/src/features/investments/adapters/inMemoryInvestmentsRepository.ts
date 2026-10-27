@@ -1,21 +1,34 @@
 import { isCostIncrease, type CostChange } from '../domain/costChange';
+import { computeEntityComparison, type EntityComparison } from '../domain/entityComparison';
+import type { LevelFilter } from '../domain/governmentLevel';
 import type { FunctionSummary, IngestRun } from '../domain/investment';
 import {
   mapCostChangeRow,
   mapInvestmentRow,
   mapStalledInvestmentRow,
+  mapEntityComparisonRow,
   type CostChangeRow,
+  type EntityComparisonRow,
   type InvestmentRow,
   type StalledInvestmentRow,
 } from '../domain/mappers';
-import { buildStalledQuery, type Filter, type InvestmentQuery, type Order } from '../domain/queries';
+import {
+  NATIONAL_SCOPE_CODE,
+  buildEntityQuery,
+  buildStalledQuery,
+  type Filter,
+  type InvestmentQuery,
+  type Order,
+} from '../domain/queries';
 import { computeRegionComparison } from '../domain/regionComparison';
 import { toStalledInvestment } from '../domain/stalled';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
 type Value = string | number | boolean | null;
 
-function read(row: InvestmentRow, column: string): Value {
+type Row = object;
+
+function read(row: Row, column: string): Value {
   const value = (row as unknown as Record<string, Value | undefined>)[column];
   if (value === undefined || value === '') return null;
   if (typeof value === 'string' && column !== 'cui' && /^-?\d+(\.\d+)?$/.test(value)) {
@@ -38,7 +51,7 @@ function likeToRegExp(pattern: string): RegExp {
   return new RegExp(`^${source}$`, 'i');
 }
 
-function matches(row: InvestmentRow, filter: Filter<string>): boolean {
+function matches(row: Row, filter: Filter<string>): boolean {
   const value = read(row, filter.column);
   switch (filter.op) {
     case 'eq':
@@ -56,7 +69,7 @@ function matches(row: InvestmentRow, filter: Filter<string>): boolean {
   }
 }
 
-function compare(a: InvestmentRow, b: InvestmentRow, orders: Order<string>[]): number {
+function compare(a: Row, b: Row, orders: Order<string>[]): number {
   for (const { column, ascending } of orders) {
     const x = read(a, column);
     const y = read(b, column);
@@ -70,14 +83,14 @@ function compare(a: InvestmentRow, b: InvestmentRow, orders: Order<string>[]): n
 }
 
 /** Rows matching a query spec, sorted and sliced to its range. */
-function runQuery<R extends InvestmentRow>(rows: R[], query: InvestmentQuery<string>): R[] {
+function runQuery<R extends Row>(rows: R[], query: InvestmentQuery<string>): R[] {
   return rows
     .filter((row) => query.filters.every((filter) => matches(row, filter)))
     .sort((a, b) => compare(a, b, query.order))
     .slice(query.range.from, query.range.to + 1);
 }
 
-/** Latest last_accrual_month of all rows, like the `accrual_reference_month` view. */
+/** Latest last_accrual_month of all rows, like the `accrual_reference_month_all_levels` view. */
 function referenceMonth(rows: InvestmentRow[]): string | null {
   return rows.reduce<string | null>((latest, row) => {
     const month = row.last_accrual_month ?? null;
@@ -85,7 +98,7 @@ function referenceMonth(rows: InvestmentRow[]): string | null {
   }, null);
 }
 
-/** Rows of the `stalled_investments` view, derived with the domain rule. */
+/** Rows of the `stalled_investments_by_level` view, derived with the domain rule. */
 function stalledRows(rows: InvestmentRow[]): StalledInvestmentRow[] {
   const reference = referenceMonth(rows);
   return rows.flatMap((row) => {
@@ -100,6 +113,30 @@ const sumOrNull = (values: (number | null)[]): number | null => {
   const present = values.filter((v): v is number => v !== null);
   return present.length ? present.reduce((a, b) => a + b, 0) : null;
 };
+
+const atLevel = (level: LevelFilter | undefined) => (row: InvestmentRow) =>
+  level === undefined || level === 'ALL' || row.government_level === level;
+
+/** A computed entity as a row of the `entity_comparison` view, so its query spec applies as-is. */
+function toEntityRow(entity: EntityComparison, scope: number): EntityComparisonRow {
+  return {
+    entity: entity.entity,
+    government_level: entity.governmentLevel,
+    scope_department_code: scope,
+    department_code: entity.departmentCode,
+    department_name: entity.departmentName,
+    project_count: entity.projectCount,
+    valid_cost_count: entity.validCostCount,
+    total_updated_cost: entity.totalUpdatedCost,
+    total_cost_increase: entity.totalCostIncrease,
+    projects_with_increase: entity.projectsWithIncrease,
+    increased_viable_amount: entity.increasedViableAmount,
+    cost_increase_pct: entity.costIncreasePct,
+    overspent_count: entity.overspentCount,
+    stalled_count: entity.stalledCount,
+    stalled_pending_amount: entity.stalledPendingAmount,
+  };
+}
 
 /** Chronological order by observation time, then insertion order (id), like the database. */
 const byObservation = (a: CostChange, b: CostChange) =>
@@ -121,9 +158,9 @@ export function createInMemoryInvestmentsRepository(seed: {
       const row = rows.find((r) => r.cui === cui);
       return row ? mapInvestmentRow(row) : null;
     },
-    async functionSummaries(departmentCode) {
+    async functionSummaries(departmentCode, level) {
       const groups = new Map<string | null, InvestmentRow[]>();
-      for (const row of rows) {
+      for (const row of rows.filter(atLevel(level))) {
         if (departmentCode !== undefined && row.department_code !== departmentCode) continue;
         const key = row.function ?? null;
         groups.set(key, [...(groups.get(key) ?? []), row]);
@@ -147,15 +184,22 @@ export function createInMemoryInvestmentsRepository(seed: {
     async getCostHistory(cui) {
       return changes.filter((change) => change.cui === cui).sort(byObservation);
     },
-    async getRecentCostIncreases({ departmentCode, limit }) {
-      const investments = new Map(rows.map((row) => [row.cui, row]));
+    async getRecentCostIncreases({ departmentCode, level, limit }) {
+      const investments = new Map(rows.filter(atLevel(level)).map((row) => [row.cui, row]));
       return changes
         .filter(isCostIncrease)
         .flatMap((change) => {
           const investment = investments.get(change.cui);
           if (!investment) return [];
           if (departmentCode !== undefined && investment.department_code !== departmentCode) return [];
-          return [{ ...change, name: investment.name ?? null, departmentCode: investment.department_code }];
+          return [
+            {
+              ...change,
+              name: investment.name ?? null,
+              departmentCode: investment.department_code,
+              governmentLevel: mapInvestmentRow(investment).governmentLevel,
+            },
+          ];
         })
         .sort((a, b) => byObservation(b, a))
         .slice(0, limit);
@@ -163,15 +207,33 @@ export function createInMemoryInvestmentsRepository(seed: {
     async getStalledInvestments(params) {
       return runQuery(stalledRows(rows), buildStalledQuery(params)).map(mapStalledInvestmentRow);
     },
-    async countStalledInvestments(departmentCode) {
-      return stalledRows(rows).filter((row) => departmentCode === undefined || row.department_code === departmentCode)
-        .length;
+    async countStalledInvestments(departmentCode, level) {
+      return stalledRows(rows)
+        .filter(atLevel(level))
+        .filter((row) => departmentCode === undefined || row.department_code === departmentCode).length;
     },
     async getAccrualReferenceMonth() {
       return referenceMonth(rows);
     },
-    async getRegionComparison() {
-      return computeRegionComparison(rows.map(mapInvestmentRow), stalledRows(rows).map(mapStalledInvestmentRow));
+    async getRegionComparison(level) {
+      // Like region_comparison_by_level: only the 25 departments.
+      const inDepartment = (row: InvestmentRow) => row.department_code !== null && atLevel(level)(row);
+      return computeRegionComparison(
+        rows.filter(inDepartment).map(mapInvestmentRow),
+        stalledRows(rows).filter(inDepartment).map(mapStalledInvestmentRow),
+      );
+    },
+    async getEntityComparison(params) {
+      const entities = computeEntityComparison(
+        rows.map(mapInvestmentRow),
+        stalledRows(rows).map(mapStalledInvestmentRow),
+        params.departmentCode,
+      );
+      const scope = params.departmentCode ?? NATIONAL_SCOPE_CODE;
+      return runQuery(
+        entities.map((entity) => toEntityRow(entity, scope)),
+        buildEntityQuery(params),
+      ).map(mapEntityComparisonRow);
     },
   };
 }

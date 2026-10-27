@@ -1,18 +1,18 @@
-import { useStalledPreview } from '@/features/investments/hooks/queries';
+import { useStalledPreview, type ReadScope } from '@/features/investments/hooks/queries';
 
 import { StalledPreviewSection, type StalledPreviewState } from './StalledPreviewSection';
 
 const STALLED_PREVIEW_COUNT = 3;
 
 interface Props {
-  /** Undefined counts all of Peru. */
-  departmentCode: number | undefined;
+  /** Department (undefined: all of Peru) and level counted. */
+  read: ReadScope;
   onPressInvestment: (cui: string) => void;
   onPressSeeAll: () => void;
 }
 
-export function StalledPreviewContainer({ departmentCode, onPressInvestment, onPressSeeAll }: Props) {
-  const preview = useStalledPreview(departmentCode, STALLED_PREVIEW_COUNT);
+export function StalledPreviewContainer({ read, onPressInvestment, onPressSeeAll }: Props) {
+  const preview = useStalledPreview(read, STALLED_PREVIEW_COUNT);
   const state: StalledPreviewState =
     preview.status === 'success'
       ? { status: 'success', ...preview.data }
@@ -22,7 +22,7 @@ export function StalledPreviewContainer({ departmentCode, onPressInvestment, onP
   return (
     <StalledPreviewSection
       state={state}
-      national={departmentCode === undefined}
+      national={read.departmentCode === undefined}
       onPressInvestment={onPressInvestment} onPressSeeAll={onPressSeeAll} />
   );
 }

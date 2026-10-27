@@ -10,7 +10,8 @@ import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 
 import { departmentName } from '../department/departments';
 import type { RegionComparison } from '../investments/domain/regionComparison';
-import { REGIONS_HEADER_NOTE } from '../regions/regionPresentation';
+import { regionsNote } from '../government-level/levelPresentation';
+import type { LevelFilter } from '../investments/domain/governmentLevel';
 import { compareSections, type MetricRow } from './comparePresentation';
 import type { RegionPair } from './compareSelection';
 import { MirroredBars, SIDE_FILL } from './MirroredBars';
@@ -24,6 +25,8 @@ export type BiggestIncreaseState =
   | { status: 'success'; investment: Investment | null };
 
 interface Props {
+  /** The global government level of every figure. */
+  level: LevelFilter;
   /** Null while the default regions are being chosen. */
   pair: RegionPair | null;
   /** Status of the `region_comparison` read. */
@@ -43,6 +46,7 @@ const SIDE_TITLE: Record<Side, string> = { a: 'Primera región', b: 'Segunda reg
 
 /** "Comparar regiones": two departments side by side, metric by metric. */
 export function CompareView({
+  level,
   pair,
   status,
   regions,
@@ -112,7 +116,7 @@ export function CompareView({
           )
         ) : null}
         <MonoText size={11} muted style={styles.footnote}>
-          {REGIONS_HEADER_NOTE}
+          {regionsNote(level)}
         </MonoText>
       </ScrollView>
     </View>

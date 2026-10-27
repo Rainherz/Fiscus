@@ -21,10 +21,10 @@ const DEFAULT_SORT: RegionSort = 'increase-amount';
 export function RegionPickerContainer() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { scope, setScope } = useScope();
+  const { scope, setScope, level, setLevel } = useScope();
   const params = useLocalSearchParams<{ sort?: string }>();
   const sort: RegionSort = isRegionSort(params.sort) ? params.sort : DEFAULT_SORT;
-  const query = useRegionComparison();
+  const query = useRegionComparison(level);
   const regions = useMemo(() => rankRegions(query.data ?? [], sort), [query.data, sort]);
 
   const close = () => {
@@ -36,6 +36,8 @@ export function RegionPickerContainer() {
 
   return (
     <RegionPickerView
+      level={level}
+      onSelectLevel={setLevel}
       sort={sort}
       regions={regions}
       status={query.status}

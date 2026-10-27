@@ -7,7 +7,9 @@ import {
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
   mapRegionComparisonRow,
+  mapEntityComparisonRow,
   mapStalledInvestmentRow,
+  ENTITY_COMPARISON_COLUMNS,
   STALLED_INVESTMENT_COLUMNS,
 } from './mappers';
 
@@ -65,6 +67,12 @@ describe('mapInvestmentRow', () => {
       departmentCode: 4,
       departmentName: 'AREQUIPA',
       sourceUpdatedAt: '2026-10-25T10:00:00+00:00',
+      governmentLevel: null,
+      executingUnit: null,
+      province: null,
+      district: null,
+      physicalProgress: null,
+      dataSource: 'ssi',
     });
   });
 
@@ -241,8 +249,12 @@ describe('mapStalledInvestmentRow', () => {
     });
   });
 
-  it('selects the investment columns plus the derived view columns', () => {
-    expect(STALLED_INVESTMENT_COLUMNS).toBe(`${INVESTMENT_COLUMNS},months_without_accrual,pending_amount`);
+  it('selects the investment columns the view has plus its derived columns', () => {
+    const stalled = STALLED_INVESTMENT_COLUMNS.split(',');
+    const shared = INVESTMENT_COLUMNS.split(',').filter(
+      (c) => !['executing_unit', 'province', 'district', 'data_source'].includes(c),
+    );
+    expect(stalled).toEqual([...shared, 'months_without_accrual', 'pending_amount']);
   });
 });
 
@@ -279,5 +291,93 @@ describe('mapRegionComparisonRow', () => {
       stalledCount: 1,
       stalledPendingAmount: 250_000,
     });
+  });
+});
+
+describe('mapInvestmentRow levels and open data', () => {
+  const local = {
+    ...row,
+    government_level: 'GL',
+    executing_unit: 'MUNICIPALIDAD DISTRITAL DE CAYMA',
+    province: 'AREQUIPA',
+    district: 'CAYMA',
+    physical_progress: '42.5',
+    data_source: 'open_data',
+  };
+
+  it('maps the level, executing unit, location, physical progress and source', () => {
+    expect(mapInvestmentRow(local)).toEqual(
+      expect.objectContaining({
+        governmentLevel: 'GL',
+        executingUnit: 'MUNICIPALIDAD DISTRITAL DE CAYMA',
+        province: 'AREQUIPA',
+        district: 'CAYMA',
+        physicalProgress: 42.5,
+        dataSource: 'open_data',
+      }),
+    );
+  });
+
+  it('keeps a multi-department national project without department', () => {
+    const mapped = mapInvestmentRow({ ...local, government_level: 'GN', department_code: null, department_name: null });
+    expect(mapped.departmentCode).toBeNull();
+    expect(mapped.governmentLevel).toBe('GN');
+  });
+
+  it('ignores unknown level and source codes', () => {
+    const mapped = mapInvestmentRow({ ...local, government_level: 'XX', data_source: 'other' });
+    expect(mapped.governmentLevel).toBeNull();
+    expect(mapped.dataSource).toBe('ssi');
+  });
+
+  it('selects the new columns from investments, and only the view columns from stalled_investments_by_level', () => {
+    const columns = INVESTMENT_COLUMNS.split(',');
+    for (const column of ['government_level', 'executing_unit', 'province', 'district', 'physical_progress', 'data_source']) {
+      expect(columns).toContain(column);
+    }
+    const stalled = STALLED_INVESTMENT_COLUMNS.split(',');
+    expect(stalled).toEqual(expect.arrayContaining(['government_level', 'physical_progress', 'pending_amount']));
+    expect(stalled).not.toContain('executing_unit');
+    expect(stalled).not.toContain('data_source');
+  });
+});
+
+describe('mapEntityComparisonRow', () => {
+  it('maps an entity row and parses numeric strings', () => {
+    expect(
+      mapEntityComparisonRow({
+        entity: 'MINISTERIO DE TRANSPORTES',
+        government_level: 'GN',
+        scope_department_code: 0,
+        department_code: null,
+        department_name: null,
+        project_count: '3',
+        valid_cost_count: 3,
+        total_updated_cost: '4800000',
+        total_cost_increase: '900000',
+        projects_with_increase: 2,
+        increased_viable_amount: '3000000',
+        cost_increase_pct: '30',
+        overspent_count: 1,
+        stalled_count: 0,
+        stalled_pending_amount: '0',
+      }),
+    ).toEqual({
+      entity: 'MINISTERIO DE TRANSPORTES',
+      governmentLevel: 'GN',
+      departmentCode: null,
+      departmentName: null,
+      projectCount: 3,
+      validCostCount: 3,
+      totalUpdatedCost: 4_800_000,
+      totalCostIncrease: 900_000,
+      projectsWithIncrease: 2,
+      increasedViableAmount: 3_000_000,
+      costIncreasePct: 30,
+      overspentCount: 1,
+      stalledCount: 0,
+      stalledPendingAmount: 0,
+    });
+    expect(ENTITY_COMPARISON_COLUMNS.split(',')).toContain('stalled_pending_amount');
   });
 });

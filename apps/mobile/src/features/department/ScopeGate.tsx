@@ -18,7 +18,7 @@ export function ScopeGate({ children }: { children: ReactNode }) {
   if (ready) return children;
   return (
     <View style={styles.screen}>
-      <AppHeader scopeLabel={null} onPressScope={() => {}} topInset={insets.top} />
+      <AppHeader scopeLabel={null} levelLabel={null} onPressScope={() => {}} topInset={insets.top} />
       <StateMessage kind="loading" />
     </View>
   );

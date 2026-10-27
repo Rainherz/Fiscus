@@ -16,6 +16,7 @@ const increase = (input: Partial<RecentCostIncrease> & Pick<RecentCostIncrease, 
   updatedCostDelta: null,
   name: null,
   departmentCode: 4,
+  governmentLevel: 'GR',
   ...input,
 });
 
@@ -33,12 +34,12 @@ describe('RecentIncreasesSection', () => {
     await render(<RecentIncreasesSection state={{ status: 'success', items }} onPressInvestment={jest.fn()} />);
     expect(screen.getByRole('header', { name: 'AUMENTOS RECIENTES' })).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: 'Majes Siguas II etapa, 17/11/2026, +S/ 2.5 M' }),
+      screen.getByRole('button', { name: 'Majes Siguas II etapa, Gobierno regional, 17/11/2026, +S/ 2.5 M' }),
     ).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: 'Majes Siguas II etapa, 03/11/2026, +S/ 44.0 M' }),
+      screen.getByRole('button', { name: 'Majes Siguas II etapa, Gobierno regional, 03/11/2026, +S/ 44.0 M' }),
     ).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Sin nombre, 01/11/2026, +S/ 950 mil' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sin nombre, Gobierno regional, 01/11/2026, +S/ 950 mil' })).toBeOnTheScreen();
     expect(screen.getByText('+S/ 44.0 M')).toBeOnTheScreen();
     expect(screen.getByText('03/11/2026')).toBeOnTheScreen();
     expect(screen.queryByText(EMPTY)).toBeNull();
@@ -52,7 +53,7 @@ describe('RecentIncreasesSection', () => {
         onPressInvestment={jest.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Hospital, Cusco, 17/11/2026, +S/ 2.5 M' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Hospital, Gobierno regional, Cusco, 17/11/2026, +S/ 2.5 M' })).toBeOnTheScreen();
     expect(screen.getByText('Cusco · 17/11/2026')).toBeOnTheScreen();
   });
 
@@ -80,5 +81,21 @@ describe('RecentIncreasesSection', () => {
     expect(screen.getByText('No se pudieron cargar los aumentos recientes.')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
     expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('tags each increase with its level and names multi-department projects nationwide', async () => {
+    await render(
+      <RecentIncreasesSection
+        national
+        state={{
+          status: 'success',
+          items: [increase({ id: 9, cui: '9', name: 'Red vial', departmentCode: null, governmentLevel: 'GN', updatedCostDelta: 1_000_000 })],
+        }}
+        onPressInvestment={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('GN')).toBeOnTheScreen();
+    expect(screen.getByText('Varias regiones · 17/11/2026')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Red vial, Gobierno nacional, Varias regiones, 17/11/2026, +S/ 1.0 M' })).toBeOnTheScreen();
   });
 });

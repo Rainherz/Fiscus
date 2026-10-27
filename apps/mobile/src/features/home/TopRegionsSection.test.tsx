@@ -113,4 +113,16 @@ describe('TopRegionsSection', () => {
     expect(screen.getByText('No hay datos de regiones.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Ver las 25 regiones' })).toBeOnTheScreen();
   });
+
+  it('states which government levels the figures cover', async () => {
+    await render(
+      <TopRegionsSection
+        state={{ status: 'success', regions: [] }}
+        note="Gobiernos locales. Montos en soles corrientes."
+        onPressRegion={jest.fn()}
+        onPressSeeAll={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Gobiernos locales. Montos en soles corrientes.')).toBeOnTheScreen();
+  });
 });

@@ -35,3 +35,10 @@ export const DEPARTMENTS: readonly Department[] = [
 export function departmentName(code: number): string {
   return DEPARTMENTS.find((d) => d.code === code)?.name ?? `Región ${code}`;
 }
+
+/** Where a project is: national projects spanning several departments have none. */
+export const MULTI_REGION_LABEL = 'Varias regiones';
+
+export function regionLabel(code: number | null): string {
+  return code === null ? MULTI_REGION_LABEL : departmentName(code);
+}
