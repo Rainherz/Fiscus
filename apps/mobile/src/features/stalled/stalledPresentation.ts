@@ -1,4 +1,5 @@
 import type { StalledInvestment } from '@/features/investments/domain/stalled';
+import { withRegion } from '@/features/department/scope';
 import { formatInteger, formatMonthShort, formatProgress, formatSolesCompact } from '@/shared/format';
 
 export const STALLED_TITLE = 'SIN GASTO RECIENTE';
@@ -7,10 +8,14 @@ export const STALLED_RULE_NOTE =
   'últimos 12 meses de datos del MEF.';
 export const STALLED_EMPTY = 'No hay proyectos activos sin gasto en los últimos 12 meses.';
 
-/** Two factual lines under the project name: since when, how much was spent and how much is left. */
-export function stalledRowDetail(item: StalledInvestment): [string, string] {
+/**
+ * Two factual lines under the project name: since when, how much was spent and how much is left.
+ * Listing all of Peru, the first line starts with the region.
+ */
+export function stalledRowDetail(item: StalledInvestment, options: { national?: boolean } = {}): [string, string] {
+  const since = `Sin gasto desde ${formatMonthShort(item.lastAccrualMonth)}`;
   return [
-    `Sin gasto desde ${formatMonthShort(item.lastAccrualMonth)}`,
+    options.national ? withRegion(item.departmentCode, since) : since,
     `Gastó ${formatProgress(item.executionProgress)} · ${formatSolesCompact(item.pendingAmount)} por ejecutar`,
   ];
 }
@@ -20,6 +25,7 @@ export function stalledSinceSentence(status: { since: string; months: number }):
   return `Sin gasto registrado desde ${formatMonthShort(status.since)} (${status.months} meses).`;
 }
 
-export function stalledCountText(total: number): string {
-  return `${formatInteger(total)} ${total === 1 ? 'proyecto' : 'proyectos'} en la región`;
+export function stalledCountText(total: number, options: { national?: boolean } = {}): string {
+  const where = options.national ? 'en el país' : 'en la región';
+  return `${formatInteger(total)} ${total === 1 ? 'proyecto' : 'proyectos'} ${where}`;
 }

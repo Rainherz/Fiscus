@@ -8,13 +8,14 @@ import {
   yearsSince,
 } from '@/shared/format';
 
+import { withRegion } from '../department/scope';
 import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 import type { Investment, RankingKind } from '../investments/domain/investment';
 import type { StalledInvestment } from '../investments/domain/stalled';
 
 /**
  * Tabs of the Rankings screen: the investment rankings and "Sin gasto reciente", all within the
- * selected region. The comparison of regions is the region picker (`/region`); an old
+ * selected scope (a region or all of Peru). The comparison of regions is the region picker (`/region`); an old
  * `?tab=regions` link is not a tab any more, so it opens the default one.
  */
 export type RankingTab = RankingKind | 'stalled';
@@ -58,8 +59,7 @@ export function rankingValue(kind: RankingKind, investment: Investment, now: Dat
   }
 }
 
-/** A second factual line under the project name. */
-export function rankingDetail(kind: RankingKind, investment: Investment): string {
+function detailLine(kind: RankingKind, investment: Investment): string {
   switch (kind) {
     case 'increase-amount':
     case 'increase-pct':
@@ -69,6 +69,12 @@ export function rankingDetail(kind: RankingKind, investment: Investment): string
     case 'duration':
       return `Viable desde ${formatDate(investment.viabilityAt)}`;
   }
+}
+
+/** A second factual line under the project name; ranking all of Peru, the region leads. */
+export function rankingDetail(kind: RankingKind, investment: Investment, options: { national?: boolean } = {}): string {
+  const line = detailLine(kind, investment);
+  return options.national ? withRegion(investment.departmentCode, line) : line;
 }
 
 export function rankingNote(kind: RankingTab): string | null {

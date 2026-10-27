@@ -32,8 +32,6 @@ export const DEPARTMENTS: readonly Department[] = [
   { code: 25, name: 'Ucayali' },
 ];
 
-export const DEFAULT_DEPARTMENT_CODE = 4; // Arequipa
-
 export function departmentName(code: number): string {
   return DEPARTMENTS.find((d) => d.code === code)?.name ?? `Región ${code}`;
 }

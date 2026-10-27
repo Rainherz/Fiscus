@@ -9,6 +9,8 @@ import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 interface Props {
   summaries: FunctionSummary[];
   status: 'pending' | 'error' | 'success';
+  /** Summaries of all of Peru. */
+  national?: boolean;
   onRetry: () => void;
   onPressCategory: (fn: string | null) => void;
 }
@@ -53,7 +55,7 @@ function CategoryRow({ summary, onPress }: { summary: FunctionSummary; onPress: 
   );
 }
 
-export function CategoriesView({ summaries, status, onRetry, onPressCategory }: Props) {
+export function CategoriesView({ summaries, status, national = false, onRetry, onPressCategory }: Props) {
   return (
     <FlatList
       style={styles.screen}
@@ -79,7 +81,10 @@ export function CategoriesView({ summaries, status, onRetry, onPressCategory }: 
         ) : status === 'error' ? (
           <StateMessage kind="error" onRetry={onRetry} />
         ) : (
-          <StateMessage kind="empty" message="No hay proyectos registrados en esta región." />
+          <StateMessage
+            kind="empty"
+            message={`No hay proyectos registrados ${national ? 'en el país' : 'en esta región'}.`}
+          />
         )
       }
     />

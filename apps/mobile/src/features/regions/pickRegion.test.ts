@@ -1,12 +1,23 @@
+import { department, NATIONAL } from '@/features/department/scope';
+
 import { pickRegion } from './pickRegion';
 
 describe('pickRegion', () => {
   it('selects the department globally, then closes the picker', () => {
     const calls: unknown[][] = [];
-    pickRegion(8, {
-      setCode: (code) => calls.push(['setCode', code]),
+    pickRegion(department(8), {
+      setScope: (scope) => calls.push(['setScope', scope]),
       close: () => calls.push(['close']),
     });
-    expect(calls).toEqual([['setCode', 8], ['close']]);
+    expect(calls).toEqual([['setScope', department(8)], ['close']]);
+  });
+
+  it('selects all of Peru the same way', () => {
+    const calls: unknown[][] = [];
+    pickRegion(NATIONAL, {
+      setScope: (scope) => calls.push(['setScope', scope]),
+      close: () => calls.push(['close']),
+    });
+    expect(calls).toEqual([['setScope', NATIONAL], ['close']]);
   });
 });

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
+import { department, NATIONAL } from '@/features/department/scope';
 import type { RegionComparison } from '@/features/investments/domain/regionComparison';
 
 import { RegionPickerView } from './RegionPickerView';
@@ -32,7 +33,7 @@ const baseProps = {
   sort: 'increase-amount' as const,
   regions,
   status: 'success' as const,
-  currentCode: 4,
+  current: department(4),
   onSelectSort: jest.fn(),
   onRetry: jest.fn(),
   onPick: jest.fn(),
@@ -63,6 +64,32 @@ describe('RegionPickerView', () => {
     expect(screen.getByText('1,638 proyectos · 412 con aumento')).toBeOnTheScreen();
   });
 
+  it('offers all of Peru as the first option, before the ranked regions', async () => {
+    const onPick = jest.fn();
+    await render(<RegionPickerView {...baseProps} onPick={onPick} />);
+    const options = within(screen.getByLabelText('Regiones')).getAllByRole('button');
+    expect(options[0]).toHaveAccessibleName('Todo el Perú, las 25 regiones');
+    expect(options[0]).not.toBeSelected();
+    expect(options[1]).toHaveAccessibleName('1. Arequipa, +S/ 3,809 M, actual');
+    await fireEvent.press(options[0]);
+    expect(onPick).toHaveBeenCalledWith(NATIONAL);
+  });
+
+  it('marks all of Peru as the current choice when it is selected', async () => {
+    await render(<RegionPickerView {...baseProps} current={NATIONAL} />);
+    const national = screen.getByRole('button', { name: 'Todo el Perú, las 25 regiones, actual' });
+    expect(national).toBeSelected();
+    expect(within(national).getByText('ACTUAL')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: '1. Arequipa, +S/ 3,809 M' })).not.toBeSelected();
+  });
+
+  it('offers all of Peru while the comparison loads', async () => {
+    await render(<RegionPickerView {...baseProps} regions={[]} status="pending" current={NATIONAL} />);
+    const options = within(screen.getByLabelText('Regiones')).getAllByRole('button');
+    expect(options).toHaveLength(26);
+    expect(options[0]).toHaveAccessibleName('Todo el Perú, las 25 regiones, actual');
+  });
+
   it('keeps departments without data selectable after the ranked ones', async () => {
     await render(<RegionPickerView {...baseProps} />);
     expect(screen.getByRole('button', { name: 'Amazonas, sin datos' })).toBeOnTheScreen();
@@ -77,7 +104,7 @@ describe('RegionPickerView', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Más gasto sobre el costo' }));
     expect(onSelectSort).toHaveBeenCalledWith('overspent');
     await fireEvent.press(screen.getByRole('button', { name: '2. Cusco, +S/ 1,200 M' }));
-    expect(onPick).toHaveBeenCalledWith(8);
+    expect(onPick).toHaveBeenCalledWith(department(8));
     await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
     expect(onClose).toHaveBeenCalled();
   });
@@ -88,11 +115,11 @@ describe('RegionPickerView', () => {
     expect(screen.getByText('Cargando…')).toBeOnTheScreen();
     expect(screen.queryByLabelText('Ordenar regiones por')).toBeNull();
     const options = within(screen.getByLabelText('Regiones')).getAllByRole('button');
-    expect(options).toHaveLength(25);
-    expect(options[0]).toHaveAccessibleName('Amazonas');
+    expect(options).toHaveLength(26);
+    expect(options[1]).toHaveAccessibleName('Amazonas');
     expect(screen.getByRole('button', { name: 'Arequipa, actual' })).toBeSelected();
     await fireEvent.press(screen.getByRole('button', { name: 'Cusco' }));
-    expect(onPick).toHaveBeenCalledWith(8);
+    expect(onPick).toHaveBeenCalledWith(department(8));
   });
 
   it('still offers every department when the comparison fails, with a retry', async () => {

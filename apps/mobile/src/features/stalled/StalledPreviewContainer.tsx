@@ -5,7 +5,8 @@ import { StalledPreviewSection, type StalledPreviewState } from './StalledPrevie
 const STALLED_PREVIEW_COUNT = 3;
 
 interface Props {
-  departmentCode: number;
+  /** Undefined counts all of Peru. */
+  departmentCode: number | undefined;
   onPressInvestment: (cui: string) => void;
   onPressSeeAll: () => void;
 }
@@ -19,6 +20,9 @@ export function StalledPreviewContainer({ departmentCode, onPressInvestment, onP
         ? { status: 'error', onRetry: () => preview.refetch() }
         : { status: 'pending' };
   return (
-    <StalledPreviewSection state={state} onPressInvestment={onPressInvestment} onPressSeeAll={onPressSeeAll} />
+    <StalledPreviewSection
+      state={state}
+      national={departmentCode === undefined}
+      onPressInvestment={onPressInvestment} onPressSeeAll={onPressSeeAll} />
   );
 }

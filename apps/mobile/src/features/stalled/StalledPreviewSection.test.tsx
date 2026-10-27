@@ -39,6 +39,23 @@ describe('StalledPreviewSection', () => {
     expect(screen.queryByText(EMPTY)).toBeNull();
   });
 
+  it('counts the country and shows the region of every row for all of Peru', async () => {
+    await render(
+      <StalledPreviewSection
+        state={{ status: 'success', total: 4321, items }}
+        national
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('4,321 proyectos en el país')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', {
+        name: '1. Hospital regional, Arequipa · Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
+      }),
+    ).toBeOnTheScreen();
+  });
+
   it('opens a project and the full list', async () => {
     const onPressInvestment = jest.fn();
     const onPressSeeAll = jest.fn();

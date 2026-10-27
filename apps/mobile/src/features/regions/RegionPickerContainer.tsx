@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useDepartment } from '@/features/department/DepartmentContext';
+import { useScope } from '@/features/department/ScopeContext';
 import { rankRegions, type RegionSort } from '@/features/investments/domain/regionComparison';
 import { useRegionComparison } from '@/features/investments/hooks/queries';
 
@@ -19,7 +19,7 @@ const DEFAULT_SORT: RegionSort = 'increase-amount';
 export function RegionPickerContainer() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { code, setCode } = useDepartment();
+  const { scope, setScope } = useScope();
   const params = useLocalSearchParams<{ sort?: string }>();
   const sort: RegionSort = isRegionSort(params.sort) ? params.sort : DEFAULT_SORT;
   const query = useRegionComparison();
@@ -32,12 +32,12 @@ export function RegionPickerContainer() {
       sort={sort}
       regions={regions}
       status={query.status}
-      currentCode={code}
+      current={scope}
       topInset={insets.top}
       bottomInset={insets.bottom}
       onSelectSort={(next) => router.setParams({ sort: next })}
       onRetry={() => query.refetch()}
-      onPick={(next) => pickRegion(next, { setCode, close })}
+      onPick={(next) => pickRegion(next, { setScope, close })}
       onClose={close}
     />
   );

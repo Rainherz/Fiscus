@@ -25,6 +25,26 @@ describe('SearchView', () => {
     ).toBeOnTheScreen();
   });
 
+  it('searches names in the whole country for all of Peru', async () => {
+    await render(<SearchView {...base} departmentName={null} />);
+    expect(
+      screen.getByText('Escribe al menos 3 letras del nombre o un CUI completo. Busca en todo el país.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('shows the region of every result for all of Peru', async () => {
+    await render(
+      <SearchView
+        {...base}
+        departmentName={null}
+        text="hospital"
+        status="success"
+        results={[{ ...arequipa[3], departmentCode: 8 }]}
+      />,
+    );
+    expect(screen.getByText('Cusco · CUI 2322531')).toBeOnTheScreen();
+  });
+
   it('lists results with their current cost', async () => {
     const onPressInvestment = jest.fn();
     await render(

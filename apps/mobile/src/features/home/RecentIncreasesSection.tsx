@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { departmentName } from '@/features/department/departments';
+import { withRegion } from '@/features/department/scope';
 import { COST_HISTORY_START, type RecentCostIncrease } from '@/features/investments/domain/costChange';
 import { formatDate, formatSignedSolesCompact } from '@/shared/format';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
@@ -13,6 +15,8 @@ export type RecentIncreasesState =
 
 interface Props {
   state: RecentIncreasesState;
+  /** Listing all of Peru: rows show their region. */
+  national?: boolean;
   onPressInvestment: (cui: string) => void;
 }
 
@@ -20,14 +24,25 @@ const EMPTY =
   'Aún no hay cambios registrados. Fiscus revisa los costos todos los días desde el ' +
   `${formatDate(COST_HISTORY_START)}.`;
 
-function IncreaseRow({ item, onPress }: { item: RecentCostIncrease; onPress: () => void }) {
+function IncreaseRow({
+  item,
+  national,
+  onPress,
+}: {
+  item: RecentCostIncrease;
+  national: boolean;
+  onPress: () => void;
+}) {
   const name = item.name ?? 'Sin nombre';
   const date = formatDate(item.observedAt);
   const delta = formatSignedSolesCompact(item.updatedCostDelta);
+  const region = national && item.departmentCode !== null ? item.departmentCode : null;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${date}, ${delta}`}
+      accessibilityLabel={
+        region !== null ? `${name}, ${departmentName(region)}, ${date}, ${delta}` : `${name}, ${date}, ${delta}`
+      }
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
       <View style={styles.main}>
@@ -35,7 +50,7 @@ function IncreaseRow({ item, onPress }: { item: RecentCostIncrease; onPress: () 
           {name}
         </BodyText>
         <MonoText size={11} muted>
-          {date}
+          {region !== null ? withRegion(region, date) : date}
         </MonoText>
       </View>
       <MonoText bold size={13} style={styles.delta}>
@@ -45,8 +60,8 @@ function IncreaseRow({ item, onPress }: { item: RecentCostIncrease; onPress: () 
   );
 }
 
-/** "Aumentos recientes": recorded increases of the updated cost in the department, newest first. */
-export function RecentIncreasesSection({ state, onPressInvestment }: Props) {
+/** "Aumentos recientes": recorded increases of the updated cost in the scope, newest first. */
+export function RecentIncreasesSection({ state, national = false, onPressInvestment }: Props) {
   return (
     <View style={styles.section}>
       <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.title}>
@@ -66,7 +81,7 @@ export function RecentIncreasesSection({ state, onPressInvestment }: Props) {
         </View>
       ) : (
         state.items.map((item) => (
-          <IncreaseRow key={item.id} item={item} onPress={() => onPressInvestment(item.cui)} />
+          <IncreaseRow key={item.id} item={item} national={national} onPress={() => onPressInvestment(item.cui)} />
         ))
       )}
     </View>

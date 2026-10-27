@@ -5,7 +5,8 @@ import { RecentIncreasesSection, type RecentIncreasesState } from './RecentIncre
 const RECENT_INCREASES_COUNT = 5;
 
 interface Props {
-  departmentCode: number;
+  /** Undefined lists all of Peru. */
+  departmentCode: number | undefined;
   onPressInvestment: (cui: string) => void;
 }
 
@@ -17,5 +18,11 @@ export function RecentIncreasesContainer({ departmentCode, onPressInvestment }: 
       : increases.status === 'error'
         ? { status: 'error', onRetry: () => increases.refetch() }
         : { status: 'pending' };
-  return <RecentIncreasesSection state={state} onPressInvestment={onPressInvestment} />;
+  return (
+    <RecentIncreasesSection
+      state={state}
+      national={departmentCode === undefined}
+      onPressInvestment={onPressInvestment}
+    />
+  );
 }

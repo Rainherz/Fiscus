@@ -90,4 +90,30 @@ describe('RankingsView', () => {
     }
     expect(screen.getByText('No hay proyectos activos sin gasto en los últimos 12 meses.')).toBeOnTheScreen();
   });
+
+  describe('all of Peru', () => {
+    const cusco = { ...arequipa[1], departmentCode: 8, departmentName: 'CUSCO' };
+
+    it('shows the region of every ranked project', async () => {
+      await render(
+        <RankingsView {...baseProps} national list={{ kind: 'increase-amount', items: [arequipa[0], cusco] }} />,
+      );
+      expect(screen.getByText('Arequipa · S/ 1,338 M → S/ 5,148 M')).toBeOnTheScreen();
+      expect(screen.getByText(/^Cusco · /)).toBeOnTheScreen();
+    });
+
+    it('shows the region of every project without recent spending', async () => {
+      const item = toStalledInvestment(
+        mapInvestmentRow(sampleRow({ cui: '9', name: 'Obra', updated: 297_000_000, progress: 0.32, lastAccrualMonth: '2025-04-01', departmentCode: 21 })),
+        '2026-10-01',
+      )!;
+      await render(<RankingsView {...baseProps} national list={{ kind: 'stalled', items: [item] }} />);
+      expect(screen.getByText('Puno · Sin gasto desde abr 2025')).toBeOnTheScreen();
+    });
+
+    it('speaks of the country when a ranking is empty', async () => {
+      await render(<RankingsView {...baseProps} national list={{ kind: 'cost', items: [] }} />);
+      expect(screen.getByText('No hay proyectos para este ranking en el país.')).toBeOnTheScreen();
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { departmentName } from '@/features/department/departments';
 import { spentOverUpdatedCost, type Investment } from '@/features/investments/domain/investment';
 import {
   formatProgress,
@@ -19,16 +20,20 @@ import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 interface Props {
-  /** The department's project with the largest absolute cost increase. */
+  /** The project with the largest absolute cost increase in the scope. */
   hero: Investment | null;
   /** Following projects by absolute increase (rank 2 onward). */
   ranking: Investment[];
   now: Date;
+  /** All of Peru: country wording, the region of each project, and the regions block. */
+  national?: boolean;
   onPressInvestment: (cui: string) => void;
   onPressSeeAll: () => void;
-  /** "Aumentos recientes" section, shown after the ranking. */
+  /** "Regiones con más aumentos", national only, shown after the ranking. */
+  regions?: ReactNode;
+  /** "Aumentos recientes": after the ranking (region) or last (national). */
   recentIncreases?: ReactNode;
-  /** "Sin gasto reciente" block, shown after the recent increases. */
+  /** "Sin gasto reciente": after the recent increases (region) or the regions block (national). */
   stalled?: ReactNode;
   footer?: ReactNode;
 }
@@ -37,18 +42,35 @@ export function HomeView({
   hero,
   ranking,
   now,
+  national = false,
   onPressInvestment,
   onPressSeeAll,
+  regions,
   recentIncreases,
   stalled,
   footer,
 }: Props) {
+  const blocks = national ? (
+    <>
+      {regions}
+      {stalled}
+      {recentIncreases}
+    </>
+  ) : (
+    <>
+      {recentIncreases}
+      {stalled}
+    </>
+  );
+
   if (!hero) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <StateMessage kind="empty" message="No hay proyectos con aumento de costo en esta región." />
-        {recentIncreases}
-        {stalled}
+        <StateMessage
+          kind="empty"
+          message={`No hay proyectos con aumento de costo ${national ? 'en el país' : 'en esta región'}.`}
+        />
+        {blocks}
         {footer}
       </ScrollView>
     );
@@ -66,11 +88,16 @@ export function HomeView({
         onPress={() => onPressInvestment(hero.cui)}
         style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
         <MonoText bold size={11} muted>
-          EL MAYOR AUMENTO DE LA REGIÓN
+          {national ? 'EL MAYOR AUMENTO DEL PAÍS' : 'EL MAYOR AUMENTO DE LA REGIÓN'}
         </MonoText>
         <DisplayText size={34} numberOfLines={3} style={styles.heroName}>
           {name}
         </DisplayText>
+        {national ? (
+          <MonoText bold size={12}>
+            {departmentName(hero.departmentCode).toUpperCase()}
+          </MonoText>
+        ) : null}
         <View style={styles.figure}>
           <FitDisplayText
             text={formatSignedPercent(hero.costIncreasePct)}
@@ -116,6 +143,7 @@ export function HomeView({
               rank={index + 2}
               name={investment.name}
               value={formatSignedSoles(investment.costIncrease)}
+              detail={national ? departmentName(investment.departmentCode) : undefined}
               onPress={() => onPressInvestment(investment.cui)}
             />
           ))}
@@ -129,9 +157,7 @@ export function HomeView({
         </View>
       ) : null}
 
-      {recentIncreases}
-
-      {stalled}
+      {blocks}
 
       {footer}
     </ScrollView>

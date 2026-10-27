@@ -16,7 +16,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { DepartmentProvider } from '@/features/department/DepartmentContext';
+import { ScopeProvider } from '@/features/department/ScopeContext';
+import { ScopeGate } from '@/features/department/ScopeGate';
 import { createRepository } from '@/features/investments/createRepository';
 import { dataSourceFromEnv } from '@/features/investments/dataSource';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
@@ -65,17 +66,19 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoryProvider repository={repository} isDemo={dataSource.kind === 'mock'}>
-        <DepartmentProvider>
+        <ScopeProvider>
           <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.concrete },
-            }}>
-            {/* The region picker covers the whole screen and slides up over the screen it was opened from. */}
-            <Stack.Screen name="region" options={{ animation: 'slide_from_bottom' }} />
-          </Stack>
-        </DepartmentProvider>
+          <ScopeGate>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.concrete },
+              }}>
+              {/* The region picker covers the whole screen and slides up over the screen it was opened from. */}
+              <Stack.Screen name="region" options={{ animation: 'slide_from_bottom' }} />
+            </Stack>
+          </ScopeGate>
+        </ScopeProvider>
       </RepositoryProvider>
     </QueryClientProvider>
   );
