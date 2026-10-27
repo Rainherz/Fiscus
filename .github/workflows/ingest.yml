@@ -1,0 +1,46 @@
+name: Fiscus ingest
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC = 04:00 Lima
+  workflow_dispatch:
+    inputs:
+      departments:
+        description: "Comma-separated department codes (1-25). Empty = all."
+        required: false
+        default: ""
+
+concurrency:
+  group: fiscus-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+      - name: Ingest MEF SSI report into Supabase
+        working-directory: packages/ingest
+        env:
+          # MEF serves an incomplete TLS chain; trust the bundled intermediate instead of disabling verification.
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/packages/ingest/certs/entrust-ov-tls-issuing-rsa-ca2.pem
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DEPARTMENTS: ${{ inputs.departments }}
+        run: pnpm exec tsx src/cli.ts
