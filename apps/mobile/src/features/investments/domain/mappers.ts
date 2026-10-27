@@ -1,5 +1,6 @@
 import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChange';
 import type { FunctionSummary, IngestRun, Investment } from './investment';
+import type { StalledInvestment } from './stalled';
 
 type Numeric = number | string | null | undefined;
 type Text = string | null | undefined;
@@ -37,6 +38,14 @@ export const INVESTMENT_COLUMNS =
   'registered_at,viability_at,first_accrual_month,last_accrual_month,viable_amount,updated_cost,' +
   'updated_cost_valid,accrued_total,cost_increase,cost_increase_pct,execution_progress,department_code,' +
   'department_name,source_updated_at,spent_anomaly';
+
+/** Row shape of the `stalled_investments` view. */
+export interface StalledInvestmentRow extends InvestmentRow {
+  months_without_accrual: Numeric;
+  pending_amount: Numeric;
+}
+
+export const STALLED_INVESTMENT_COLUMNS = `${INVESTMENT_COLUMNS},months_without_accrual,pending_amount`;
 
 export interface FunctionSummaryRow {
   department_code: number;
@@ -85,6 +94,14 @@ export function mapInvestmentRow(row: InvestmentRow): Investment {
     departmentCode: row.department_code,
     departmentName: toText(row.department_name),
     sourceUpdatedAt: toText(row.source_updated_at),
+  };
+}
+
+export function mapStalledInvestmentRow(row: StalledInvestmentRow): StalledInvestment {
+  return {
+    ...mapInvestmentRow(row),
+    monthsWithoutAccrual: toNumber(row.months_without_accrual) ?? 0,
+    pendingAmount: toNumber(row.pending_amount) ?? 0,
   };
 }
 

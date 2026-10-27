@@ -3,16 +3,19 @@ import type { FunctionSummary, IngestRun } from '../domain/investment';
 import {
   mapCostChangeRow,
   mapInvestmentRow,
+  mapStalledInvestmentRow,
   type CostChangeRow,
   type InvestmentRow,
+  type StalledInvestmentRow,
 } from '../domain/mappers';
-import type { Filter, InvestmentColumn, InvestmentQuery, Order } from '../domain/queries';
+import { buildStalledQuery, type Filter, type InvestmentQuery, type Order } from '../domain/queries';
+import { toStalledInvestment } from '../domain/stalled';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
 type Value = string | number | boolean | null;
 
-function read(row: InvestmentRow, column: InvestmentColumn): Value {
-  const value = row[column];
+function read(row: InvestmentRow, column: string): Value {
+  const value = (row as unknown as Record<string, Value | undefined>)[column];
   if (value === undefined || value === '') return null;
   if (typeof value === 'string' && column !== 'cui' && /^-?\d+(\.\d+)?$/.test(value)) {
     return Number(value);
@@ -34,7 +37,7 @@ function likeToRegExp(pattern: string): RegExp {
   return new RegExp(`^${source}$`, 'i');
 }
 
-function matches(row: InvestmentRow, filter: Filter): boolean {
+function matches(row: InvestmentRow, filter: Filter<string>): boolean {
   const value = read(row, filter.column);
   switch (filter.op) {
     case 'eq':
@@ -52,7 +55,7 @@ function matches(row: InvestmentRow, filter: Filter): boolean {
   }
 }
 
-function compare(a: InvestmentRow, b: InvestmentRow, orders: Order[]): number {
+function compare(a: InvestmentRow, b: InvestmentRow, orders: Order<string>[]): number {
   for (const { column, ascending } of orders) {
     const x = read(a, column);
     const y = read(b, column);
@@ -63,6 +66,33 @@ function compare(a: InvestmentRow, b: InvestmentRow, orders: Order[]): number {
     return ascending ? result : -result;
   }
   return 0;
+}
+
+/** Rows matching a query spec, sorted and sliced to its range. */
+function runQuery<R extends InvestmentRow>(rows: R[], query: InvestmentQuery<string>): R[] {
+  return rows
+    .filter((row) => query.filters.every((filter) => matches(row, filter)))
+    .sort((a, b) => compare(a, b, query.order))
+    .slice(query.range.from, query.range.to + 1);
+}
+
+/** Latest last_accrual_month of all rows, like the `accrual_reference_month` view. */
+function referenceMonth(rows: InvestmentRow[]): string | null {
+  return rows.reduce<string | null>((latest, row) => {
+    const month = row.last_accrual_month ?? null;
+    return month !== null && (latest === null || month > latest) ? month : latest;
+  }, null);
+}
+
+/** Rows of the `stalled_investments` view, derived with the domain rule. */
+function stalledRows(rows: InvestmentRow[]): StalledInvestmentRow[] {
+  const reference = referenceMonth(rows);
+  return rows.flatMap((row) => {
+    const stalled = toStalledInvestment(mapInvestmentRow(row), reference);
+    return stalled
+      ? [{ ...row, months_without_accrual: stalled.monthsWithoutAccrual, pending_amount: stalled.pendingAmount }]
+      : [];
+  });
 }
 
 const sumOrNull = (values: (number | null)[]): number | null => {
@@ -84,11 +114,7 @@ export function createInMemoryInvestmentsRepository(seed: {
   const changes = (seed.costChanges ?? []).map(mapCostChangeRow);
   return {
     async findMany(query: InvestmentQuery) {
-      return rows
-        .filter((row) => query.filters.every((filter) => matches(row, filter)))
-        .sort((a, b) => compare(a, b, query.order))
-        .slice(query.range.from, query.range.to + 1)
-        .map(mapInvestmentRow);
+      return runQuery(rows, query).map(mapInvestmentRow);
     },
     async findByCui(cui) {
       const row = rows.find((r) => r.cui === cui);
@@ -131,6 +157,15 @@ export function createInMemoryInvestmentsRepository(seed: {
         })
         .sort((a, b) => byObservation(b, a))
         .slice(0, limit);
+    },
+    async getStalledInvestments(params) {
+      return runQuery(stalledRows(rows), buildStalledQuery(params)).map(mapStalledInvestmentRow);
+    },
+    async countStalledInvestments(departmentCode) {
+      return stalledRows(rows).filter((row) => row.department_code === departmentCode).length;
+    },
+    async getAccrualReferenceMonth() {
+      return referenceMonth(rows);
     },
   };
 }

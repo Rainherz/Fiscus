@@ -6,6 +6,8 @@ import {
   mapIngestRunRow,
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
+  mapStalledInvestmentRow,
+  STALLED_INVESTMENT_COLUMNS,
 } from './mappers';
 
 const row = {
@@ -220,5 +222,25 @@ describe('mapRecentCostIncreaseRow', () => {
       investments: null,
     });
     expect(mapped.name).toBeNull();
+  });
+});
+
+describe('mapStalledInvestmentRow', () => {
+  it('maps the investment plus the months without accrual and the pending amount', () => {
+    const stalled = mapStalledInvestmentRow({
+      ...row,
+      last_accrual_month: '2025-04-01',
+      months_without_accrual: 18,
+      pending_amount: '201960000.5',
+    });
+    expect(stalled).toEqual({
+      ...mapInvestmentRow({ ...row, last_accrual_month: '2025-04-01' }),
+      monthsWithoutAccrual: 18,
+      pendingAmount: 201_960_000.5,
+    });
+  });
+
+  it('selects the investment columns plus the derived view columns', () => {
+    expect(STALLED_INVESTMENT_COLUMNS).toBe(`${INVESTMENT_COLUMNS},months_without_accrual,pending_amount`);
   });
 });

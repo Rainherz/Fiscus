@@ -99,3 +99,39 @@ export function useRecentCostIncreases(departmentCode: number, limit: number) {
     queryFn: () => repository.getRecentCostIncreases({ departmentCode, limit }),
   });
 }
+
+/** "Sin gasto reciente" ranking, paged. */
+export function useStalledInvestments(departmentCode: number) {
+  const { repository } = useRepository();
+  return useInfiniteQuery({
+    queryKey: ['stalled-investments', departmentCode],
+    queryFn: ({ pageParam }) => repository.getStalledInvestments({ departmentCode, page: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
+  });
+}
+
+/** "Sin gasto reciente" block on the home screen: how many, and the first few. */
+export function useStalledPreview(departmentCode: number, count: number) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['stalled-preview', departmentCode, count],
+    queryFn: async () => {
+      const [total, items] = await Promise.all([
+        repository.countStalledInvestments(departmentCode),
+        repository.getStalledInvestments({ departmentCode, page: 0, pageSize: count }),
+      ]);
+      return { total, items };
+    },
+  });
+}
+
+/** Latest accrual month of the dataset: the end of the "Sin gasto reciente" window. */
+export function useAccrualReferenceMonth() {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['accrual-reference-month'],
+    queryFn: () => repository.getAccrualReferenceMonth(),
+    staleTime: 60 * 60 * 1000,
+  });
+}

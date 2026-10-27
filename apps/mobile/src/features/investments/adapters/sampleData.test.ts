@@ -1,4 +1,5 @@
 import { mapCostChangeRow, mapInvestmentRow } from '../domain/mappers';
+import { createInMemoryInvestmentsRepository } from './inMemoryInvestmentsRepository';
 import { MOCK_COST_CHANGES, MOCK_ROWS, sampleRow } from './sampleData';
 
 const mock = MOCK_ROWS.map(mapInvestmentRow);
@@ -64,6 +65,15 @@ describe('MOCK_ROWS', () => {
     expect(anomaly?.updatedCostValid).toBe(true);
     expect(anomaly?.spentAnomaly).toBe(true);
     expect(anomaly?.executionProgress).toBeCloseTo(62.62, 2);
+  });
+
+  it('includes Arequipa projects without recent spending for the demo mode', async () => {
+    const repo = createInMemoryInvestmentsRepository({ rows: MOCK_ROWS, lastRun: null });
+    expect(await repo.getAccrualReferenceMonth()).toBe('2026-10-01');
+    const stalled = await repo.getStalledInvestments({ departmentCode: 4, page: 0 });
+    expect(stalled.length).toBeGreaterThanOrEqual(2);
+    expect(stalled.length).toBeLessThanOrEqual(3);
+    expect(await repo.countStalledInvestments(4)).toBe(stalled.length);
   });
 
   it('has unique CUIs', () => {

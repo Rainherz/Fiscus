@@ -11,6 +11,8 @@ interface SampleInput {
   /** Accrued total, when it cannot be derived from `progress` (e.g. placeholder costs). */
   accrued?: number | null;
   viabilityAt?: string | null;
+  /** First day of the month of the last accrual. */
+  lastAccrualMonth?: string | null;
   departmentCode?: number;
   departmentName?: string | null;
   status?: string | null;
@@ -55,7 +57,7 @@ export function sampleRow(input: SampleInput): InvestmentRow {
     registered_at: null,
     viability_at: input.viabilityAt ?? null,
     first_accrual_month: null,
-    last_accrual_month: null,
+    last_accrual_month: input.lastAccrualMonth ?? null,
     viable_amount: viable,
     updated_cost: updated,
     updated_cost_valid: valid,
@@ -172,8 +174,52 @@ export const EDGE_CASE_SAMPLE: InvestmentRow[] = [
   }),
 ];
 
+/**
+ * DEMO ONLY, not MEF data: invented projects and figures so the demo mode can show "Sin gasto
+ * reciente". Three meet the rule; the fourth has a recent accrual and sets the reference month
+ * (the latest accrual month of the dataset) to October 2026.
+ */
+export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
+  sampleRow({
+    cui: '9900001',
+    name: 'Planta de tratamiento de aguas residuales (demo)',
+    function: 'SANEAMIENTO',
+    viable: 184_500_000,
+    updated: 184_500_000,
+    progress: 0.41,
+    lastAccrualMonth: '2025-02-01',
+  }),
+  sampleRow({
+    cui: '9900002',
+    name: 'Mejoramiento de carretera departamental (demo)',
+    function: 'TRANSPORTE',
+    viable: 62_300_000,
+    updated: 62_300_000,
+    progress: 0.12,
+    lastAccrualMonth: '2023-07-01',
+  }),
+  sampleRow({
+    cui: '9900003',
+    name: 'Institución educativa secundaria (demo)',
+    function: 'EDUCACION',
+    viable: 18_750_000,
+    updated: 18_750_000,
+    progress: 0.77,
+    lastAccrualMonth: '2025-08-01',
+  }),
+  sampleRow({
+    cui: '9900004',
+    name: 'Ampliación de canal de riego (demo)',
+    function: 'AGRARIA',
+    viable: 40_000_000,
+    updated: 40_000_000,
+    progress: 0.5,
+    lastAccrualMonth: '2026-10-01',
+  }),
+];
+
 /** Rows behind the demo mode (EXPO_PUBLIC_USE_MOCK=1). */
-export const MOCK_ROWS: InvestmentRow[] = [...AREQUIPA_SAMPLE, ...EDGE_CASE_SAMPLE];
+export const MOCK_ROWS: InvestmentRow[] = [...AREQUIPA_SAMPLE, ...EDGE_CASE_SAMPLE, ...STALLED_DEMO_SAMPLE];
 
 type Amount = number | string | null | undefined;
 const amount = (value: Amount): number | null => (value === null || value === undefined ? null : Number(value));

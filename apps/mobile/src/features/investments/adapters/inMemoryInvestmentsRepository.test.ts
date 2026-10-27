@@ -142,3 +142,47 @@ describe('in-memory cost history', () => {
     expect(await repo.getRecentCostIncreases({ departmentCode: 4, limit: 5 })).toEqual([]);
   });
 });
+
+describe('in-memory stalled investments', () => {
+  const stalledRows = [
+    // Sets the reference month: the latest accrual in the whole dataset, in another department.
+    sampleRow({ cui: 'ref', updated: 10_000_000, progress: 0.5, lastAccrualMonth: '2026-10-01', departmentCode: 15 }),
+    sampleRow({ cui: 's1', updated: 297_000_000, progress: 0.32, lastAccrualMonth: '2025-04-01' }),
+    sampleRow({ cui: 's2', updated: 123_000_000, progress: 0.07, lastAccrualMonth: '2022-10-01' }),
+    sampleRow({ cui: 's3', updated: 500_000_000, progress: 0.9, lastAccrualMonth: '2025-09-01' }),
+    // Exactly 12 months before the reference month: not included.
+    sampleRow({ cui: 'm12', updated: 900_000_000, progress: 0.5, lastAccrualMonth: '2025-10-01' }),
+    sampleRow({ cui: 'low', updated: 900_000_000, progress: 0.04, lastAccrualMonth: '2024-01-01' }),
+    sampleRow({ cui: 'high', updated: 900_000_000, progress: 0.96, lastAccrualMonth: '2024-01-01' }),
+    sampleRow({ cui: 'closed', updated: 900_000_000, progress: 0.5, lastAccrualMonth: '2024-01-01', status: 'CERRADO' }),
+    sampleRow({ cui: 'invalid', viable: 166_262_211, updated: 10, accrued: 5, lastAccrualMonth: '2024-01-01' }),
+    sampleRow({ cui: 'other', updated: 900_000_000, progress: 0.5, lastAccrualMonth: '2024-01-01', departmentCode: 15 }),
+  ];
+  const stalledRepo = createInMemoryInvestmentsRepository({ rows: stalledRows, lastRun: null });
+
+  it('applies the rule against the latest accrual month of the dataset', async () => {
+    expect(await stalledRepo.getAccrualReferenceMonth()).toBe('2026-10-01');
+    const items = await stalledRepo.getStalledInvestments({ departmentCode: 4, page: 0 });
+    expect(cuis(items)).toEqual(['s1', 's2', 's3']);
+  });
+
+  it('orders by the amount not yet spent and adds the months without accrual', async () => {
+    const [first, second, third] = await stalledRepo.getStalledInvestments({ departmentCode: 4, page: 0 });
+    expect(first).toMatchObject({ cui: 's1', monthsWithoutAccrual: 18 });
+    expect(first.pendingAmount).toBeCloseTo(201_960_000, 0);
+    expect(second).toMatchObject({ cui: 's2', monthsWithoutAccrual: 48 });
+    expect(third).toMatchObject({ cui: 's3', monthsWithoutAccrual: 13 });
+  });
+
+  it('pages and counts within the department', async () => {
+    expect(cuis(await stalledRepo.getStalledInvestments({ departmentCode: 4, page: 1, pageSize: 2 }))).toEqual(['s3']);
+    expect(await stalledRepo.countStalledInvestments(4)).toBe(3);
+    expect(await stalledRepo.countStalledInvestments(15)).toBe(1);
+  });
+
+  it('has no reference month and no rows without accrual months', async () => {
+    expect(await repo.getAccrualReferenceMonth()).toBeNull();
+    expect(await repo.getStalledInvestments({ departmentCode: 4, page: 0 })).toEqual([]);
+    expect(await repo.countStalledInvestments(4)).toBe(0);
+  });
+});

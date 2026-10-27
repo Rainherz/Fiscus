@@ -4,6 +4,7 @@ import {
   buildFunctionQuery,
   buildRankingQuery,
   buildSearchQuery,
+  buildStalledQuery,
 } from './queries';
 
 describe('buildRankingQuery', () => {
@@ -125,5 +126,22 @@ describe('buildFunctionQuery', () => {
   it('matches projects without a function', () => {
     const query = buildFunctionQuery({ departmentCode: 4, fn: null, page: 0 });
     expect(query.filters[1]).toEqual({ column: 'function', op: 'isNull' });
+  });
+});
+
+describe('buildStalledQuery', () => {
+  it('lists the department by the amount not yet spent, largest first', () => {
+    expect(buildStalledQuery({ departmentCode: 21, page: 1 })).toEqual({
+      filters: [{ column: 'department_code', op: 'eq', value: 21 }],
+      order: [
+        { column: 'pending_amount', ascending: false },
+        { column: 'cui', ascending: true },
+      ],
+      range: { from: PAGE_SIZE, to: 2 * PAGE_SIZE - 1 },
+    });
+  });
+
+  it('accepts a page size for short previews', () => {
+    expect(buildStalledQuery({ departmentCode: 4, page: 0, pageSize: 3 }).range).toEqual({ from: 0, to: 2 });
   });
 });

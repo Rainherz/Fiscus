@@ -18,21 +18,24 @@ export type InvestmentColumn =
   | 'cost_increase_pct'
   | 'viability_at';
 
-export type Filter =
-  | { column: InvestmentColumn; op: 'eq'; value: string | number | boolean }
-  | { column: InvestmentColumn; op: 'gt' | 'gte'; value: string | number }
-  | { column: InvestmentColumn; op: 'ilike'; value: string }
-  | { column: InvestmentColumn; op: 'notNull' | 'isNull' };
+/** Columns of the `stalled_investments` view: the investment columns plus two derived ones. */
+export type StalledColumn = InvestmentColumn | 'pending_amount' | 'months_without_accrual';
 
-export interface Order {
-  column: InvestmentColumn;
+export type Filter<C extends string = InvestmentColumn> =
+  | { column: C; op: 'eq'; value: string | number | boolean }
+  | { column: C; op: 'gt' | 'gte'; value: string | number }
+  | { column: C; op: 'ilike'; value: string }
+  | { column: C; op: 'notNull' | 'isNull' };
+
+export interface Order<C extends string = InvestmentColumn> {
+  column: C;
   ascending: boolean;
 }
 
-export interface InvestmentQuery {
-  filters: Filter[];
+export interface InvestmentQuery<C extends string = InvestmentColumn> {
+  filters: Filter<C>[];
   /** Applied in sequence; nulls always sort last. */
-  order: Order[];
+  order: Order<C>[];
   /** Inclusive row range. */
   range: { from: number; to: number };
 }
@@ -134,5 +137,21 @@ export function buildFunctionQuery(params: {
     filters: [inDepartment(params.departmentCode), byFunction],
     order: [{ column: 'updated_cost', ascending: false }, tieBreak],
     range: pageRange(params.page, PAGE_SIZE),
+  };
+}
+
+/**
+ * "Sin gasto reciente" in one department, largest amount not yet spent first. The rule itself
+ * lives in the `stalled_investments` view (and domain/stalled.ts for the in-memory adapter).
+ */
+export function buildStalledQuery(params: {
+  departmentCode: number;
+  page: number;
+  pageSize?: number;
+}): InvestmentQuery<StalledColumn> {
+  return {
+    filters: [{ column: 'department_code', op: 'eq', value: params.departmentCode }],
+    order: [{ column: 'pending_amount', ascending: false }, tieBreak],
+    range: pageRange(params.page, params.pageSize ?? PAGE_SIZE),
   };
 }

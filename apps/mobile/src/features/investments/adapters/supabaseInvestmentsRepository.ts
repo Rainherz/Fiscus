@@ -3,18 +3,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   COST_CHANGE_COLUMNS,
   INVESTMENT_COLUMNS,
+  STALLED_INVESTMENT_COLUMNS,
   mapCostChangeRow,
   mapFunctionSummaryRow,
   mapIngestRunRow,
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
+  mapStalledInvestmentRow,
   type CostChangeRow,
   type FunctionSummaryRow,
   type IngestRunRow,
   type InvestmentRow,
   type RecentCostIncreaseRow,
+  type StalledInvestmentRow,
 } from '../domain/mappers';
-import type { Filter, InvestmentQuery } from '../domain/queries';
+import { buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
 /** Minimal structural view of a PostgREST filter builder, so filters compose without generics noise. */
@@ -35,9 +38,11 @@ interface FilterBuilder {
 interface Result<T> {
   data: T | null;
   error: { message: string } | null;
+  /** Present when the select asked for a count. */
+  count?: number | null;
 }
 
-function applyFilter(builder: FilterBuilder, filter: Filter): FilterBuilder {
+function applyFilter(builder: FilterBuilder, filter: Filter<string>): FilterBuilder {
   switch (filter.op) {
     case 'eq':
       return builder.eq(filter.column, filter.value);
@@ -59,19 +64,28 @@ function unwrap<T>(result: Result<T>): T {
   return result.data as T;
 }
 
+/** Filters, order (nulls last) and range of a query spec, applied to any table or view. */
+function applyQuery<C extends string>(builder: FilterBuilder, query: InvestmentQuery<C>): FilterBuilder {
+  let result = query.filters.reduce(applyFilter, builder);
+  for (const order of query.order) {
+    result = result.order(order.column, { ascending: order.ascending, nullsFirst: false });
+  }
+  return result.range(query.range.from, query.range.to);
+}
+
 export function createSupabaseInvestmentsRepository(client: SupabaseClient): InvestmentsRepository {
   const table = (name: string) =>
     client.from(name).select(name === 'investments' ? INVESTMENT_COLUMNS : '*') as unknown as FilterBuilder;
   const costChanges = (columns: string) =>
     client.from('investment_cost_changes').select(columns) as unknown as FilterBuilder;
+  const stalled = (columns: string, options?: { count: 'exact'; head: true }) =>
+    (options
+      ? client.from('stalled_investments').select(columns, options)
+      : client.from('stalled_investments').select(columns)) as unknown as FilterBuilder;
 
   return {
     async findMany(query: InvestmentQuery) {
-      let builder = query.filters.reduce(applyFilter, table('investments'));
-      for (const order of query.order) {
-        builder = builder.order(order.column, { ascending: order.ascending, nullsFirst: false });
-      }
-      const rows = unwrap((await builder.range(query.range.from, query.range.to)) as Result<InvestmentRow[]>);
+      const rows = unwrap((await applyQuery(table('investments'), query)) as Result<InvestmentRow[]>);
       return (rows ?? []).map(mapInvestmentRow);
     },
     async findByCui(cui) {
@@ -118,6 +132,29 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
           .limit(limit)) as Result<RecentCostIncreaseRow[]>,
       );
       return (rows ?? []).map(mapRecentCostIncreaseRow);
+    },
+    async getStalledInvestments(params) {
+      const rows = unwrap(
+        (await applyQuery(stalled(STALLED_INVESTMENT_COLUMNS), buildStalledQuery(params))) as Result<
+          StalledInvestmentRow[]
+        >,
+      );
+      return (rows ?? []).map(mapStalledInvestmentRow);
+    },
+    async countStalledInvestments(departmentCode) {
+      const result = (await stalled('cui', { count: 'exact', head: true }).eq(
+        'department_code',
+        departmentCode,
+      )) as Result<unknown>;
+      unwrap(result);
+      return result.count ?? 0;
+    },
+    async getAccrualReferenceMonth() {
+      const row = unwrap(
+        await (client.from('accrual_reference_month').select('reference_month') as unknown as FilterBuilder)
+          .maybeSingle<{ reference_month: string | null }>(),
+      );
+      return row?.reference_month ?? null;
     },
   };
 }
