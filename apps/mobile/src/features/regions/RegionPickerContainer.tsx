@@ -2,9 +2,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { compareHref } from '@/features/compare/compareSelection';
 import { useScope } from '@/features/department/ScopeContext';
 import { rankRegions, type RegionSort } from '@/features/investments/domain/regionComparison';
 import { useRegionComparison } from '@/features/investments/hooks/queries';
+import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
 
 import { pickRegion } from './pickRegion';
 import { isRegionSort } from './regionPresentation';
@@ -25,7 +27,12 @@ export function RegionPickerContainer() {
   const query = useRegionComparison();
   const regions = useMemo(() => rankRegions(query.data ?? [], sort), [query.data, sort]);
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const close = () => {
+    // Leaving with the pressed option focused would block aria-hidden on web.
+    blurActiveElement();
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   return (
     <RegionPickerView
@@ -39,6 +46,11 @@ export function RegionPickerContainer() {
       onRetry={() => query.refetch()}
       onPick={(next) => pickRegion(next, { setScope, close })}
       onClose={close}
+      onCompare={() => {
+        blurActiveElement();
+        // Replaces the picker, so going back from the comparison returns to where the picker was opened.
+        router.replace(compareHref());
+      }}
     />
   );
 }

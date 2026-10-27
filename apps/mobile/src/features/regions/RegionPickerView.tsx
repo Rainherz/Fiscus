@@ -1,10 +1,11 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
+import { OptionRow } from '@/shared/ui/OptionRow';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { SegmentedTabs } from '@/shared/ui/SegmentedTabs';
 import { StateMessage } from '@/shared/ui/StateMessage';
-import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
+import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 import type { Department } from '../department/departments';
 import { NATIONAL, NATIONAL_LABEL, department, isSameScope, type Scope } from '../department/scope';
@@ -33,6 +34,8 @@ interface Props {
   onRetry: () => void;
   onPick: (scope: Scope) => void;
   onClose: () => void;
+  /** Opens the side-by-side comparison of two regions. */
+  onCompare: () => void;
   topInset?: number;
   bottomInset?: number;
 }
@@ -63,6 +66,7 @@ export function RegionPickerView({
   onRetry,
   onPick,
   onClose,
+  onCompare,
   topInset = 0,
   bottomInset = 0,
 }: Props) {
@@ -80,6 +84,9 @@ export function RegionPickerView({
           <DisplayText weight={900} size={26} style={styles.title} accessibilityRole="header">
             Elegir región
           </DisplayText>
+          <MonoText size={11} style={styles.subtitle}>
+            {PICKER_SUBTITLE}
+          </MonoText>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -92,6 +99,16 @@ export function RegionPickerView({
           </MonoText>
         </Pressable>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Comparar dos regiones"
+        onPress={onCompare}
+        style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+        <View style={styles.compareInner}>
+          <DisplayText size={18}>Comparar dos regiones</DisplayText>
+          <DisplayText size={18}>⇄</DisplayText>
+        </View>
+      </Pressable>
       <FlatList
         style={styles.list}
         contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset + space.xl }]}
@@ -103,7 +120,7 @@ export function RegionPickerView({
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.national}>
-              <PlainOption
+              <OptionRow
                 name={NATIONAL_LABEL}
                 detail={NATIONAL_DETAIL}
                 selected={isSameScope(current, NATIONAL)}
@@ -148,7 +165,7 @@ export function RegionPickerView({
               onPress={() => onPick(department(item.region.departmentCode))}
             />
           ) : (
-            <PlainOption
+            <OptionRow
               name={item.department.name}
               detail={ranked ? 'Sin datos' : undefined}
               selected={isCurrent(item.department.code)}
@@ -162,49 +179,7 @@ export function RegionPickerView({
 }
 
 const NATIONAL_DETAIL = 'Las 25 regiones';
-
-/** An option without comparison figures: all of Peru, or a department without data. */
-function PlainOption({
-  name,
-  detail,
-  selected,
-  onPress,
-}: {
-  name: string;
-  detail?: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const label = [name, detail?.toLowerCase(), selected ? 'actual' : undefined].filter(Boolean).join(', ');
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={selected ? { selected: true } : undefined}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.option,
-        selected && styles.optionSelected,
-        pressed && (selected ? styles.pressed : styles.optionPressed),
-      ]}>
-      <View style={styles.optionMain}>
-        <BodyText weight={600} size={14} style={selected ? styles.selectedText : undefined}>
-          {name}
-        </BodyText>
-        {detail ? (
-          <MonoText size={11} muted style={selected ? styles.selectedDetail : undefined}>
-            {detail}
-          </MonoText>
-        ) : null}
-      </View>
-      {selected ? (
-        <MonoText bold size={11} style={styles.tag}>
-          ACTUAL
-        </MonoText>
-      ) : null}
-    </Pressable>
-  );
-}
+const PICKER_SUBTITLE = 'Las regiones ordenadas por el criterio elegido. Toca una para verla.';
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.concrete },
@@ -220,6 +195,23 @@ const styles = StyleSheet.create({
   titles: { flexShrink: 1, gap: 2 },
   eyebrow: { color: colors.concrete },
   title: { color: colors.signal },
+  subtitle: { color: colors.concrete, marginTop: 2 },
+  compare: {
+    backgroundColor: colors.signal,
+    borderBottomWidth: rule,
+    borderBottomColor: colors.ink,
+  },
+  comparePressed: { backgroundColor: colors.signalPressed },
+  compareInner: {
+    minHeight: minTouch,
+    paddingHorizontal: space.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: maxContentWidth,
+    alignSelf: 'center',
+  },
   close: { minHeight: minTouch, minWidth: minTouch, justifyContent: 'center', paddingHorizontal: space.xs },
   closeText: { color: colors.concrete },
   pressed: { opacity: 0.7 },
@@ -235,19 +227,4 @@ const styles = StyleSheet.create({
   national: { marginBottom: space.sm, borderBottomWidth: rule, borderBottomColor: colors.ink },
   // The tabs carry their own gutter; cancel the list's so they align with the notes.
   sorts: { marginHorizontal: -space.lg },
-  option: {
-    minHeight: minTouch,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingVertical: 9,
-    borderTopWidth: rule,
-    borderTopColor: colors.ink,
-  },
-  optionSelected: { backgroundColor: colors.ink, marginHorizontal: -space.sm, paddingHorizontal: space.sm },
-  optionPressed: { backgroundColor: colors.concretePressed },
-  optionMain: { flex: 1, gap: 2 },
-  selectedText: { color: colors.signal },
-  selectedDetail: { color: colors.concrete },
-  tag: { color: colors.ink, backgroundColor: colors.signal, paddingHorizontal: space.xs },
 });

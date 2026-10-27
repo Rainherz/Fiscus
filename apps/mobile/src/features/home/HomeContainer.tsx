@@ -6,6 +6,8 @@ import { useScope } from '@/features/department/ScopeContext';
 import { DataFooterContainer } from '@/features/investments/DataFooterContainer';
 import { useTopIncreases } from '@/features/investments/hooks/queries';
 import { StalledPreviewContainer } from '@/features/stalled/StalledPreviewContainer';
+import { compareHref } from '@/features/compare/compareSelection';
+import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
 import { colors } from '@/shared/theme/tokens';
 import { StateMessage } from '@/shared/ui/StateMessage';
 
@@ -36,7 +38,10 @@ export function HomeContainer() {
   }
 
   const [hero = null, ...ranking] = top.data;
-  const openInvestment = (cui: string) => router.push({ pathname: '/investment/[cui]', params: { cui } });
+  const openInvestment = (cui: string) => {
+    blurActiveElement();
+    router.push({ pathname: '/investment/[cui]', params: { cui } });
+  };
   return (
     <HomeView
       hero={hero}
@@ -45,11 +50,22 @@ export function HomeContainer() {
       national={national}
       onPressInvestment={openInvestment}
       onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'increase-amount' } })}
+      onPressCompare={() => {
+        blurActiveElement();
+        router.push(compareHref({ a: code }));
+      }}
       regions={
         national ? (
           <TopRegionsContainer
             onPressRegion={(next) => setScope(department(next))}
-            onPressSeeAll={() => router.push('/region')}
+            onPressSeeAll={() => {
+              blurActiveElement();
+              router.push('/region');
+            }}
+            onPressCompare={() => {
+              blurActiveElement();
+              router.push(compareHref());
+            }}
           />
         ) : undefined
       }

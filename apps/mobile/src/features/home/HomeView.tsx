@@ -12,7 +12,7 @@ import {
   formatYears,
   yearsSince,
 } from '@/shared/format';
-import { colors, maxContentWidth, minTouch, space } from '@/shared/theme/tokens';
+import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
 import { FitDisplayText } from '@/shared/ui/FitDisplayText';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
 import { RankingRow } from '@/shared/ui/RankingRow';
@@ -29,6 +29,8 @@ interface Props {
   national?: boolean;
   onPressInvestment: (cui: string) => void;
   onPressSeeAll: () => void;
+  /** Region home only: opens the comparison with this region first. */
+  onPressCompare?: () => void;
   /** "Regiones con más aumentos", national only, shown after the ranking. */
   regions?: ReactNode;
   /** "Aumentos recientes": after the ranking (region) or last (national). */
@@ -45,11 +47,25 @@ export function HomeView({
   national = false,
   onPressInvestment,
   onPressSeeAll,
+  onPressCompare,
   regions,
   recentIncreases,
   stalled,
   footer,
 }: Props) {
+  const compare =
+    !national && onPressCompare ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Comparar con otra región"
+        onPress={onPressCompare}
+        style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+        <DisplayText weight={900} size={20}>
+          Comparar con otra región →
+        </DisplayText>
+      </Pressable>
+    ) : null;
+
   const blocks = national ? (
     <>
       {regions}
@@ -70,6 +86,7 @@ export function HomeView({
           kind="empty"
           message={`No hay proyectos con aumento de costo ${national ? 'en el país' : 'en esta región'}.`}
         />
+        {compare}
         {blocks}
         {footer}
       </ScrollView>
@@ -157,6 +174,8 @@ export function HomeView({
         </View>
       ) : null}
 
+      {compare}
+
       {blocks}
 
       {footer}
@@ -191,4 +210,14 @@ const styles = StyleSheet.create({
     borderTopColor: colors.ink,
   },
   seeAllPressed: { backgroundColor: colors.signalPressed },
+  compare: {
+    marginTop: space.lg,
+    marginHorizontal: space.lg,
+    minHeight: minTouch + 8,
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+    borderWidth: rule,
+    borderColor: colors.ink,
+  },
+  comparePressed: { backgroundColor: colors.concretePressed },
 });

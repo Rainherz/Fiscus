@@ -77,6 +77,21 @@ describe('TopRegionsSection', () => {
     expect(onPressSeeAll).toHaveBeenCalled();
   });
 
+  it('links to the comparison of two regions', async () => {
+    const onPressCompare = jest.fn();
+    await render(
+      <TopRegionsSection
+        state={{ status: 'success', regions }}
+        onPressRegion={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        onPressCompare={onPressCompare}
+      />,
+    );
+    expect(screen.getByText('Comparar dos regiones →')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Comparar dos regiones' }));
+    expect(onPressCompare).toHaveBeenCalled();
+  });
+
   it('shows loading, error and empty states', async () => {
     const onRetry = jest.fn();
     const { rerender } = await render(

@@ -90,6 +90,23 @@ describe('HomeView', () => {
     expect(ctx.onPressSeeAll).toHaveBeenCalled();
   });
 
+  it('links a region home to the comparison with another region', async () => {
+    const onPressCompare = jest.fn();
+    await render(
+      <HomeView
+        hero={majes}
+        ranking={arequipa.slice(1)}
+        now={NOW}
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        onPressCompare={onPressCompare}
+      />,
+    );
+    expect(screen.getByText('Comparar con otra región →')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Comparar con otra región' }));
+    expect(onPressCompare).toHaveBeenCalled();
+  });
+
   it('says so when the region has no cost increases', async () => {
     await render(
       <HomeView hero={null} ranking={[]} now={NOW} onPressInvestment={() => {}} onPressSeeAll={() => {}} />,
@@ -186,6 +203,11 @@ describe('HomeView', () => {
       expect(order()).toEqual(['regiones', 'sin gasto', 'recientes', 'pie']);
       await rerender(<HomeView {...props} {...blocks} hero={null} ranking={[]} />);
       expect(order()).toEqual(['regiones', 'sin gasto', 'recientes', 'pie']);
+    });
+
+    it('does not offer the region comparison link on the national home', async () => {
+      await render(<HomeView {...props} onPressCompare={jest.fn()} />);
+      expect(screen.queryByRole('button', { name: 'Comparar con otra región' })).toBeNull();
     });
 
     it('says so when the country has no cost increases', async () => {

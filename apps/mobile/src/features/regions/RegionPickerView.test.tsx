@@ -38,6 +38,7 @@ const baseProps = {
   onRetry: jest.fn(),
   onPick: jest.fn(),
   onClose: jest.fn(),
+  onCompare: jest.fn(),
 };
 
 describe('RegionPickerView', () => {
@@ -52,6 +53,22 @@ describe('RegionPickerView', () => {
     expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
     expect(screen.getByText('Solo inversiones de gobiernos regionales. Montos en soles corrientes.')).toBeOnTheScreen();
     expect(screen.getByText('Suma de los aumentos de costo. No descuenta las reducciones.')).toBeOnTheScreen();
+  });
+
+  it('explains in one line what the list is for', async () => {
+    await render(<RegionPickerView {...baseProps} />);
+    expect(
+      screen.getByText('Las regiones ordenadas por el criterio elegido. Toca una para verla.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('opens the comparison of two regions from the top', async () => {
+    const onCompare = jest.fn();
+    const onPick = jest.fn();
+    await render(<RegionPickerView {...baseProps} onCompare={onCompare} onPick={onPick} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Comparar dos regiones' }));
+    expect(onCompare).toHaveBeenCalled();
+    expect(onPick).not.toHaveBeenCalled();
   });
 
   it('lists the regions in the given order and marks the current one', async () => {
