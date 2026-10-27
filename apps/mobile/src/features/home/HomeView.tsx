@@ -28,6 +28,8 @@ interface Props {
   onPressSeeAll: () => void;
   /** "Aumentos recientes" section, shown after the ranking. */
   recentIncreases?: ReactNode;
+  /** "Sin gasto reciente" block, shown after the recent increases. */
+  stalled?: ReactNode;
   footer?: ReactNode;
 }
 
@@ -38,6 +40,7 @@ export function HomeView({
   onPressInvestment,
   onPressSeeAll,
   recentIncreases,
+  stalled,
   footer,
 }: Props) {
   if (!hero) {
@@ -45,6 +48,7 @@ export function HomeView({
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         <StateMessage kind="empty" message="No hay proyectos con aumento de costo en esta región." />
         {recentIncreases}
+        {stalled}
         {footer}
       </ScrollView>
     );
@@ -126,6 +130,8 @@ export function HomeView({
       ) : null}
 
       {recentIncreases}
+
+      {stalled}
 
       {footer}
     </ScrollView>

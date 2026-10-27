@@ -121,4 +121,22 @@ describe('HomeView', () => {
     );
     expect(screen.getByText('recientes')).toBeOnTheScreen();
   });
+
+  it('renders the stalled block after the recent increases, with or without a hero', async () => {
+    const props = {
+      now: NOW,
+      onPressInvestment: jest.fn(),
+      onPressSeeAll: jest.fn(),
+      recentIncreases: <Text>recientes</Text>,
+      stalled: <Text>sin gasto</Text>,
+      footer: <Text>pie</Text>,
+    };
+    const order = () =>
+      screen.getAllByText(/^(recientes|sin gasto|pie)$/).map((node) => node.props.children as string);
+
+    const { rerender } = await render(<HomeView {...props} hero={majes} ranking={arequipa.slice(1)} />);
+    expect(order()).toEqual(['recientes', 'sin gasto', 'pie']);
+    await rerender(<HomeView {...props} hero={null} ranking={[]} />);
+    expect(order()).toEqual(['recientes', 'sin gasto', 'pie']);
+  });
 });

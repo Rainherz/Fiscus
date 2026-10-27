@@ -4,6 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { useDepartment } from '@/features/department/DepartmentContext';
 import { DataFooterContainer } from '@/features/investments/DataFooterContainer';
 import { useTopIncreases } from '@/features/investments/hooks/queries';
+import { StalledPreviewContainer } from '@/features/stalled/StalledPreviewContainer';
 import { colors } from '@/shared/theme/tokens';
 import { StateMessage } from '@/shared/ui/StateMessage';
 
@@ -38,8 +39,15 @@ export function HomeContainer() {
       ranking={ranking}
       now={new Date()}
       onPressInvestment={openInvestment}
-      onPressSeeAll={() => router.navigate('/rankings')}
+      onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'increase-amount' } })}
       recentIncreases={<RecentIncreasesContainer departmentCode={code} onPressInvestment={openInvestment} />}
+      stalled={
+        <StalledPreviewContainer
+          departmentCode={code}
+          onPressInvestment={openInvestment}
+          onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'stalled' } })}
+        />
+      }
       footer={<DataFooterContainer />}
     />
   );
