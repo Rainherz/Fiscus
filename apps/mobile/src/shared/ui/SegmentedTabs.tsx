@@ -13,13 +13,15 @@ interface Props<K extends string> {
   options: readonly Option<K>[];
   selected: K;
   onSelect: (key: K) => void;
+  /** Names the tab list for screen readers when a screen has more than one. */
+  accessibilityLabel?: string;
 }
 
 /**
  * Horizontally scrollable segmented control: ink outline, selected segment in ink with signal text.
  * The selected segment is scrolled into view, so a tab opened from a link is visible.
  */
-export function SegmentedTabs<K extends string>({ options, selected, onSelect }: Props<K>) {
+export function SegmentedTabs<K extends string>({ options, selected, onSelect, accessibilityLabel }: Props<K>) {
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [offsets, setOffsets] = useState<Partial<Record<K, number>>>({});
   const selectedOffset = offsets[selected];
@@ -35,6 +37,7 @@ export function SegmentedTabs<K extends string>({ options, selected, onSelect }:
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityRole="tablist"
+      accessibilityLabel={accessibilityLabel}
       contentContainerStyle={styles.list}>
       {options.map((option) => {
         const isSelected = option.key === selected;

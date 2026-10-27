@@ -10,19 +10,21 @@ interface Props {
   value?: string;
   /** Secondary factual lines under the name. */
   detail?: string | string[];
+  /** What screen readers announce after the name; defaults to the value or the detail lines. */
+  summary?: string;
   onPress: () => void;
   /** Background the row sits on, to pick the pressed color. */
   tone?: 'concrete' | 'signal';
 }
 
-export function RankingRow({ rank, name, value, detail, onPress, tone = 'concrete' }: Props) {
+export function RankingRow({ rank, name, value, detail, summary, onPress, tone = 'concrete' }: Props) {
   const title = name ?? 'Sin nombre';
   const lines = detail === undefined ? [] : Array.isArray(detail) ? detail : [detail];
-  const summary = value ?? lines.join(', ');
+  const announced = summary ?? value ?? lines.join(', ');
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${rank}. ${title}, ${summary}`}
+      accessibilityLabel={`${rank}. ${title}, ${announced}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
