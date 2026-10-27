@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import type { Investment } from '@/features/investments/domain/investment';
@@ -147,6 +147,23 @@ describe('InvestmentDetailView', () => {
   it('renders the cost history it is given', async () => {
     await render(<InvestmentDetailView investment={full} now={NOW} costHistory={<Text>historial</Text>} />);
     expect(screen.getByText('historial')).toBeOnTheScreen();
+  });
+
+  describe('share action', () => {
+    it('offers sharing the project as an image', async () => {
+      const onShare = jest.fn();
+      await render(<InvestmentDetailView investment={full} now={NOW} onShare={onShare} />);
+      const button = screen.getByRole('button', { name: 'Compartir este proyecto como imagen' });
+      expect(button).toHaveTextContent('COMPARTIR');
+      expect(button).toHaveStyle({ minHeight: 44 });
+      await fireEvent.press(button);
+      expect(onShare).toHaveBeenCalledTimes(1);
+    });
+
+    it('is absent when sharing is not wired', async () => {
+      await render(<InvestmentDetailView investment={full} now={NOW} />);
+      expect(screen.queryByRole('button', { name: 'Compartir este proyecto como imagen' })).toBeNull();
+    });
   });
 
   describe('without recent spending', () => {

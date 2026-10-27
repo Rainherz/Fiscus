@@ -1,8 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccrualReferenceMonth, useInvestment } from '@/features/investments/hooks/queries';
+import { ShareCardContainer } from '@/features/share-card/ShareCardContainer';
 import { colors } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { StateMessage } from '@/shared/ui/StateMessage';
@@ -16,6 +18,7 @@ export function InvestmentDetailContainer() {
   const { cui } = useLocalSearchParams<{ cui: string }>();
   const investment = useInvestment(cui);
   const referenceMonth = useAccrualReferenceMonth();
+  const [sharing, setSharing] = useState(false);
 
   return (
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
@@ -30,12 +33,22 @@ export function InvestmentDetailContainer() {
       ) : investment.data === null ? (
         <StateMessage kind="empty" message={`No existe un proyecto con CUI ${cui}.`} />
       ) : (
-        <InvestmentDetailView
-          investment={investment.data}
-          now={new Date()}
-          referenceMonth={referenceMonth.data ?? null}
-          costHistory={<CostHistoryContainer cui={cui} />}
-        />
+        <>
+          <InvestmentDetailView
+            investment={investment.data}
+            now={new Date()}
+            referenceMonth={referenceMonth.data ?? null}
+            costHistory={<CostHistoryContainer cui={cui} />}
+            onShare={() => setSharing(true)}
+          />
+          {sharing ? (
+            <ShareCardContainer
+              investment={investment.data}
+              referenceMonth={referenceMonth.data ?? null}
+              onClose={() => setSharing(false)}
+            />
+          ) : null}
+        </>
       )}
     </View>
   );

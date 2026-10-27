@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   hasInvalidUpdatedCost,
@@ -19,7 +19,7 @@ import {
   formatYears,
   yearsSince,
 } from '@/shared/format';
-import { colors, maxContentWidth, rule, space } from '@/shared/theme/tokens';
+import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
 import { SOURCE_NAME } from '@/shared/ui/DataFooter';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
 import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
@@ -31,6 +31,8 @@ interface Props {
   costHistory?: ReactNode;
   /** Latest accrual month of the dataset; null or absent while unknown. */
   referenceMonth?: string | null;
+  /** Opens the share-as-image preview; the button is hidden when absent. */
+  onShare?: () => void;
 }
 
 const DASH = '—';
@@ -49,7 +51,13 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function InvestmentDetailView({ investment: inv, now, costHistory, referenceMonth = null }: Props) {
+export function InvestmentDetailView({
+  investment: inv,
+  now,
+  costHistory,
+  referenceMonth = null,
+  onShare,
+}: Props) {
   const invalidCost = hasInvalidUpdatedCost(inv);
   const stalled = stalledStatus(inv, referenceMonth);
   const increased = (inv.costIncrease ?? 0) > 0;
@@ -80,6 +88,17 @@ export function InvestmentDetailView({ investment: inv, now, costHistory, refere
         <DisplayText size={30} accessibilityRole="header" style={styles.name}>
           {inv.name ?? 'Sin nombre'}
         </DisplayText>
+        {onShare ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Compartir este proyecto como imagen"
+            onPress={onShare}
+            style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}>
+            <MonoText bold size={13}>
+              COMPARTIR
+            </MonoText>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.costs}>
@@ -167,6 +186,16 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: maxContentWidth, alignSelf: 'center', paddingBottom: space.xl },
   head: { paddingHorizontal: space.lg, paddingTop: space.lg, gap: 6 },
   name: { lineHeight: 30 },
+  shareButton: {
+    alignSelf: 'flex-start',
+    minHeight: minTouch,
+    justifyContent: 'center',
+    borderWidth: rule,
+    borderColor: colors.ink,
+    paddingHorizontal: space.lg,
+    marginTop: space.xs,
+  },
+  shareButtonPressed: { backgroundColor: colors.concretePressed },
   costs: { paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.md },
   costRow: { gap: 2 },
   struck: { textDecorationLine: 'line-through', textDecorationColor: colors.ink },

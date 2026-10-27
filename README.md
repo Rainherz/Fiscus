@@ -24,7 +24,8 @@ packages/ingest/src/
 apps/mobile/src/
   app/           Expo Router routes: (tabs) index, rankings, categories, search; region; investment/[cui]; category/[fn]
   features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
-                 department, home, rankings, regions, categories, search, investment-detail (container + view)
+                 department, home, rankings, regions, categories, search, investment-detail (container + view),
+                 share-card (share image: presentation, card, capture and share)
   shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
 .github/workflows/     ingest.yml (manual ingest), ci.yml (typecheck + tests)
@@ -132,6 +133,15 @@ fall back to the current region (or the largest total increase) and the next one
 URL is rewritten. Choosing a region here never changes the app's scope. It opens from "Comparar dos
 regiones" on the national home and at the top of the picker, and from "Comparar con otra región" on a
 region's home.
+
+Compartir: "COMPARTIR" on the detail screen renders a 1080x1350 (4:5) image of the project off screen,
+captures it with `react-native-view-shot` and previews that same PNG with "Compartir" and "Cancelar", so
+people see exactly what they send. The card reuses the detail rules (cost increase, invalid cost notice,
+spent share, overspend, unusual data, "Sin gasto") and cites the CUI, the MEF source and the data date. On
+iOS and Android the PNG goes to the system share sheet through `expo-sharing`. On web, view-shot draws the
+DOM with `html2canvas-pro` (its optional web peer, loaded lazily as a separate chunk), then the page uses
+the Web Share API with the file when `navigator.canShare({ files })` allows it, otherwise it downloads
+`fiscus-<cui>.png`. Card logic is in `features/share-card/shareCardPresentation.ts`.
 
 ## Daily ingest
 
