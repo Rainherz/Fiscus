@@ -1,5 +1,6 @@
 import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChange';
 import type { FunctionSummary, IngestRun, Investment } from './investment';
+import type { RegionComparison } from './regionComparison';
 import type { StalledInvestment } from './stalled';
 
 type Numeric = number | string | null | undefined;
@@ -160,4 +161,44 @@ export function mapCostChangeRow(row: CostChangeRow): CostChange {
 
 export function mapRecentCostIncreaseRow(row: RecentCostIncreaseRow): RecentCostIncrease {
   return { ...mapCostChangeRow(row), name: toText(row.investments?.name) };
+}
+
+/** Row shape of the `region_comparison` view. */
+export interface RegionComparisonRow {
+  department_code: number;
+  department_name: Text;
+  project_count: Numeric;
+  active_count: Numeric;
+  valid_cost_count: Numeric;
+  total_viable_amount: Numeric;
+  total_updated_cost: Numeric;
+  total_cost_increase: Numeric;
+  projects_with_increase: Numeric;
+  cost_increase_pct: Numeric;
+  overspent_count: Numeric;
+  stalled_count: Numeric;
+  stalled_pending_amount: Numeric;
+}
+
+export const REGION_COMPARISON_COLUMNS =
+  'department_code,department_name,project_count,active_count,valid_cost_count,total_viable_amount,' +
+  'total_updated_cost,total_cost_increase,projects_with_increase,cost_increase_pct,overspent_count,' +
+  'stalled_count,stalled_pending_amount';
+
+export function mapRegionComparisonRow(row: RegionComparisonRow): RegionComparison {
+  return {
+    departmentCode: row.department_code,
+    departmentName: toText(row.department_name),
+    projectCount: toNumber(row.project_count) ?? 0,
+    activeCount: toNumber(row.active_count) ?? 0,
+    validCostCount: toNumber(row.valid_cost_count) ?? 0,
+    totalViableAmount: toNumber(row.total_viable_amount),
+    totalUpdatedCost: toNumber(row.total_updated_cost),
+    totalCostIncrease: toNumber(row.total_cost_increase) ?? 0,
+    projectsWithIncrease: toNumber(row.projects_with_increase) ?? 0,
+    costIncreasePct: toNumber(row.cost_increase_pct),
+    overspentCount: toNumber(row.overspent_count) ?? 0,
+    stalledCount: toNumber(row.stalled_count) ?? 0,
+    stalledPendingAmount: toNumber(row.stalled_pending_amount) ?? 0,
+  };
 }

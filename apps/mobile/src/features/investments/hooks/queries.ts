@@ -137,3 +137,12 @@ export function useAccrualReferenceMonth() {
     staleTime: 60 * 60 * 1000,
   });
 }
+
+/** "Regiones": every department at once (25 rows), sorted on the client. */
+export function useRegionComparison() {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['region-comparison'],
+    queryFn: () => repository.getRegionComparison(),
+  });
+}

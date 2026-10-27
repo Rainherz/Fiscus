@@ -1,6 +1,7 @@
 import type { CostChange, RecentCostIncrease } from '../domain/costChange';
 import type { FunctionSummary, IngestRun, Investment } from '../domain/investment';
 import type { InvestmentQuery } from '../domain/queries';
+import type { RegionComparison } from '../domain/regionComparison';
 import type { StalledInvestment } from '../domain/stalled';
 
 /** Read-only access to public investment data. */
@@ -23,4 +24,6 @@ export interface InvestmentsRepository {
   countStalledInvestments(departmentCode: number): Promise<number>;
   /** Latest last accrual month in the dataset (first day of a month), or null without data. */
   getAccrualReferenceMonth(): Promise<string | null>;
+  /** One row per department with data, ordered by department code (see domain/regionComparison). */
+  getRegionComparison(): Promise<RegionComparison[]>;
 }
