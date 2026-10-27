@@ -126,7 +126,11 @@ export function InvestmentDetailView({ investment: inv, now }: Props) {
       {invalidCost ? null : (
         <View style={styles.progress}>
           <MonoText bold size={12}>{`GASTADO ${formatProgress(inv.executionProgress)} DEL COSTO`}</MonoText>
-          <HazardProgressBar ratio={inv.executionProgress} overspend={spentOverUpdatedCost(inv)} />
+          <HazardProgressBar
+            ratio={inv.executionProgress}
+            overspend={spentOverUpdatedCost(inv)}
+            anomaly={inv.spentAnomaly}
+          />
         </View>
       )}
 

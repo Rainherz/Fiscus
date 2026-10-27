@@ -40,6 +40,26 @@ describe('HomeView', () => {
     );
   });
 
+  it('flags unusual spending of the hero under the bar', async () => {
+    await render(
+      <HomeView
+        hero={{ ...majes, accruedTotal: 60_000_000_000, executionProgress: 11.66, spentAnomaly: true }}
+        ranking={[]}
+        now={NOW}
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByText('Dato inusual en la fuente MEF: lo gastado supera 10 veces el costo actualizado.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('does not flag ordinary spending of the hero', async () => {
+    await setup().render();
+    expect(screen.queryByText(/Dato inusual/)).toBeNull();
+  });
+
   it('lists the next increases starting at rank 2', async () => {
     const ctx = setup();
     await ctx.render();

@@ -16,10 +16,16 @@ export interface Investment {
   viableAmount: number | null;
   updatedCost: number | null;
   /**
-   * False when updated_cost is missing or a MEF placeholder below S/ 1,000. The derived
-   * metrics (cost increase, percentage, spent ratio) are null then.
+   * False when updated_cost is missing, a MEF placeholder below S/ 1,000, or below 1% of a
+   * positive viable amount. The derived metrics (cost increase, percentage, spent ratio) are
+   * null then.
    */
   updatedCostValid: boolean;
+  /**
+   * True when the accrued total is more than 10 times a valid updated cost (spent ratio > 10):
+   * an unusual figure in the MEF source, shown with a notice rather than hidden.
+   */
+  spentAnomaly: boolean;
   accruedTotal: number | null;
   /** updated_cost - viable_amount */
   costIncrease: number | null;
@@ -35,7 +41,7 @@ export interface Investment {
   sourceUpdatedAt: string | null;
 }
 
-/** The source publishes an updated cost, but it is a placeholder (see `updatedCostValid`). */
+/** The source publishes an updated cost, but it is not usable (see `updatedCostValid`). */
 export function hasInvalidUpdatedCost(investment: Investment): boolean {
   return investment.updatedCost !== null && !investment.updatedCostValid;
 }

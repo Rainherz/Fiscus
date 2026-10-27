@@ -82,7 +82,11 @@ export function HomeView({ hero, ranking, now, onPressInvestment, onPressSeeAll,
             <MonoText bold size={12}>{`${formatYears(years).toUpperCase()} EN CURSO`}</MonoText>
           ) : null}
         </View>
-        <HazardProgressBar ratio={hero.executionProgress} overspend={spentOverUpdatedCost(hero)} />
+        <HazardProgressBar
+          ratio={hero.executionProgress}
+          overspend={spentOverUpdatedCost(hero)}
+          anomaly={hero.spentAnomaly}
+        />
       </View>
 
       {ranking.length > 0 ? (

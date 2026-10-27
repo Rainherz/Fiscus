@@ -21,6 +21,7 @@ export interface InvestmentRow {
   viable_amount: Numeric;
   updated_cost: Numeric;
   updated_cost_valid: boolean | null | undefined;
+  spent_anomaly: boolean | null | undefined;
   accrued_total: Numeric;
   cost_increase: Numeric;
   cost_increase_pct: Numeric;
@@ -34,7 +35,7 @@ export const INVESTMENT_COLUMNS =
   'cui,name,entity,status,situation,function,functional_division,functional_group,beneficiaries,' +
   'registered_at,viability_at,first_accrual_month,last_accrual_month,viable_amount,updated_cost,' +
   'updated_cost_valid,accrued_total,cost_increase,cost_increase_pct,execution_progress,department_code,' +
-  'department_name,source_updated_at';
+  'department_name,source_updated_at,spent_anomaly';
 
 export interface FunctionSummaryRow {
   department_code: number;
@@ -75,6 +76,7 @@ export function mapInvestmentRow(row: InvestmentRow): Investment {
     viableAmount: toNumber(row.viable_amount),
     updatedCost: toNumber(row.updated_cost),
     updatedCostValid: row.updated_cost_valid === true,
+    spentAnomaly: row.spent_anomaly === true,
     accruedTotal: toNumber(row.accrued_total),
     costIncrease: toNumber(row.cost_increase),
     costIncreasePct: toNumber(row.cost_increase_pct),

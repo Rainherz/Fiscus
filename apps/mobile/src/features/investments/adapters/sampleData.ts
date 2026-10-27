@@ -16,15 +16,24 @@ interface SampleInput {
   status?: string | null;
 }
 
-/** Mirrors the database threshold for MEF placeholder costs (S/ 1, 3, 10...). */
+/** Mirror the database rule for MEF placeholder and truncated updated costs. */
 const MIN_VALID_UPDATED_COST = 1000;
+const MIN_UPDATED_COST_RATIO = 0.01;
+/** Mirrors investments.spent_anomaly: spent ratio above this is flagged as unusual. */
+const SPENT_ANOMALY_RATIO = 10;
+
+function isValidUpdatedCost(updated: number | null, viable: number | null): updated is number {
+  if (updated === null || updated < MIN_VALID_UPDATED_COST) return false;
+  if (viable === null || viable <= 0) return true;
+  return updated >= viable * MIN_UPDATED_COST_RATIO;
+}
 
 /** Builds an `investments` row, deriving the generated columns the way Postgres does. */
 export function sampleRow(input: SampleInput): InvestmentRow {
   const viable = input.viable ?? null;
   const updated = input.updated ?? null;
   const progress = input.progress ?? null;
-  const valid = updated !== null && updated >= MIN_VALID_UPDATED_COST;
+  const valid = isValidUpdatedCost(updated, viable);
   const accrued =
     input.accrued !== undefined
       ? input.accrued
@@ -32,6 +41,7 @@ export function sampleRow(input: SampleInput): InvestmentRow {
         ? progress * updated
         : null;
   const increase = valid && viable !== null ? updated - viable : null;
+  const spentRatio = valid && accrued !== null ? accrued / updated : null;
   return {
     cui: input.cui,
     name: input.name === undefined ? `Proyecto ${input.cui}` : input.name,
@@ -52,10 +62,11 @@ export function sampleRow(input: SampleInput): InvestmentRow {
     accrued_total: accrued,
     cost_increase: increase,
     cost_increase_pct: increase !== null && viable ? (increase / viable) * 100 : null,
-    execution_progress: valid && accrued !== null ? accrued / updated : null,
+    execution_progress: spentRatio,
     department_code: input.departmentCode ?? 4,
     department_name: input.departmentName === undefined ? 'AREQUIPA' : input.departmentName,
     source_updated_at: '2026-10-26T05:00:00Z',
+    spent_anomaly: spentRatio !== null && spentRatio > SPENT_ANOMALY_RATIO,
   };
 }
 
@@ -134,6 +145,28 @@ export const EDGE_CASE_SAMPLE: InvestmentRow[] = [
     name: null,
     viable: 166_262_211,
     updated: 10,
+    departmentName: null,
+    status: null,
+  }),
+  // Updated cost S/ 4,558.66 against a S/ 1,990,720 viable amount (below 1%): invalid. Name and
+  // region are not verified; placed in Arequipa only so the demo region shows it.
+  sampleRow({
+    cui: '2045951',
+    name: null,
+    viable: 1_990_720,
+    updated: 4_558.66,
+    accrued: 1_422_564.44,
+    departmentName: null,
+    status: null,
+  }),
+  // Cost coherent with the viable amount, but S/ 18.8 M accrued (6,262 %): unusual source figure,
+  // kept visible with a notice. Name and region are not verified, as above.
+  sampleRow({
+    cui: '2057689',
+    name: null,
+    viable: 299_700,
+    updated: 299_700,
+    accrued: 18_768_455.33,
     departmentName: null,
     status: null,
   }),

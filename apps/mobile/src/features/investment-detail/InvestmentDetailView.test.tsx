@@ -43,6 +43,33 @@ describe('InvestmentDetailView', () => {
     expect(screen.getByText('Gastó S/ 26.8 M más que su costo actualizado')).toBeOnTheScreen();
   });
 
+  it('flags spending above 10 times the updated cost as unusual source data', async () => {
+    await render(
+      <InvestmentDetailView
+        investment={{
+          ...full,
+          viableAmount: 299_700,
+          updatedCost: 299_700,
+          accruedTotal: 18_768_455.33,
+          costIncrease: 0,
+          costIncreasePct: 0,
+          executionProgress: 62.624,
+          spentAnomaly: true,
+        }}
+        now={NOW}
+      />,
+    );
+    expect(
+      screen.getByText('Dato inusual en la fuente MEF: lo gastado supera 10 veces el costo actualizado.'),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Gastó S/ 18.5 M más que su costo actualizado')).toBeOnTheScreen();
+  });
+
+  it('does not flag ordinary spending as unusual', async () => {
+    await render(<InvestmentDetailView investment={full} now={NOW} />);
+    expect(screen.queryByText(/Dato inusual/)).toBeNull();
+  });
+
   it('replaces the metrics with a notice when the source cost is a placeholder', async () => {
     await render(
       <InvestmentDetailView

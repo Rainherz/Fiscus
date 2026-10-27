@@ -17,6 +17,7 @@ const row = {
   viable_amount: '1338419640',
   updated_cost: 5147912126,
   updated_cost_valid: true,
+  spent_anomaly: false,
   accrued_total: '926624182.68',
   cost_increase: '3809492486',
   cost_increase_pct: 284.6278,
@@ -45,6 +46,7 @@ describe('mapInvestmentRow', () => {
       viableAmount: 1338419640,
       updatedCost: 5147912126,
       updatedCostValid: true,
+      spentAnomaly: false,
       accruedTotal: 926624182.68,
       costIncrease: 3809492486,
       costIncreasePct: 284.6278,
@@ -92,6 +94,20 @@ describe('mapInvestmentRow cost validity', () => {
 
   it('selects the validity flag from the database', () => {
     expect(INVESTMENT_COLUMNS.split(',')).toContain('updated_cost_valid');
+  });
+});
+
+describe('mapInvestmentRow spent anomaly', () => {
+  it('maps the database flag for spending far above the updated cost', () => {
+    expect(mapInvestmentRow({ ...row, spent_anomaly: true }).spentAnomaly).toBe(true);
+  });
+
+  it('treats a missing flag as no anomaly', () => {
+    expect(mapInvestmentRow({ ...row, spent_anomaly: null }).spentAnomaly).toBe(false);
+  });
+
+  it('selects the anomaly flag from the database', () => {
+    expect(INVESTMENT_COLUMNS.split(',')).toContain('spent_anomaly');
   });
 });
 

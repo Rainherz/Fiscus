@@ -12,6 +12,8 @@ interface Props {
   ratio: number | null;
   /** Soles spent beyond the updated cost, stated below the bar when the ratio exceeds 1. */
   overspend?: number | null;
+  /** The source reports spending above 10 times the updated cost; stated below the bar. */
+  anomaly?: boolean;
   height?: number;
 }
 
@@ -19,7 +21,10 @@ interface Props {
  * Ink track with a diagonal yellow/black hazard-striped fill. The fill is clamped to 100%;
  * the real percentage is reported to assistive technologies and overspend is stated in text.
  */
-export function HazardProgressBar({ ratio, overspend = null, height = 22 }: Props) {
+export const SPENT_ANOMALY_NOTICE =
+  'Dato inusual en la fuente MEF: lo gastado supera 10 veces el costo actualizado.';
+
+export function HazardProgressBar({ ratio, overspend = null, anomaly = false, height = 22 }: Props) {
   const known = ratio !== null && Number.isFinite(ratio);
   const percent = known ? Math.round(ratio * 100) : 0;
   const fill = Math.min(Math.max(percent, 0), 100);
@@ -47,6 +52,11 @@ export function HazardProgressBar({ ratio, overspend = null, height = 22 }: Prop
       {overspent ? (
         <MonoText bold size={12}>
           {`Gastó ${formatSolesCompact(overspend)} más que su costo actualizado`}
+        </MonoText>
+      ) : null}
+      {anomaly ? (
+        <MonoText size={11} muted>
+          {SPENT_ANOMALY_NOTICE}
         </MonoText>
       ) : null}
     </View>
