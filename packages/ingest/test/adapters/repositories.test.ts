@@ -67,6 +67,7 @@ describe("toInvestmentRow", () => {
     expect(row).not.toHaveProperty("cost_increase_pct");
     expect(row).not.toHaveProperty("execution_progress");
     expect(row).not.toHaveProperty("updated_cost_valid");
+    expect(row).not.toHaveProperty("spent_anomaly");
     expect(row).not.toHaveProperty("ingested_at");
   });
 });
