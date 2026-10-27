@@ -1,0 +1,49 @@
+name: Fiscus open-data ingest
+
+# MEF open data (DETALLE_INVERSIONES.csv, ~250 MB): every active investment of national, regional
+# and local governments. Unlike the SSI host, fs.datosabiertos.mef.gob.pe is reachable from
+# GitHub-hosted runners. The file is not refreshed daily: the ingest compares Last-Modified and
+# Content-Length with public.source_snapshots and exits without downloading when unchanged.
+# 10:00 UTC = 05:00 Lima, after the 04:00 SSI run on the machine in Peru.
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ingest even if the file is unchanged since the last ingest"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: fiscus-open-data-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @fiscus/ingest test
+
+      - name: Ingest MEF open data into Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: pnpm ingest:open-data $FORCE
