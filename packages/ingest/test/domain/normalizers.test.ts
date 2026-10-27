@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   parseDayMonthYear,
+  parseCompactYearMonth,
   parseInteger,
+  parseIsoDate,
   parseNumber,
   parseText,
   parseYearMonth,
@@ -93,5 +95,37 @@ describe("parseYearMonth", () => {
     expect(parseYearMonth(null)).toBeNull();
     expect(parseYearMonth("2010-13")).toBeNull();
     expect(parseYearMonth("08/2010")).toBeNull();
+  });
+});
+
+describe("parseIsoDate", () => {
+  it("takes the date part of an ISO date-time", () => {
+    expect(parseIsoDate("2010-01-28 00:00:00")).toBe("2010-01-28");
+  });
+
+  it("accepts a bare ISO date", () => {
+    expect(parseIsoDate("2026-06-03")).toBe("2026-06-03");
+  });
+
+  it("returns null for empty, malformed and impossible dates", () => {
+    expect(parseIsoDate("")).toBeNull();
+    expect(parseIsoDate(undefined)).toBeNull();
+    expect(parseIsoDate("28/01/2010")).toBeNull();
+    expect(parseIsoDate("2026-02-30 00:00:00")).toBeNull();
+  });
+});
+
+describe("parseCompactYearMonth", () => {
+  it("parses yyyymm to the first day of the month", () => {
+    expect(parseCompactYearMonth("202610")).toBe("2026-10-01");
+    expect(parseCompactYearMonth("201008")).toBe("2010-08-01");
+  });
+
+  it("returns null for empty, malformed and impossible months", () => {
+    expect(parseCompactYearMonth("")).toBeNull();
+    expect(parseCompactYearMonth(null)).toBeNull();
+    expect(parseCompactYearMonth("2026-10")).toBeNull();
+    expect(parseCompactYearMonth("202613")).toBeNull();
+    expect(parseCompactYearMonth("20261")).toBeNull();
   });
 });

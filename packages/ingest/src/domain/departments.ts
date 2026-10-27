@@ -35,3 +35,26 @@ export const DEPARTMENTS: readonly Department[] = [
 export function departmentName(code: number): string | null {
   return DEPARTMENTS.find((d) => d.code === code)?.name ?? null;
 }
+
+/**
+ * INEI ubigeo -> department code. The first two digits of an INEI ubigeo are the department and
+ * match the codes above (01 Amazonas ... 07 Callao ... 15 Lima ... 25 Ucayali). MEF uses 99 for
+ * investments spanning several departments; that, and anything malformed, yields null.
+ */
+export function departmentCodeFromUbigeo(ubigeo: string | null | undefined): number | null {
+  const match = /^(\d{2})(?:\d{4})?$/.exec(ubigeo?.trim() ?? "");
+  if (!match) return null;
+  const code = Number(match[1]);
+  return DEPARTMENTS.some((d) => d.code === code) ? code : null;
+}
+
+function foldName(name: string): string {
+  return name.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toUpperCase();
+}
+
+/** Department name as published by MEF ("ANCASH", "SAN MARTIN") -> code; null when unknown. */
+export function departmentCodeFromName(name: string | null | undefined): number | null {
+  if (!name) return null;
+  const folded = foldName(name);
+  return DEPARTMENTS.find((d) => foldName(d.name) === folded)?.code ?? null;
+}
