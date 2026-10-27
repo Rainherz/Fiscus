@@ -28,7 +28,6 @@ describe('ranking presentation', () => {
       'Mayor costo',
       'Más tiempo en curso',
       'Sin gasto reciente',
-      'Regiones',
     ]);
     expect(RANKING_OPTIONS.map((o) => o.key)).toEqual(RANKING_TABS);
   });
@@ -36,7 +35,8 @@ describe('ranking presentation', () => {
   it('recognizes tab names from the route', () => {
     expect(isRankingTab('stalled')).toBe(true);
     expect(isRankingTab('cost')).toBe(true);
-    expect(isRankingTab('regions')).toBe(true);
+    // The region comparison moved to the region picker; old links fall back to the default tab.
+    expect(isRankingTab('regions')).toBe(false);
     expect(isRankingTab('other')).toBe(false);
     expect(isRankingTab(undefined)).toBe(false);
   });
@@ -59,6 +59,5 @@ describe('ranking presentation', () => {
     expect(rankingNote('increase-pct')).toBe('Solo proyectos aprobados por más de S/ 1 M.');
     expect(rankingNote('duration')).toBe('Proyectos activos, contados desde su fecha de viabilidad.');
     expect(rankingNote('increase-amount')).toBeNull();
-    expect(rankingNote('regions')).toBeNull();
   });
 });

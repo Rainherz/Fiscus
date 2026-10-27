@@ -1,34 +1,44 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useDepartment } from '@/features/department/DepartmentContext';
 import { rankRegions, type RegionSort } from '@/features/investments/domain/regionComparison';
 import { useRegionComparison } from '@/features/investments/hooks/queries';
 
-import { goToRegion } from './goToRegion';
+import { pickRegion } from './pickRegion';
 import { isRegionSort } from './regionPresentation';
-import { RegionsView } from './RegionsView';
+import { RegionPickerView } from './RegionPickerView';
 
 const DEFAULT_SORT: RegionSort = 'increase-amount';
 
-/** The sort lives in the route (`/rankings?tab=regions&sort=stalled`), like the Rankings tab. */
-export function RegionsContainer() {
+/**
+ * The region picker screen (`/region?sort=stalled`). It returns to the screen it was opened
+ * from; opened directly from a link, there is nothing to go back to, so it opens Inicio.
+ */
+export function RegionPickerContainer() {
   const router = useRouter();
-  const { setCode } = useDepartment();
+  const insets = useSafeAreaInsets();
+  const { code, setCode } = useDepartment();
   const params = useLocalSearchParams<{ sort?: string }>();
   const sort: RegionSort = isRegionSort(params.sort) ? params.sort : DEFAULT_SORT;
   const query = useRegionComparison();
   const regions = useMemo(() => rankRegions(query.data ?? [], sort), [query.data, sort]);
 
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
   return (
-    <RegionsView
+    <RegionPickerView
       sort={sort}
       regions={regions}
       status={query.status}
-      onSelectTab={(tab) => router.setParams({ tab, sort: undefined })}
+      currentCode={code}
+      topInset={insets.top}
+      bottomInset={insets.bottom}
       onSelectSort={(next) => router.setParams({ sort: next })}
       onRetry={() => query.refetch()}
-      onPressRegion={(code) => goToRegion(code, { setCode, navigateHome: () => router.navigate('/') })}
+      onPick={(next) => pickRegion(next, { setCode, close })}
+      onClose={close}
     />
   );
 }

@@ -22,7 +22,7 @@ packages/ingest/src/
   application/   runIngest (per-department fault isolation)
   cli.ts         entrypoint
 apps/mobile/src/
-  app/           Expo Router routes: (tabs) index, rankings, categories, search; investment/[cui]; category/[fn]
+  app/           Expo Router routes: (tabs) index, rankings, categories, search; region; investment/[cui]; category/[fn]
   features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
                  department, home, rankings, regions, categories, search, investment-detail (container + view)
   shared/        theme tokens, formatters, UI atoms
@@ -101,12 +101,15 @@ applies the rule and adds `months_without_accrual` and `pending_amount`. The app
 "Sin gasto reciente" tab in Rankings, a block on home and a line on the detail screen. The demo mode adds
 invented projects marked "(demo)" so these screens have something to show.
 
-Regiones: a "Regiones" tab in Rankings compares the departments, sorted by total cost increase (S/ or %),
-"Sin gasto reciente" projects, or projects that spent more than their updated cost. It reads the
-`region_comparison` view (`supabase/migrations/20261030000000_create_region_comparison.sql`): cost figures
-only use valid updated costs, and the increase total adds positive increases only (reductions are not
-netted). Tapping a region selects it and opens Inicio. The older `department_summary` view is unchanged
-but not used by the app.
+Region picker: the region selector in the header ("AREQUIPA ▾") opens the "Elegir región" screen
+(`/region`), which compares all departments, sorted by total cost increase (S/ or %), "Sin gasto reciente"
+projects, or projects that spent more than their updated cost. It reads the `region_comparison` view
+(`supabase/migrations/20261030000000_create_region_comparison.sql`): cost figures only use valid updated
+costs, and the increase total adds positive increases only (reductions are not netted). The current region
+is marked "ACTUAL"; tapping a region selects it and returns to the previous screen. Departments without
+data, and every department while the comparison loads or fails, are listed alphabetically so picking a
+region never depends on it. Rankings only ranks projects of the selected region; old `?tab=regions` links
+open its default tab. The older `department_summary` view is unchanged but not used by the app.
 
 ## Daily ingest
 

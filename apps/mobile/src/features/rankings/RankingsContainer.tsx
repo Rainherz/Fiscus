@@ -4,26 +4,25 @@ import { useDepartment } from '@/features/department/DepartmentContext';
 import type { RankingKind } from '@/features/investments/domain/investment';
 import { useRanking, useStalledInvestments } from '@/features/investments/hooks/queries';
 
-import { RegionsContainer } from '../regions/RegionsContainer';
 import { isRankingTab, type RankingList, type RankingTab } from './rankingPresentation';
 import { RankingsView } from './RankingsView';
 
 const DEFAULT_TAB: RankingKind = 'increase-amount';
 
-/** The selected tab lives in the route (`/rankings?tab=stalled`), so Home can link to any tab. */
+/**
+ * The selected tab lives in the route (`/rankings?tab=stalled`), so Home can link to any tab.
+ * Unknown tabs, like the removed `regions`, open the default ranking.
+ */
 export function RankingsContainer() {
   const router = useRouter();
   const { code } = useDepartment();
   const params = useLocalSearchParams<{ tab?: string }>();
   const tab: RankingTab = isRankingTab(params.tab) ? params.tab : DEFAULT_TAB;
-  const rankingKind: RankingKind = tab === 'stalled' || tab === 'regions' ? DEFAULT_TAB : tab;
+  const rankingKind: RankingKind = tab === 'stalled' ? DEFAULT_TAB : tab;
   // Only the selected tab fetches.
-  const ranking = useRanking(rankingKind, code, { enabled: tab !== 'stalled' && tab !== 'regions' });
+  const ranking = useRanking(rankingKind, code, { enabled: tab !== 'stalled' });
   const stalled = useStalledInvestments(code, { enabled: tab === 'stalled' });
   const query = tab === 'stalled' ? stalled : ranking;
-
-  // "Regiones" compares departments, so it does not depend on the selected region.
-  if (tab === 'regions') return <RegionsContainer />;
 
   const list: RankingList =
     tab === 'stalled'

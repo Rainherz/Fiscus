@@ -25,6 +25,12 @@ describe('RankingsView', () => {
     expect(screen.queryByText('Solo proyectos aprobados por más de S/ 1 M.')).toBeNull();
   });
 
+  it('only ranks projects of the selected region: the region comparison lives in the region picker', async () => {
+    await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: arequipa }} />);
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
+    expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
+  });
+
   it('explains the minimum approved amount on the percentage ranking', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-pct', items: arequipa }} />);
     expect(screen.getByText('Solo proyectos aprobados por más de S/ 1 M.')).toBeOnTheScreen();

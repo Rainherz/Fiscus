@@ -1,6 +1,6 @@
 import { formatInteger, formatSignedPercent, formatSignedSoles, formatSolesCompact } from '@/shared/format';
 
-import { departmentName } from '../department/departments';
+import { DEPARTMENTS, departmentName, type Department } from '../department/departments';
 import { REGION_SORTS, type RegionComparison, type RegionSort } from '../investments/domain/regionComparison';
 import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 
@@ -13,6 +13,17 @@ export const REGION_SORT_OPTIONS: readonly { key: RegionSort; label: string }[] 
   { key: 'stalled', label: 'Más obras sin gasto reciente' },
   { key: 'overspent', label: 'Más gasto sobre el costo' },
 ];
+
+/** Every department by name, for the picker while the comparison is loading or failed. */
+export const ALPHABETICAL_DEPARTMENTS: readonly Department[] = [...DEPARTMENTS].sort((a, b) =>
+  a.name.localeCompare(b.name, 'es'),
+);
+
+/** Departments the comparison has no row for, so the picker can still offer them. */
+export function departmentsWithoutData(regions: readonly RegionComparison[]): Department[] {
+  const present = new Set(regions.map((region) => region.departmentCode));
+  return ALPHABETICAL_DEPARTMENTS.filter((department) => !present.has(department.code));
+}
 
 export function isRegionSort(value: unknown): value is RegionSort {
   return typeof value === 'string' && (REGION_SORTS as readonly string[]).includes(value);

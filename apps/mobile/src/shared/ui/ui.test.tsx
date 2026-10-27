@@ -7,6 +7,15 @@ import { RankingRow } from './RankingRow';
 import { SegmentedTabs } from './SegmentedTabs';
 import { StateMessage } from './StateMessage';
 
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({ width: 390, height: 844, scale: 2, fontScale: 1 })),
+}));
+const windowWidth = (width: number) =>
+  jest
+    .requireMock<{ default: jest.Mock }>('react-native/Libraries/Utilities/useWindowDimensions')
+    .default.mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+
 describe('HazardProgressBar', () => {
   it('exposes the spent share to assistive technologies', async () => {
     await render(<HazardProgressBar ratio={0.18} />);
@@ -80,6 +89,13 @@ describe('RankingRow', () => {
     ).toBeOnTheScreen();
   });
 
+  it('marks the current row for sight and screen readers', async () => {
+    await render(<RankingRow rank={1} name="Arequipa" value="+S/ 3,809 M" selected onPress={() => {}} />);
+    const row = screen.getByRole('button', { name: '1. Arequipa, +S/ 3,809 M, actual' });
+    expect(row).toBeSelected();
+    expect(screen.getByText('ACTUAL')).toBeOnTheScreen();
+  });
+
   it('can show a secondary detail line', async () => {
     await render(
       <RankingRow rank={1} name="Obra" value="S/ 10 M" detail="CUI 2088142" onPress={() => {}} />,
@@ -109,6 +125,8 @@ describe('StateMessage', () => {
 });
 
 describe('SegmentedTabs', () => {
+  beforeEach(() => windowWidth(390));
+
   const options = [
     { key: 'a', label: 'Mayor aumento (S/)' },
     { key: 'b', label: 'Mayor costo' },
@@ -131,6 +149,20 @@ describe('SegmentedTabs', () => {
     });
     expect(scrollTo).toHaveBeenLastCalledWith({ x: 600 - 20, animated: true });
     scrollTo.mockRestore();
+  });
+
+  it('scrolls horizontally on phones', async () => {
+    windowWidth(390);
+    await render(<SegmentedTabs options={options} selected="a" onSelect={jest.fn()} accessibilityLabel="Rankings" />);
+    expect(screen.getByLabelText('Rankings').props.horizontal).toBe(true);
+  });
+
+  it('wraps onto several lines on wide screens, so no tab is cut off by the content column', async () => {
+    windowWidth(1280);
+    await render(<SegmentedTabs options={options} selected="a" onSelect={jest.fn()} accessibilityLabel="Rankings" />);
+    const tablist = screen.getByLabelText('Rankings');
+    expect(tablist.props.horizontal).toBeUndefined();
+    expect(tablist).toHaveStyle({ flexDirection: 'row', flexWrap: 'wrap' });
   });
 });
 
