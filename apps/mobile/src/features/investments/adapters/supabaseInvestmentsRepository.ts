@@ -3,18 +3,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   COST_CHANGE_COLUMNS,
   INVESTMENT_COLUMNS,
+  REGION_COMPARISON_COLUMNS,
   STALLED_INVESTMENT_COLUMNS,
   mapCostChangeRow,
   mapFunctionSummaryRow,
   mapIngestRunRow,
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
+  mapRegionComparisonRow,
   mapStalledInvestmentRow,
   type CostChangeRow,
   type FunctionSummaryRow,
   type IngestRunRow,
   type InvestmentRow,
   type RecentCostIncreaseRow,
+  type RegionComparisonRow,
   type StalledInvestmentRow,
 } from '../domain/mappers';
 import { buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
@@ -155,6 +158,13 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
           .maybeSingle<{ reference_month: string | null }>(),
       );
       return row?.reference_month ?? null;
+    },
+    async getRegionComparison() {
+      const rows = unwrap(
+        (await (client.from('region_comparison').select(REGION_COMPARISON_COLUMNS) as unknown as FilterBuilder)
+          .order('department_code', { ascending: true })) as Result<RegionComparisonRow[]>,
+      );
+      return (rows ?? []).map(mapRegionComparisonRow);
     },
   };
 }

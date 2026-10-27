@@ -9,6 +9,7 @@ import {
   type StalledInvestmentRow,
 } from '../domain/mappers';
 import { buildStalledQuery, type Filter, type InvestmentQuery, type Order } from '../domain/queries';
+import { computeRegionComparison } from '../domain/regionComparison';
 import { toStalledInvestment } from '../domain/stalled';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
@@ -166,6 +167,9 @@ export function createInMemoryInvestmentsRepository(seed: {
     },
     async getAccrualReferenceMonth() {
       return referenceMonth(rows);
+    },
+    async getRegionComparison() {
+      return computeRegionComparison(rows.map(mapInvestmentRow), stalledRows(rows).map(mapStalledInvestmentRow));
     },
   };
 }

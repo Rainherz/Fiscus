@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { COST_CHANGE_COLUMNS, STALLED_INVESTMENT_COLUMNS } from '../domain/mappers';
+import { COST_CHANGE_COLUMNS, REGION_COMPARISON_COLUMNS, STALLED_INVESTMENT_COLUMNS } from '../domain/mappers';
 import { buildRankingQuery, buildSearchQuery, buildFunctionQuery } from '../domain/queries';
 import { createSupabaseInvestmentsRepository } from './supabaseInvestmentsRepository';
 import { sampleRow } from './sampleData';
@@ -218,5 +218,56 @@ describe('supabase stalled investments', () => {
     await expect(repo.getStalledInvestments({ departmentCode: 4, page: 0 })).rejects.toThrow('boom');
     await expect(repo.countStalledInvestments(4)).rejects.toThrow('boom');
     await expect(repo.getAccrualReferenceMonth()).rejects.toThrow('boom');
+  });
+});
+
+describe('supabase region comparison', () => {
+  const regionRow = {
+    department_code: 4,
+    department_name: 'AREQUIPA',
+    project_count: 1638,
+    active_count: '1200',
+    valid_cost_count: 1500,
+    total_viable_amount: '13380000000.5',
+    total_updated_cost: '17190000000',
+    total_cost_increase: '3809492486',
+    projects_with_increase: 412,
+    cost_increase_pct: '28.47',
+    overspent_count: 8,
+    stalled_count: 12,
+    stalled_pending_amount: '202000000',
+  };
+
+  it('reads every department from the region_comparison view', async () => {
+    const { client, calls } = fakeClient({ data: [regionRow], error: null });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.getRegionComparison()).toEqual([
+      {
+        departmentCode: 4,
+        departmentName: 'AREQUIPA',
+        projectCount: 1638,
+        activeCount: 1200,
+        validCostCount: 1500,
+        totalViableAmount: 13_380_000_000.5,
+        totalUpdatedCost: 17_190_000_000,
+        totalCostIncrease: 3_809_492_486,
+        projectsWithIncrease: 412,
+        costIncreasePct: 28.47,
+        overspentCount: 8,
+        stalledCount: 12,
+        stalledPendingAmount: 202_000_000,
+      },
+    ]);
+    expect(calls).toEqual([
+      ['from', 'region_comparison'],
+      ['select', REGION_COMPARISON_COLUMNS],
+      ['order', 'department_code', { ascending: true }],
+    ]);
+  });
+
+  it('throws when Supabase returns an error', async () => {
+    const { client } = fakeClient({ data: null, error: { message: 'boom' } });
+    await expect(createSupabaseInvestmentsRepository(client).getRegionComparison()).rejects.toThrow('boom');
   });
 });

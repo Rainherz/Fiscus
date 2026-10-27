@@ -186,3 +186,29 @@ describe('in-memory stalled investments', () => {
     expect(await repo.countStalledInvestments(4)).toBe(0);
   });
 });
+
+describe('in-memory region comparison', () => {
+  const regionRows = [
+    sampleRow({ cui: 'r1', viable: 1_000_000, updated: 1_500_000, progress: 0.5, lastAccrualMonth: '2026-10-01', departmentCode: 8, departmentName: 'CUSCO' }),
+    sampleRow({ cui: 'r2', viable: 2_000_000, updated: 1_800_000, accrued: 2_000_000, lastAccrualMonth: '2026-10-01', departmentCode: 8, departmentName: 'CUSCO' }),
+    sampleRow({ cui: 'r3', viable: 1_000_000, updated: 10, departmentCode: 8, departmentName: 'CUSCO' }),
+    sampleRow({ cui: 'r4', viable: 500_000, updated: 1_000_000, progress: 0.3, lastAccrualMonth: '2024-01-01' }),
+  ];
+  const regionRepo = createInMemoryInvestmentsRepository({ rows: regionRows, lastRun: null });
+
+  it('aggregates every department like the region_comparison view', async () => {
+    const [arequipa, cusco] = await regionRepo.getRegionComparison();
+    expect(arequipa).toMatchObject({ departmentCode: 4, projectCount: 1, stalledCount: 1, stalledPendingAmount: 700_000 });
+    expect(cusco).toMatchObject({
+      departmentCode: 8,
+      departmentName: 'CUSCO',
+      projectCount: 3,
+      validCostCount: 2,
+      totalCostIncrease: 500_000,
+      projectsWithIncrease: 1,
+      costIncreasePct: 50,
+      overspentCount: 1,
+      stalledCount: 0,
+    });
+  });
+});

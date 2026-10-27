@@ -12,8 +12,8 @@ import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 import type { Investment, RankingKind } from '../investments/domain/investment';
 import type { StalledInvestment } from '../investments/domain/stalled';
 
-/** Tabs of the Rankings screen: the investment rankings plus "Sin gasto reciente". */
-export type RankingTab = RankingKind | 'stalled';
+/** Tabs of the Rankings screen: the investment rankings, "Sin gasto reciente" and "Regiones". */
+export type RankingTab = RankingKind | 'stalled' | 'regions';
 
 export const RANKING_TABS: readonly RankingTab[] = [
   'increase-amount',
@@ -21,6 +21,7 @@ export const RANKING_TABS: readonly RankingTab[] = [
   'cost',
   'duration',
   'stalled',
+  'regions',
 ];
 
 export function isRankingTab(value: unknown): value is RankingTab {
@@ -38,6 +39,7 @@ export const RANKING_OPTIONS: readonly { key: RankingTab; label: string }[] = [
   { key: 'cost', label: 'Mayor costo' },
   { key: 'duration', label: 'Más tiempo en curso' },
   { key: 'stalled', label: 'Sin gasto reciente' },
+  { key: 'regions', label: 'Regiones' },
 ];
 
 /** The metric a project is ranked by. */

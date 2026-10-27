@@ -6,6 +6,7 @@ import {
   mapIngestRunRow,
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
+  mapRegionComparisonRow,
   mapStalledInvestmentRow,
   STALLED_INVESTMENT_COLUMNS,
 } from './mappers';
@@ -242,5 +243,41 @@ describe('mapStalledInvestmentRow', () => {
 
   it('selects the investment columns plus the derived view columns', () => {
     expect(STALLED_INVESTMENT_COLUMNS).toBe(`${INVESTMENT_COLUMNS},months_without_accrual,pending_amount`);
+  });
+});
+
+describe('mapRegionComparisonRow', () => {
+  it('parses numeric strings and keeps a null percentage', () => {
+    expect(
+      mapRegionComparisonRow({
+        department_code: 2,
+        department_name: null,
+        project_count: '10',
+        active_count: 9,
+        valid_cost_count: 8,
+        total_viable_amount: null,
+        total_updated_cost: '5000000',
+        total_cost_increase: '0',
+        projects_with_increase: 0,
+        cost_increase_pct: null,
+        overspent_count: 0,
+        stalled_count: '1',
+        stalled_pending_amount: '250000',
+      }),
+    ).toEqual({
+      departmentCode: 2,
+      departmentName: null,
+      projectCount: 10,
+      activeCount: 9,
+      validCostCount: 8,
+      totalViableAmount: null,
+      totalUpdatedCost: 5_000_000,
+      totalCostIncrease: 0,
+      projectsWithIncrease: 0,
+      costIncreasePct: null,
+      overspentCount: 0,
+      stalledCount: 1,
+      stalledPendingAmount: 250_000,
+    });
   });
 });
