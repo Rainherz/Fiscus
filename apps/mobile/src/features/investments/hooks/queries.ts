@@ -11,7 +11,7 @@ import { useRepository } from '../RepositoryContext';
 import { nextPageParam } from './pagination';
 
 /** Hero + "Ranking de aumentos" on the home screen. */
-export function useTopIncreases(departmentCode: number, count: number) {
+export function useTopIncreases(departmentCode: number | undefined, count: number) {
   const { repository } = useRepository();
   return useQuery({
     queryKey: ['top-increases', departmentCode, count],
@@ -22,7 +22,7 @@ export function useTopIncreases(departmentCode: number, count: number) {
   });
 }
 
-export function useRanking(kind: RankingKind, departmentCode: number, options: { enabled?: boolean } = {}) {
+export function useRanking(kind: RankingKind, departmentCode: number | undefined, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useInfiniteQuery({
     enabled: options.enabled,
@@ -34,7 +34,7 @@ export function useRanking(kind: RankingKind, departmentCode: number, options: {
   });
 }
 
-export function useFunctionInvestments(departmentCode: number, fn: string | null) {
+export function useFunctionInvestments(departmentCode: number | undefined, fn: string | null) {
   const { repository } = useRepository();
   return useInfiniteQuery({
     queryKey: ['function-investments', departmentCode, fn],
@@ -45,7 +45,7 @@ export function useFunctionInvestments(departmentCode: number, fn: string | null
   });
 }
 
-export function useFunctionSummaries(departmentCode: number) {
+export function useFunctionSummaries(departmentCode: number | undefined) {
   const { repository } = useRepository();
   return useQuery({
     queryKey: ['function-summaries', departmentCode],
@@ -53,7 +53,7 @@ export function useFunctionSummaries(departmentCode: number) {
   });
 }
 
-export function useSearchInvestments(text: string, departmentCode: number) {
+export function useSearchInvestments(text: string, departmentCode: number | undefined) {
   const { repository } = useRepository();
   const query = buildSearchQuery(text, departmentCode);
   return {
@@ -93,7 +93,7 @@ export function useCostHistory(cui: string) {
 }
 
 /** "Aumentos recientes" on the home screen. */
-export function useRecentCostIncreases(departmentCode: number, limit: number) {
+export function useRecentCostIncreases(departmentCode: number | undefined, limit: number) {
   const { repository } = useRepository();
   return useQuery({
     queryKey: ['recent-cost-increases', departmentCode, limit],
@@ -102,7 +102,7 @@ export function useRecentCostIncreases(departmentCode: number, limit: number) {
 }
 
 /** "Sin gasto reciente" ranking, paged. */
-export function useStalledInvestments(departmentCode: number, options: { enabled?: boolean } = {}) {
+export function useStalledInvestments(departmentCode: number | undefined, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useInfiniteQuery({
     enabled: options.enabled,
@@ -114,7 +114,7 @@ export function useStalledInvestments(departmentCode: number, options: { enabled
 }
 
 /** "Sin gasto reciente" block on the home screen: how many, and the first few. */
-export function useStalledPreview(departmentCode: number, count: number) {
+export function useStalledPreview(departmentCode: number | undefined, count: number) {
   const { repository } = useRepository();
   return useQuery({
     queryKey: ['stalled-preview', departmentCode, count],

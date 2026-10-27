@@ -85,6 +85,32 @@ describe('supabase investments repository', () => {
     expect(calls).toContainEqual(['eq', 'department_code', 4]);
   });
 
+  it('reads function summaries for all of Peru from the national view', async () => {
+    const { client, calls } = fakeClient({
+      data: [{ function: 'SALUD', investment_count: 30, total_updated_cost: '100', total_cost_increase: null }],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.functionSummaries(undefined)).toEqual([
+      { function: 'SALUD', investmentCount: 30, totalUpdatedCost: 100, totalCostIncrease: null },
+    ]);
+    expect(calls).toEqual([
+      ['from', 'function_summary'],
+      ['select', '*'],
+      ['order', 'total_updated_cost', { ascending: false, nullsFirst: false }],
+    ]);
+  });
+
+  it('pages a national ranking without a department filter', async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await createSupabaseInvestmentsRepository(client).findMany(
+      buildRankingQuery({ kind: 'increase-amount', page: 0, pageSize: 6 }),
+    );
+    expect(calls.some(([method, column]) => method === 'eq' && column === 'department_code')).toBe(false);
+    expect(calls).toContainEqual(['range', 0, 5]);
+  });
+
   it('reads the most recent ingest run', async () => {
     const { client, calls } = fakeClient({
       data: { started_at: 'a', finished_at: 'b' },
@@ -153,6 +179,27 @@ describe('supabase cost history', () => {
     ]);
   });
 
+  it('reads recent increases in all of Peru with the department of each investment', async () => {
+    const { client, calls } = fakeClient({
+      data: [{ ...changeRow, investments: { name: 'Majes Siguas II etapa', department_code: 4 } }],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    const increases = await repo.getRecentCostIncreases({ limit: 5 });
+
+    expect(increases).toEqual([expect.objectContaining({ cui: '2088142', departmentCode: 4 })]);
+    expect(calls).toEqual([
+      ['from', 'investment_cost_changes'],
+      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`],
+      ['eq', 'change_kind', 'changed'],
+      ['gt', 'updated_cost_delta', 0],
+      ['order', 'observed_at', { ascending: false }],
+      ['order', 'id', { ascending: false }],
+      ['limit', 5],
+    ]);
+  });
+
   it('throws when Supabase returns an error', async () => {
     const { client } = fakeClient({ data: null, error: { message: 'boom' } });
     const repo = createSupabaseInvestmentsRepository(client);
@@ -196,6 +243,25 @@ describe('supabase stalled investments', () => {
       ['from', 'stalled_investments'],
       ['select', 'cui', { count: 'exact', head: true }],
       ['eq', 'department_code', 23],
+    ]);
+  });
+
+  it('pages and counts all of Peru without a department filter', async () => {
+    const page = fakeClient({ data: [stalledRow], error: null });
+    await createSupabaseInvestmentsRepository(page.client).getStalledInvestments({ page: 0, pageSize: 3 });
+    expect(page.calls).toEqual([
+      ['from', 'stalled_investments'],
+      ['select', STALLED_INVESTMENT_COLUMNS],
+      ['order', 'pending_amount', { ascending: false, nullsFirst: false }],
+      ['order', 'cui', { ascending: true, nullsFirst: false }],
+      ['range', 0, 2],
+    ]);
+
+    const count = fakeClient({ data: null, error: null, count: 4321 });
+    expect(await createSupabaseInvestmentsRepository(count.client).countStalledInvestments(undefined)).toBe(4321);
+    expect(count.calls).toEqual([
+      ['from', 'stalled_investments'],
+      ['select', 'cui', { count: 'exact', head: true }],
     ]);
   });
 

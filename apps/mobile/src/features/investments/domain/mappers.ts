@@ -160,7 +160,11 @@ export function mapCostChangeRow(row: CostChangeRow): CostChange {
 }
 
 export function mapRecentCostIncreaseRow(row: RecentCostIncreaseRow): RecentCostIncrease {
-  return { ...mapCostChangeRow(row), name: toText(row.investments?.name) };
+  return {
+    ...mapCostChangeRow(row),
+    name: toText(row.investments?.name),
+    departmentCode: row.investments?.department_code ?? null,
+  };
 }
 
 /** Row shape of the `region_comparison` view. */
