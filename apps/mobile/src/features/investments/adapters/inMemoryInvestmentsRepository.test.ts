@@ -88,6 +88,23 @@ describe('in-memory investments repository', () => {
     ]);
   });
 
+  it('aggregates functions for all of Peru without a department', async () => {
+    const summaries = await repo.functionSummaries(undefined);
+    expect(summaries[0]).toEqual({
+      function: 'TRANSPORTE',
+      investmentCount: 2,
+      totalUpdatedCost: 540_000_000,
+      totalCostIncrease: 290_000_000,
+    });
+    expect(summaries.map((s) => s.function)).toEqual(['TRANSPORTE', 'SALUD', null]);
+  });
+
+  it('ranks, searches and lists functions in all of Peru without a department', async () => {
+    expect(cuis(await repo.findMany(buildRankingQuery({ kind: 'cost', page: 0 })))).toEqual(['2', '1', '4', '3']);
+    expect(cuis(await repo.findMany(buildSearchQuery('puente', undefined)!))).toEqual(['4']);
+    expect(cuis(await repo.findMany(buildFunctionQuery({ fn: 'TRANSPORTE', page: 0 })))).toEqual(['2', '4']);
+  });
+
   it('returns the last ingest run', async () => {
     expect((await repo.lastIngestRun())?.finishedAt).toBe('2026-10-26T05:30:00Z');
   });
@@ -129,6 +146,15 @@ describe('in-memory cost history', () => {
     expect(increases.map((c) => [c.id, c.name])).toEqual([
       [3, 'Hospital Norte'],
       [2, 'Carretera Sur'],
+    ]);
+  });
+
+  it('returns increases in all of Peru with the department of each investment', async () => {
+    const increases = await historyRepo.getRecentCostIncreases({ limit: 5 });
+    expect(increases.map((c) => [c.id, c.name, c.departmentCode])).toEqual([
+      [5, 'Puente Lima', 15],
+      [3, 'Hospital Norte', 4],
+      [2, 'Carretera Sur', 4],
     ]);
   });
 
@@ -178,6 +204,11 @@ describe('in-memory stalled investments', () => {
     expect(cuis(await stalledRepo.getStalledInvestments({ departmentCode: 4, page: 1, pageSize: 2 }))).toEqual(['s3']);
     expect(await stalledRepo.countStalledInvestments(4)).toBe(3);
     expect(await stalledRepo.countStalledInvestments(15)).toBe(1);
+  });
+
+  it('lists and counts all of Peru without a department', async () => {
+    expect(cuis(await stalledRepo.getStalledInvestments({ page: 0 }))).toEqual(['other', 's1', 's2', 's3']);
+    expect(await stalledRepo.countStalledInvestments(undefined)).toBe(4);
   });
 
   it('has no reference month and no rows without accrual months', async () => {

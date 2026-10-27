@@ -169,12 +169,27 @@ describe('SegmentedTabs', () => {
 describe('AppHeader', () => {
   it('shows the brand and the current department as a button', async () => {
     const onPress = jest.fn();
-    await render(<AppHeader departmentName="Arequipa" onPressDepartment={onPress} />);
+    await render(<AppHeader scopeLabel="Arequipa" onPressScope={onPress} />);
     expect(screen.getByText('FISCUS')).toBeOnTheScreen();
     expect(screen.getByText('AREQUIPA ▾')).toBeOnTheScreen();
     await fireEvent.press(
       screen.getByRole('button', { name: 'Cambiar región. Región actual: Arequipa' }),
     );
     expect(onPress).toHaveBeenCalled();
+  });
+
+  it('labels all of Peru', async () => {
+    await render(<AppHeader scopeLabel="Todo el Perú" onPressScope={jest.fn()} />);
+    expect(screen.getByText('TODO EL PERÚ ▾')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Cambiar región. Región actual: Todo el Perú' })).toBeOnTheScreen();
+  });
+
+  it('shows a placeholder instead of a scope while the last choice is being read', async () => {
+    const onPress = jest.fn();
+    await render(<AppHeader scopeLabel={null} onPressScope={onPress} />);
+    expect(screen.getByText('FISCUS')).toBeOnTheScreen();
+    expect(screen.queryByText(/▾/)).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByLabelText('Cargando región')).toBeOnTheScreen();
   });
 });

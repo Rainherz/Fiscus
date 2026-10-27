@@ -5,22 +5,43 @@ import { Text } from 'react-native';
 
 import TabsLayout from '@/app/(tabs)/_layout';
 import Rankings from '@/app/(tabs)/rankings';
+import Home from '@/app/(tabs)/index';
 import Region from '@/app/region';
-import { DepartmentProvider } from '@/features/department/DepartmentContext';
+import { department, NATIONAL, type Scope } from '@/features/department/scope';
+import { ScopeProvider } from '@/features/department/ScopeContext';
+import { ScopeGate } from '@/features/department/ScopeGate';
+import type { ScopeStorage } from '@/features/department/scopeStorage';
 import { createInMemoryInvestmentsRepository } from '@/features/investments/adapters/inMemoryInvestmentsRepository';
 import { MOCK_COST_CHANGES, MOCK_ROWS } from '@/features/investments/adapters/sampleData';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
 
-/** The real tabs layout, Rankings and region picker inside a root stack with the app's providers. */
+/** Device storage of the scope for the current test: what was stored and every save. */
+let stored: Scope | null = null;
+let saved: Scope[] = [];
+const storage: ScopeStorage = {
+  load: async () => stored,
+  save: async (scope) => {
+    saved.push(scope);
+  },
+};
+
+beforeEach(() => {
+  stored = department(4);
+  saved = [];
+});
+
+/** The real tabs layout, Home, Rankings and region picker inside a root stack with the app's providers. */
 function RootLayout() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const repository = createInMemoryInvestmentsRepository({ rows: MOCK_ROWS, costChanges: MOCK_COST_CHANGES, lastRun: null });
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoryProvider repository={repository} isDemo>
-        <DepartmentProvider>
-          <Stack screenOptions={{ headerShown: false }} />
-        </DepartmentProvider>
+        <ScopeProvider storage={storage}>
+          <ScopeGate>
+            <Stack screenOptions={{ headerShown: false }} />
+          </ScopeGate>
+        </ScopeProvider>
       </RepositoryProvider>
     </QueryClientProvider>
   );
@@ -31,7 +52,7 @@ const placeholder = (name: string) => () => <Text>{name}</Text>;
 const routes = {
   _layout: RootLayout,
   '(tabs)/_layout': TabsLayout,
-  '(tabs)/index': placeholder('Inicio'),
+  '(tabs)/index': Home,
   '(tabs)/rankings': Rankings,
   '(tabs)/categories': placeholder('Categorías'),
   '(tabs)/search': placeholder('Buscar'),
@@ -71,6 +92,42 @@ describe('region picker navigation', () => {
     await fireEvent.press(await screen.findByRole('button', { name: /^(\d+\. )?Cusco,/ }));
     expect(router.getPathname()).toBe('/');
     expect(await headerSelector('Cusco')).toBeOnTheScreen();
+  });
+
+  it('starts with all of Peru when nothing was stored on the device', async () => {
+    stored = null;
+    await renderRouter(routes, { initialUrl: '/rankings' });
+    expect(await headerSelector('Todo el Perú')).toBeOnTheScreen();
+    expect(screen.getByText('TODO EL PERÚ ▾')).toBeOnTheScreen();
+  });
+
+  it('selects all of Peru from the picker and keeps the choice on the device', async () => {
+    const router = await renderRouter(routes, { initialUrl: '/rankings' });
+    await fireEvent.press(await headerSelector('Arequipa'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Todo el Perú, las 25 regiones' }));
+    expect(router.getPathname()).toBe('/rankings');
+    expect(await headerSelector('Todo el Perú')).toBeOnTheScreen();
+    expect(saved).toEqual([NATIONAL]);
+  });
+
+  it('shows the national home and selects a region from its regions block without leaving Inicio', async () => {
+    stored = NATIONAL;
+    const router = await renderRouter(routes, { initialUrl: '/' });
+    expect(await screen.findByText('EL MAYOR AUMENTO DEL PAÍS')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'REGIONES CON MÁS AUMENTOS' })).toBeOnTheScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: /^1\. Arequipa,/ }));
+    expect(router.getPathname()).toBe('/');
+    expect(await headerSelector('Arequipa')).toBeOnTheScreen();
+    expect(await screen.findByText('EL MAYOR AUMENTO DE LA REGIÓN')).toBeOnTheScreen();
+    expect(screen.queryByRole('header', { name: 'REGIONES CON MÁS AUMENTOS' })).toBeNull();
+    expect(saved).toEqual([department(4)]);
+  });
+
+  it('opens the picker from the regions block on the national home', async () => {
+    stored = NATIONAL;
+    const router = await renderRouter(routes, { initialUrl: '/' });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Ver las 25 regiones' }));
+    expect(router.getPathname()).toBe('/region');
   });
 
   it('opens the default ranking from an old link to the removed Regiones tab', async () => {

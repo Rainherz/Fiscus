@@ -23,22 +23,24 @@ interface Row {
   detail: string | string[];
 }
 
-function toRows(list: RankingList, now: Date): Row[] {
+function toRows(list: RankingList, now: Date, national: boolean): Row[] {
   if (list.kind === 'stalled') {
-    return list.items.map((item) => ({ cui: item.cui, name: item.name, detail: stalledRowDetail(item) }));
+    return list.items.map((item) => ({ cui: item.cui, name: item.name, detail: stalledRowDetail(item, { national }) }));
   }
   const { kind } = list;
   return list.items.map((item) => ({
     cui: item.cui,
     name: item.name,
     value: rankingValue(kind, item, now),
-    detail: rankingDetail(kind, item),
+    detail: rankingDetail(kind, item, { national }),
   }));
 }
 
 interface Props {
   list: RankingList;
   now: Date;
+  /** Ranking all of Peru: rows show their region. */
+  national?: boolean;
   status: 'pending' | 'error' | 'success';
   isFetchingMore: boolean;
   onSelectKind: (kind: RankingTab) => void;
@@ -50,6 +52,7 @@ interface Props {
 export function RankingsView({
   list,
   now,
+  national = false,
   status,
   isFetchingMore,
   onSelectKind,
@@ -59,7 +62,7 @@ export function RankingsView({
 }: Props) {
   const { kind } = list;
   const note = rankingNote(kind);
-  const rows = toRows(list, now);
+  const rows = toRows(list, now, national);
 
   return (
     <View style={styles.screen}>
@@ -95,7 +98,11 @@ export function RankingsView({
           ) : (
             <StateMessage
               kind="empty"
-              message={kind === 'stalled' ? STALLED_EMPTY : 'No hay proyectos para este ranking en esta región.'}
+              message={
+                kind === 'stalled'
+                  ? STALLED_EMPTY
+                  : `No hay proyectos para este ranking ${national ? 'en el país' : 'en esta región'}.`
+              }
             />
           )
         }

@@ -96,9 +96,13 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       return row ? mapInvestmentRow(row) : null;
     },
     async functionSummaries(departmentCode) {
+      // `function_summary` is the same aggregate over all of Peru.
+      const source =
+        departmentCode === undefined
+          ? table('function_summary')
+          : table('department_function_summary').eq('department_code', departmentCode);
       const rows = unwrap(
-        (await table('department_function_summary')
-          .eq('department_code', departmentCode)
+        (await source
           .order('total_updated_cost', { ascending: false, nullsFirst: false })) as Result<
           FunctionSummaryRow[]
         >,
@@ -125,11 +129,13 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
     },
     async getRecentCostIncreases({ departmentCode, limit }) {
       // `!inner` turns the embedded investment into a join, so its filter drops other departments.
+      const increases = costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`)
+        .eq('change_kind', 'changed')
+        .gt('updated_cost_delta', 0);
+      const scoped =
+        departmentCode === undefined ? increases : increases.eq('investments.department_code', departmentCode);
       const rows = unwrap(
-        (await costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`)
-          .eq('change_kind', 'changed')
-          .gt('updated_cost_delta', 0)
-          .eq('investments.department_code', departmentCode)
+        (await scoped
           .order('observed_at', { ascending: false })
           .order('id', { ascending: false })
           .limit(limit)) as Result<RecentCostIncreaseRow[]>,
@@ -145,10 +151,10 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       return (rows ?? []).map(mapStalledInvestmentRow);
     },
     async countStalledInvestments(departmentCode) {
-      const result = (await stalled('cui', { count: 'exact', head: true }).eq(
-        'department_code',
-        departmentCode,
-      )) as Result<unknown>;
+      const all = stalled('cui', { count: 'exact', head: true });
+      const result = (await (departmentCode === undefined
+        ? all
+        : all.eq('department_code', departmentCode))) as Result<unknown>;
       unwrap(result);
       return result.count ?? 0;
     },

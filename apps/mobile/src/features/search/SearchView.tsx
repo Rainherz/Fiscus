@@ -1,5 +1,6 @@
 import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 
+import { withRegion } from '@/features/department/scope';
 import type { Investment } from '@/features/investments/domain/investment';
 import { formatSoles } from '@/shared/format';
 import { colors, fonts, maxContentWidth, rule, space } from '@/shared/theme/tokens';
@@ -9,7 +10,8 @@ import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 interface Props {
   text: string;
-  departmentName: string;
+  /** The selected department, or null for all of Peru. */
+  departmentName: string | null;
   results: Investment[];
   /** idle = nothing searchable typed yet. */
   status: 'idle' | 'pending' | 'error' | 'success';
@@ -52,7 +54,9 @@ export function SearchView({
             style={styles.input}
           />
           <MonoText size={11} muted>
-            {`Escribe al menos 3 letras del nombre (en ${departmentName}) o un CUI completo (todo el país).`}
+            {departmentName === null
+              ? 'Escribe al menos 3 letras del nombre o un CUI completo. Busca en todo el país.'
+              : `Escribe al menos 3 letras del nombre (en ${departmentName}) o un CUI completo (todo el país).`}
           </MonoText>
         </View>
       }
@@ -61,7 +65,7 @@ export function SearchView({
           rank={index + 1}
           name={item.name}
           value={formatSoles(item.updatedCost)}
-          detail={`CUI ${item.cui}`}
+          detail={departmentName === null ? withRegion(item.departmentCode, `CUI ${item.cui}`) : `CUI ${item.cui}`}
           onPress={() => onPressInvestment(item.cui)}
         />
       )}

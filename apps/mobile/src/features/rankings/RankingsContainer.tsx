@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useDepartment } from '@/features/department/DepartmentContext';
+import { departmentCodeOf } from '@/features/department/scope';
+import { useScope } from '@/features/department/ScopeContext';
 import type { RankingKind } from '@/features/investments/domain/investment';
 import { useRanking, useStalledInvestments } from '@/features/investments/hooks/queries';
 
@@ -15,7 +16,7 @@ const DEFAULT_TAB: RankingKind = 'increase-amount';
  */
 export function RankingsContainer() {
   const router = useRouter();
-  const { code } = useDepartment();
+  const code = departmentCodeOf(useScope().scope);
   const params = useLocalSearchParams<{ tab?: string }>();
   const tab: RankingTab = isRankingTab(params.tab) ? params.tab : DEFAULT_TAB;
   const rankingKind: RankingKind = tab === 'stalled' ? DEFAULT_TAB : tab;
@@ -33,6 +34,7 @@ export function RankingsContainer() {
     <RankingsView
       list={list}
       now={new Date()}
+      national={code === undefined}
       status={query.status}
       isFetchingMore={query.isFetchingNextPage}
       onSelectKind={(next) => router.setParams({ tab: next })}

@@ -28,6 +28,8 @@ export interface CostChange {
 /** A recorded increase of the updated cost, with the investment it belongs to. */
 export interface RecentCostIncrease extends CostChange {
   name: string | null;
+  /** Department of the investment, shown when listing all of Peru. */
+  departmentCode: number | null;
 }
 
 /** First day of the record. Shown to readers, so it is a plain calendar date. */

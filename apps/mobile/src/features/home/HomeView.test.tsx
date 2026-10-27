@@ -139,4 +139,58 @@ describe('HomeView', () => {
     await rerender(<HomeView {...props} hero={null} ranking={[]} />);
     expect(order()).toEqual(['recientes', 'sin gasto', 'pie']);
   });
+
+  describe('all of Peru', () => {
+    const uchumayoCusco = { ...arequipa[1], departmentCode: 8, departmentName: 'CUSCO' };
+    const props = {
+      hero: majes,
+      ranking: [uchumayoCusco, ...arequipa.slice(2)],
+      now: NOW,
+      national: true,
+      onPressInvestment: jest.fn(),
+      onPressSeeAll: jest.fn(),
+    };
+
+    it('shows the largest increase of the country with its region under the name', async () => {
+      await render(<HomeView {...props} />);
+      expect(screen.getByText('EL MAYOR AUMENTO DEL PAÍS')).toBeOnTheScreen();
+      expect(screen.queryByText('EL MAYOR AUMENTO DE LA REGIÓN')).toBeNull();
+      expect(screen.getByText('AREQUIPA')).toBeOnTheScreen();
+    });
+
+    it('shows the region of every ranked project in a second line', async () => {
+      await render(<HomeView {...props} />);
+      expect(screen.getByText('RANKING DE AUMENTOS')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: '2. Variante de Uchumayo, +S/ 440 M' })).toBeOnTheScreen();
+      expect(screen.getByText('Cusco')).toBeOnTheScreen();
+      expect(screen.getAllByText('Arequipa')).toHaveLength(props.ranking.length - 1);
+    });
+
+    it('does not show regions in the ranking of one region', async () => {
+      await render(<HomeView {...props} national={false} />);
+      expect(screen.queryByText('Cusco')).toBeNull();
+      expect(screen.queryByText('AREQUIPA')).toBeNull();
+    });
+
+    it('shows the regions block, then the stalled block, then the recent increases', async () => {
+      const blocks = {
+        regions: <Text>regiones</Text>,
+        recentIncreases: <Text>recientes</Text>,
+        stalled: <Text>sin gasto</Text>,
+        footer: <Text>pie</Text>,
+      };
+      const order = () =>
+        screen.getAllByText(/^(regiones|recientes|sin gasto|pie)$/).map((node) => node.props.children as string);
+
+      const { rerender } = await render(<HomeView {...props} {...blocks} />);
+      expect(order()).toEqual(['regiones', 'sin gasto', 'recientes', 'pie']);
+      await rerender(<HomeView {...props} {...blocks} hero={null} ranking={[]} />);
+      expect(order()).toEqual(['regiones', 'sin gasto', 'recientes', 'pie']);
+    });
+
+    it('says so when the country has no cost increases', async () => {
+      await render(<HomeView {...props} hero={null} ranking={[]} />);
+      expect(screen.getByText('No hay proyectos con aumento de costo en el país.')).toBeOnTheScreen();
+    });
+  });
 });

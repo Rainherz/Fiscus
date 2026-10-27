@@ -15,12 +15,14 @@ export type StalledPreviewState =
 
 interface Props {
   state: StalledPreviewState;
+  /** Counting all of Peru: rows show their region. */
+  national?: boolean;
   onPressInvestment: (cui: string) => void;
   onPressSeeAll: () => void;
 }
 
-/** "Sin gasto reciente" on the home screen: count for the department and the first rows. */
-export function StalledPreviewSection({ state, onPressInvestment, onPressSeeAll }: Props) {
+/** "Sin gasto reciente" on the home screen: count for the scope and the first rows. */
+export function StalledPreviewSection({ state, national = false, onPressInvestment, onPressSeeAll }: Props) {
   return (
     <View style={styles.section}>
       <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.title}>
@@ -41,14 +43,14 @@ export function StalledPreviewSection({ state, onPressInvestment, onPressSeeAll 
       ) : (
         <>
           <MonoText bold size={12} style={styles.count}>
-            {stalledCountText(state.total)}
+            {stalledCountText(state.total, { national })}
           </MonoText>
           {state.items.map((item, index) => (
             <RankingRow
               key={item.cui}
               rank={index + 1}
               name={item.name}
-              detail={stalledRowDetail(item)}
+              detail={stalledRowDetail(item, { national })}
               onPress={() => onPressInvestment(item.cui)}
             />
           ))}

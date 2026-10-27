@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
-import { useDepartment } from '@/features/department/DepartmentContext';
+import { departmentCodeOf } from '@/features/department/scope';
+import { useScope } from '@/features/department/ScopeContext';
 import { useSearchInvestments } from '@/features/investments/hooks/queries';
 
 import { SearchView } from './SearchView';
@@ -11,7 +12,8 @@ const DEBOUNCE_MS = 350;
 
 export function SearchContainer() {
   const router = useRouter();
-  const { code, name } = useDepartment();
+  const { scope, label } = useScope();
+  const code = departmentCodeOf(scope);
   const [text, setText] = useState('');
   const debounced = useDebouncedValue(text, DEBOUNCE_MS);
   const search = useSearchInvestments(debounced, code);
@@ -21,7 +23,7 @@ export function SearchContainer() {
   return (
     <SearchView
       text={text}
-      departmentName={name}
+      departmentName={code === undefined ? null : label}
       results={search.data ?? []}
       status={status}
       onChangeText={setText}

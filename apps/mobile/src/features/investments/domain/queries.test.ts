@@ -69,6 +69,30 @@ describe('buildRankingQuery', () => {
   });
 });
 
+describe('national ranking queries', () => {
+  it('omits the department filter for all of Peru', () => {
+    expect(buildRankingQuery({ kind: 'increase-amount', page: 0, pageSize: 6 })).toEqual({
+      filters: [
+        { column: 'updated_cost_valid', op: 'eq', value: true },
+        { column: 'cost_increase', op: 'gt', value: 0 },
+      ],
+      order: [
+        { column: 'cost_increase', ascending: false },
+        { column: 'cui', ascending: true },
+      ],
+      range: { from: 0, to: 5 },
+    });
+  });
+
+  it('keeps every national ranking paged', () => {
+    for (const kind of ['increase-amount', 'increase-pct', 'cost', 'duration'] as const) {
+      const query = buildRankingQuery({ kind, departmentCode: undefined, page: 3 });
+      expect(query.filters.some((f) => f.column === 'department_code')).toBe(false);
+      expect(query.range).toEqual({ from: 90, to: 119 });
+    }
+  });
+});
+
 describe('buildSearchQuery', () => {
   it('returns null for blank or too-short text', () => {
     expect(buildSearchQuery('', 4)).toBeNull();
@@ -96,6 +120,18 @@ describe('buildSearchQuery', () => {
       ],
       range: { from: 0, to: 29 },
     });
+  });
+
+  it('searches names in all of Peru without a department', () => {
+    expect(buildSearchQuery('hospital', undefined)).toEqual({
+      filters: [{ column: 'name', op: 'ilike', value: '%hospital%' }],
+      order: [
+        { column: 'updated_cost', ascending: false },
+        { column: 'cui', ascending: true },
+      ],
+      range: { from: 0, to: 29 },
+    });
+    expect(buildSearchQuery('2088142', undefined)?.filters).toEqual([{ column: 'cui', op: 'eq', value: '2088142' }]);
   });
 
   it('escapes LIKE wildcards typed by the user', () => {
@@ -126,6 +162,30 @@ describe('buildFunctionQuery', () => {
   it('matches projects without a function', () => {
     const query = buildFunctionQuery({ departmentCode: 4, fn: null, page: 0 });
     expect(query.filters[1]).toEqual({ column: 'function', op: 'isNull' });
+  });
+});
+
+describe('national function and stalled queries', () => {
+  it('lists a function in all of Peru, paged', () => {
+    expect(buildFunctionQuery({ fn: 'SALUD', page: 0 })).toEqual({
+      filters: [{ column: 'function', op: 'eq', value: 'SALUD' }],
+      order: [
+        { column: 'updated_cost', ascending: false },
+        { column: 'cui', ascending: true },
+      ],
+      range: { from: 0, to: 29 },
+    });
+  });
+
+  it('lists stalled projects in all of Peru, paged', () => {
+    expect(buildStalledQuery({ page: 0, pageSize: 3 })).toEqual({
+      filters: [],
+      order: [
+        { column: 'pending_amount', ascending: false },
+        { column: 'cui', ascending: true },
+      ],
+      range: { from: 0, to: 2 },
+    });
   });
 });
 

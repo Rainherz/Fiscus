@@ -33,6 +33,13 @@ describe('CategoriesView', () => {
     expect(onPressCategory).toHaveBeenCalledWith(null);
   });
 
+  it('speaks of the country when all of Peru has no projects', async () => {
+    await render(
+      <CategoriesView summaries={[]} status="success" national onRetry={() => {}} onPressCategory={() => {}} />,
+    );
+    expect(screen.getByText('No hay proyectos registrados en el país.')).toBeOnTheScreen();
+  });
+
   it('shows the empty state', async () => {
     await render(<CategoriesView summaries={[]} status="success" onRetry={() => {}} onPressCategory={() => {}} />);
     expect(screen.getByText('No hay proyectos registrados en esta región.')).toBeOnTheScreen();

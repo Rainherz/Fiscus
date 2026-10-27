@@ -3,12 +3,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/shared/ui/AppHeader';
 
-import { useDepartment } from './DepartmentContext';
+import { useScope } from './ScopeContext';
 
 /** Container: app header whose selector opens the region picker screen (`/region`). */
 export function RegionHeader() {
-  const { name } = useDepartment();
+  const { label, ready } = useScope();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  return <AppHeader departmentName={name} onPressDepartment={() => router.push('/region')} topInset={insets.top} />;
+  return (
+    <AppHeader scopeLabel={ready ? label : null} onPressScope={() => router.push('/region')} topInset={insets.top} />
+  );
 }

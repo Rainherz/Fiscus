@@ -15,6 +15,7 @@ const increase = (input: Partial<RecentCostIncrease> & Pick<RecentCostIncrease, 
   accruedTotal: null,
   updatedCostDelta: null,
   name: null,
+  departmentCode: 4,
   ...input,
 });
 
@@ -41,6 +42,18 @@ describe('RecentIncreasesSection', () => {
     expect(screen.getByText('+S/ 44.0 M')).toBeOnTheScreen();
     expect(screen.getByText('03/11/2026')).toBeOnTheScreen();
     expect(screen.queryByText(EMPTY)).toBeNull();
+  });
+
+  it('shows the region of every increase for all of Peru', async () => {
+    await render(
+      <RecentIncreasesSection
+        state={{ status: 'success', items: [increase({ id: 9, cui: '9', name: 'Hospital', departmentCode: 8, updatedCostDelta: 2_500_000 })] }}
+        national
+        onPressInvestment={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Hospital, Cusco, 17/11/2026, +S/ 2.5 M' })).toBeOnTheScreen();
+    expect(screen.getByText('Cusco · 17/11/2026')).toBeOnTheScreen();
   });
 
   it('opens the investment when a row is pressed', async () => {

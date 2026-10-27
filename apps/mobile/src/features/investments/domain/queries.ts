@@ -52,8 +52,11 @@ function pageRange(page: number, pageSize: number) {
   return { from, to: from + pageSize - 1 };
 }
 
-function inDepartment(departmentCode: number): Filter {
-  return { column: 'department_code', op: 'eq', value: departmentCode };
+/** The department filter, or none for all of Peru (`departmentCode` undefined). */
+function inScope<C extends string = InvestmentColumn>(departmentCode: number | undefined): Filter<C>[] {
+  return departmentCode === undefined
+    ? []
+    : [{ column: 'department_code' as C, op: 'eq', value: departmentCode }];
 }
 
 /** Placeholder costs in the source would distort cost-based rankings and the home hero. */
@@ -87,13 +90,14 @@ const RANKINGS: Record<RankingKind, { filters: Filter[]; order: Order }> = {
 
 export function buildRankingQuery(params: {
   kind: RankingKind;
-  departmentCode: number;
+  /** Undefined ranks all of Peru. */
+  departmentCode?: number;
   page: number;
   pageSize?: number;
 }): InvestmentQuery {
   const ranking = RANKINGS[params.kind];
   return {
-    filters: [inDepartment(params.departmentCode), ...ranking.filters],
+    filters: [...inScope(params.departmentCode), ...ranking.filters],
     order: [ranking.order, tieBreak],
     range: pageRange(params.page, params.pageSize ?? PAGE_SIZE),
   };
@@ -103,8 +107,11 @@ function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-/** Digits are an exact CUI (unique nationwide); anything else searches names in the department. */
-export function buildSearchQuery(text: string, departmentCode: number): InvestmentQuery | null {
+/**
+ * Digits are an exact CUI (unique nationwide); anything else searches names in the department,
+ * or in all of Peru when `departmentCode` is undefined.
+ */
+export function buildSearchQuery(text: string, departmentCode: number | undefined): InvestmentQuery | null {
   const normalized = text.trim().replace(/\s+/g, ' ');
   if (/^\d+$/.test(normalized)) {
     return {
@@ -116,7 +123,7 @@ export function buildSearchQuery(text: string, departmentCode: number): Investme
   if (normalized.length < MIN_NAME_SEARCH_LENGTH) return null;
   return {
     filters: [
-      inDepartment(departmentCode),
+      ...inScope(departmentCode),
       { column: 'name', op: 'ilike', value: `%${escapeLike(normalized)}%` },
     ],
     order: [{ column: 'updated_cost', ascending: false }, tieBreak],
@@ -125,7 +132,7 @@ export function buildSearchQuery(text: string, departmentCode: number): Investme
 }
 
 export function buildFunctionQuery(params: {
-  departmentCode: number;
+  departmentCode?: number;
   fn: string | null;
   page: number;
 }): InvestmentQuery {
@@ -134,23 +141,23 @@ export function buildFunctionQuery(params: {
       ? { column: 'function', op: 'isNull' }
       : { column: 'function', op: 'eq', value: params.fn };
   return {
-    filters: [inDepartment(params.departmentCode), byFunction],
+    filters: [...inScope(params.departmentCode), byFunction],
     order: [{ column: 'updated_cost', ascending: false }, tieBreak],
     range: pageRange(params.page, PAGE_SIZE),
   };
 }
 
 /**
- * "Sin gasto reciente" in one department, largest amount not yet spent first. The rule itself
+ * "Sin gasto reciente" in one department (or all of Peru), largest amount not yet spent first. The rule itself
  * lives in the `stalled_investments` view (and domain/stalled.ts for the in-memory adapter).
  */
 export function buildStalledQuery(params: {
-  departmentCode: number;
+  departmentCode?: number;
   page: number;
   pageSize?: number;
 }): InvestmentQuery<StalledColumn> {
   return {
-    filters: [{ column: 'department_code', op: 'eq', value: params.departmentCode }],
+    filters: inScope<StalledColumn>(params.departmentCode),
     order: [{ column: 'pending_amount', ascending: false }, tieBreak],
     range: pageRange(params.page, params.pageSize ?? PAGE_SIZE),
   };

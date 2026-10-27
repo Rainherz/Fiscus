@@ -7,6 +7,7 @@ import { StateMessage } from '@/shared/ui/StateMessage';
 import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 
 import type { Department } from '../department/departments';
+import { NATIONAL, NATIONAL_LABEL, department, isSameScope, type Scope } from '../department/scope';
 import type { RegionComparison, RegionSort } from '../investments/domain/regionComparison';
 import {
   ALPHABETICAL_DEPARTMENTS,
@@ -26,11 +27,11 @@ interface Props {
   /** Already ranked by `sort`. */
   regions: RegionComparison[];
   status: 'pending' | 'error' | 'success';
-  /** The globally selected department. */
-  currentCode: number;
+  /** The globally selected scope. */
+  current: Scope;
   onSelectSort: (sort: RegionSort) => void;
   onRetry: () => void;
-  onPick: (departmentCode: number) => void;
+  onPick: (scope: Scope) => void;
   onClose: () => void;
   topInset?: number;
   bottomInset?: number;
@@ -49,12 +50,15 @@ function toItems(regions: RegionComparison[], status: Props['status']): Item[] {
   ];
 }
 
-/** Region picker: the 25 departments compared by one figure, all of Peru. Tapping one selects it. */
+/**
+ * Region picker: "Todo el Perú" first, then the 25 departments compared by one figure. Tapping an
+ * option selects it.
+ */
 export function RegionPickerView({
   sort,
   regions,
   status,
-  currentCode,
+  current,
   onSelectSort,
   onRetry,
   onPick,
@@ -64,6 +68,7 @@ export function RegionPickerView({
 }: Props) {
   const items = toItems(regions, status);
   const ranked = items.some((item) => item.kind === 'ranked');
+  const isCurrent = (code: number) => isSameScope(current, department(code));
 
   return (
     <View style={styles.screen}>
@@ -97,6 +102,14 @@ export function RegionPickerView({
         keyExtractor={(item) => String(item.kind === 'ranked' ? item.region.departmentCode : item.department.code)}
         ListHeaderComponent={
           <View style={styles.header}>
+            <View style={styles.national}>
+              <PlainOption
+                name={NATIONAL_LABEL}
+                detail={NATIONAL_DETAIL}
+                selected={isSameScope(current, NATIONAL)}
+                onPress={() => onPick(NATIONAL)}
+              />
+            </View>
             <MonoText size={11} muted>
               {REGIONS_HEADER_NOTE}
             </MonoText>
@@ -131,15 +144,15 @@ export function RegionPickerView({
               value={regionValue(sort, item.region)}
               detail={regionDetail(sort, item.region)}
               summary={regionSummary(sort, item.region)}
-              selected={item.region.departmentCode === currentCode}
-              onPress={() => onPick(item.region.departmentCode)}
+              selected={isCurrent(item.region.departmentCode)}
+              onPress={() => onPick(department(item.region.departmentCode))}
             />
           ) : (
             <PlainOption
-              department={item.department}
+              name={item.department.name}
               detail={ranked ? 'Sin datos' : undefined}
-              selected={item.department.code === currentCode}
-              onPress={() => onPick(item.department.code)}
+              selected={isCurrent(item.department.code)}
+              onPress={() => onPick(department(item.department.code))}
             />
           )
         }
@@ -148,19 +161,21 @@ export function RegionPickerView({
   );
 }
 
-/** A department without comparison figures. */
+const NATIONAL_DETAIL = 'Las 25 regiones';
+
+/** An option without comparison figures: all of Peru, or a department without data. */
 function PlainOption({
-  department,
+  name,
   detail,
   selected,
   onPress,
 }: {
-  department: Department;
+  name: string;
   detail?: string;
   selected: boolean;
   onPress: () => void;
 }) {
-  const label = [department.name, detail?.toLowerCase(), selected ? 'actual' : undefined].filter(Boolean).join(', ');
+  const label = [name, detail?.toLowerCase(), selected ? 'actual' : undefined].filter(Boolean).join(', ');
   return (
     <Pressable
       accessibilityRole="button"
@@ -174,7 +189,7 @@ function PlainOption({
       ]}>
       <View style={styles.optionMain}>
         <BodyText weight={600} size={14} style={selected ? styles.selectedText : undefined}>
-          {department.name}
+          {name}
         </BodyText>
         {detail ? (
           <MonoText size={11} muted style={selected ? styles.selectedDetail : undefined}>
@@ -216,6 +231,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: { paddingTop: space.lg, paddingBottom: space.md, gap: space.sm },
+  /** All of Peru sits apart from the comparison, closed by a rule like the list rows. */
+  national: { marginBottom: space.sm, borderBottomWidth: rule, borderBottomColor: colors.ink },
   // The tabs carry their own gutter; cancel the list's so they align with the notes.
   sorts: { marginHorizontal: -space.lg },
   option: {

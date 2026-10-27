@@ -55,6 +55,13 @@ describe('ranking presentation', () => {
     expect(rankingDetail('duration', majes)).toBe('Viable desde 10/01/2008');
   });
 
+  it('starts the detail line with the region when ranking all of Peru', () => {
+    expect(rankingDetail('increase-amount', majes, { national: true })).toBe('Arequipa · S/ 1,338 M → S/ 5,148 M');
+    expect(rankingDetail('duration', { ...majes, departmentCode: 8 }, { national: true })).toBe(
+      'Cusco · Viable desde 10/01/2008',
+    );
+  });
+
   it('explains the filters behind some rankings', () => {
     expect(rankingNote('increase-pct')).toBe('Solo proyectos aprobados por más de S/ 1 M.');
     expect(rankingNote('duration')).toBe('Proyectos activos, contados desde su fecha de viabilidad.');

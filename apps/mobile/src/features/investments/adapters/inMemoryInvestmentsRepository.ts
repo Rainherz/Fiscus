@@ -124,7 +124,7 @@ export function createInMemoryInvestmentsRepository(seed: {
     async functionSummaries(departmentCode) {
       const groups = new Map<string | null, InvestmentRow[]>();
       for (const row of rows) {
-        if (row.department_code !== departmentCode) continue;
+        if (departmentCode !== undefined && row.department_code !== departmentCode) continue;
         const key = row.function ?? null;
         groups.set(key, [...(groups.get(key) ?? []), row]);
       }
@@ -153,8 +153,9 @@ export function createInMemoryInvestmentsRepository(seed: {
         .filter(isCostIncrease)
         .flatMap((change) => {
           const investment = investments.get(change.cui);
-          if (investment?.department_code !== departmentCode) return [];
-          return [{ ...change, name: investment.name ?? null }];
+          if (!investment) return [];
+          if (departmentCode !== undefined && investment.department_code !== departmentCode) return [];
+          return [{ ...change, name: investment.name ?? null, departmentCode: investment.department_code }];
         })
         .sort((a, b) => byObservation(b, a))
         .slice(0, limit);
@@ -163,7 +164,8 @@ export function createInMemoryInvestmentsRepository(seed: {
       return runQuery(stalledRows(rows), buildStalledQuery(params)).map(mapStalledInvestmentRow);
     },
     async countStalledInvestments(departmentCode) {
-      return stalledRows(rows).filter((row) => row.department_code === departmentCode).length;
+      return stalledRows(rows).filter((row) => departmentCode === undefined || row.department_code === departmentCode)
+        .length;
     },
     async getAccrualReferenceMonth() {
       return referenceMonth(rows);

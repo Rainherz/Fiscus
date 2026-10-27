@@ -2,9 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useDepartment } from '@/features/department/DepartmentContext';
+import { departmentCodeOf } from '@/features/department/scope';
+import { useScope } from '@/features/department/ScopeContext';
 import { useFunctionInvestments } from '@/features/investments/hooks/queries';
-import { formatSignedSoles, formatSoles } from '@/shared/format';
+import { formatSoles } from '@/shared/format';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { RankingRow } from '@/shared/ui/RankingRow';
@@ -12,15 +13,18 @@ import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 import { NO_FUNCTION_LABEL } from './CategoriesView';
+import { categoryRowDetail } from './categoryPresentation';
 import { decodeFunctionParam } from './functionParam';
 
-/** Projects of one function in the selected department, largest current cost first. */
+/** Projects of one function in the selected scope, largest current cost first. */
 export function CategoryInvestmentsContainer() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ fn: string }>();
   const fn = decodeFunctionParam(params.fn);
-  const { code, name } = useDepartment();
+  const { scope, label: scopeName } = useScope();
+  const code = departmentCodeOf(scope);
+  const national = code === undefined;
   const list = useFunctionInvestments(code, fn);
   const items = list.data?.pages.flat() ?? [];
   const label = fn ?? NO_FUNCTION_LABEL;
@@ -40,7 +44,7 @@ export function CategoryInvestmentsContainer() {
             <DisplayText weight={900} size={26} accessibilityRole="header">
               {label}
             </DisplayText>
-            <MonoText size={11} muted>{`${name} · ordenado por costo actual`}</MonoText>
+            <MonoText size={11} muted>{`${scopeName} · ordenado por costo actual`}</MonoText>
           </View>
         }
         renderItem={({ item, index }) => (
@@ -48,11 +52,7 @@ export function CategoryInvestmentsContainer() {
             rank={index + 1}
             name={item.name}
             value={formatSoles(item.updatedCost)}
-            detail={
-              item.costIncrease !== null && item.costIncrease !== 0
-                ? `${formatSignedSoles(item.costIncrease)} vs. monto viable`
-                : `CUI ${item.cui}`
-            }
+            detail={categoryRowDetail(item, { national })}
             onPress={() => router.push({ pathname: '/investment/[cui]', params: { cui: item.cui } })}
           />
         )}
