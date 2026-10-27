@@ -57,7 +57,11 @@ export function HomeView({ hero, ranking, now, onPressInvestment, onPressSeeAll,
           {name}
         </DisplayText>
         <View style={styles.figure}>
-          <FitDisplayText text={formatSignedPercent(hero.costIncreasePct)} maxSize={136} />
+          <FitDisplayText
+            text={formatSignedPercent(hero.costIncreasePct)}
+            maxSize={136}
+            horizontalInset={HERO_FIGURE_INSET}
+          />
         </View>
         <View style={styles.amounts}>
           <Text>
@@ -110,6 +114,9 @@ export function HomeView({ hero, ranking, now, onPressInvestment, onPressSeeAll,
     </ScrollView>
   );
 }
+
+/** Hero padding on both sides minus the figure's negative margins (see styles.figure). */
+const HERO_FIGURE_INSET = space.lg * 2 - 16;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.concrete },
