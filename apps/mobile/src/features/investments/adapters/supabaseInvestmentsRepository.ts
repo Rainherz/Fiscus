@@ -1,0 +1,94 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+import {
+  INVESTMENT_COLUMNS,
+  mapFunctionSummaryRow,
+  mapIngestRunRow,
+  mapInvestmentRow,
+  type FunctionSummaryRow,
+  type IngestRunRow,
+  type InvestmentRow,
+} from '../domain/mappers';
+import type { Filter, InvestmentQuery } from '../domain/queries';
+import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
+
+/** Minimal structural view of a PostgREST filter builder, so filters compose without generics noise. */
+interface FilterBuilder {
+  eq(column: string, value: unknown): FilterBuilder;
+  gt(column: string, value: unknown): FilterBuilder;
+  gte(column: string, value: unknown): FilterBuilder;
+  ilike(column: string, pattern: string): FilterBuilder;
+  not(column: string, operator: string, value: unknown): FilterBuilder;
+  is(column: string, value: null): FilterBuilder;
+  order(column: string, options: { ascending: boolean; nullsFirst?: boolean }): FilterBuilder;
+  range(from: number, to: number): FilterBuilder;
+  limit(count: number): FilterBuilder;
+  maybeSingle<T>(): PromiseLike<Result<T | null>>;
+  then<R>(onfulfilled: (value: Result<unknown>) => R): PromiseLike<R>;
+}
+
+interface Result<T> {
+  data: T | null;
+  error: { message: string } | null;
+}
+
+function applyFilter(builder: FilterBuilder, filter: Filter): FilterBuilder {
+  switch (filter.op) {
+    case 'eq':
+      return builder.eq(filter.column, filter.value);
+    case 'gt':
+      return builder.gt(filter.column, filter.value);
+    case 'gte':
+      return builder.gte(filter.column, filter.value);
+    case 'ilike':
+      return builder.ilike(filter.column, filter.value);
+    case 'notNull':
+      return builder.not(filter.column, 'is', null);
+    case 'isNull':
+      return builder.is(filter.column, null);
+  }
+}
+
+function unwrap<T>(result: Result<T>): T {
+  if (result.error) throw new Error(result.error.message);
+  return result.data as T;
+}
+
+export function createSupabaseInvestmentsRepository(client: SupabaseClient): InvestmentsRepository {
+  const table = (name: string) =>
+    client.from(name).select(name === 'investments' ? INVESTMENT_COLUMNS : '*') as unknown as FilterBuilder;
+
+  return {
+    async findMany(query: InvestmentQuery) {
+      let builder = query.filters.reduce(applyFilter, table('investments'));
+      for (const order of query.order) {
+        builder = builder.order(order.column, { ascending: order.ascending, nullsFirst: false });
+      }
+      const rows = unwrap((await builder.range(query.range.from, query.range.to)) as Result<InvestmentRow[]>);
+      return (rows ?? []).map(mapInvestmentRow);
+    },
+    async findByCui(cui) {
+      const row = unwrap(await table('investments').eq('cui', cui).maybeSingle<InvestmentRow>());
+      return row ? mapInvestmentRow(row) : null;
+    },
+    async functionSummaries(departmentCode) {
+      const rows = unwrap(
+        (await table('department_function_summary')
+          .eq('department_code', departmentCode)
+          .order('total_updated_cost', { ascending: false, nullsFirst: false })) as Result<
+          FunctionSummaryRow[]
+        >,
+      );
+      return (rows ?? []).map(mapFunctionSummaryRow);
+    },
+    async lastIngestRun() {
+      const row = unwrap(
+        await table('ingest_runs')
+          .order('finished_at', { ascending: false })
+          .limit(1)
+          .maybeSingle<IngestRunRow>(),
+      );
+      return row ? mapIngestRunRow(row) : null;
+    },
+  };
+}
