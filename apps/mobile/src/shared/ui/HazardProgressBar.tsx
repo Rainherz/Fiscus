@@ -24,6 +24,11 @@ interface Props {
 export const SPENT_ANOMALY_NOTICE =
   'Dato inusual en la fuente MEF: lo gastado supera 10 veces el costo actualizado.';
 
+/** Sentence stated below the bar when spending exceeds the updated cost. */
+export function overspendSentence(amount: number): string {
+  return `Gastó ${formatSolesCompact(amount)} más que su costo actualizado`;
+}
+
 export function HazardProgressBar({ ratio, overspend = null, anomaly = false, height = 22 }: Props) {
   const known = ratio !== null && Number.isFinite(ratio);
   const percent = known ? Math.round(ratio * 100) : 0;
@@ -51,7 +56,7 @@ export function HazardProgressBar({ ratio, overspend = null, anomaly = false, he
       </View>
       {overspent ? (
         <MonoText bold size={12}>
-          {`Gastó ${formatSolesCompact(overspend)} más que su costo actualizado`}
+          {overspendSentence(overspend)}
         </MonoText>
       ) : null}
       {anomaly ? (
