@@ -93,6 +93,14 @@ screen shows this as "Historial del costo", and home lists the department's late
 "Aumentos recientes". Earlier history is unknown. The demo mode includes an invented history for Majes
 Siguas II, only so these screens have something to show.
 
+Sin gasto reciente: active projects (`status = 'ACTIVO'`, valid updated cost) that spent between 5 % and
+95 % of their cost and whose last accrual month is more than 12 months before the reference month, the
+latest `last_accrual_month` in the dataset (not today, so MEF publication delays do not inflate the list).
+The `stalled_investments` view (`supabase/migrations/20261029000000_create_stalled_investments.sql`)
+applies the rule and adds `months_without_accrual` and `pending_amount`. The app shows them as a
+"Sin gasto reciente" tab in Rankings, a block on home and a line on the detail screen. The demo mode adds
+invented projects marked "(demo)" so these screens have something to show.
+
 ## Daily ingest
 
 `ofi5.mef.gob.pe` drops TCP connections from GitHub-hosted runners (US datacenter IPs), so the ingest
