@@ -24,7 +24,7 @@ packages/ingest/src/
 apps/mobile/src/
   app/           Expo Router routes: (tabs) index, rankings, categories, search; investment/[cui]; category/[fn]
   features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
-                 department, home, rankings, categories, search, investment-detail (container + view)
+                 department, home, rankings, regions, categories, search, investment-detail (container + view)
   shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
 .github/workflows/     ingest.yml (manual ingest), ci.yml (typecheck + tests)
@@ -100,6 +100,13 @@ The `stalled_investments` view (`supabase/migrations/20261029000000_create_stall
 applies the rule and adds `months_without_accrual` and `pending_amount`. The app shows them as a
 "Sin gasto reciente" tab in Rankings, a block on home and a line on the detail screen. The demo mode adds
 invented projects marked "(demo)" so these screens have something to show.
+
+Regiones: a "Regiones" tab in Rankings compares the departments, sorted by total cost increase (S/ or %),
+"Sin gasto reciente" projects, or projects that spent more than their updated cost. It reads the
+`region_comparison` view (`supabase/migrations/20261030000000_create_region_comparison.sql`): cost figures
+only use valid updated costs, and the increase total adds positive increases only (reductions are not
+netted). Tapping a region selects it and opens Inicio. The older `department_summary` view is unchanged
+but not used by the app.
 
 ## Daily ingest
 
