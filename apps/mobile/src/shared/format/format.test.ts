@@ -2,6 +2,7 @@ import {
   formatDate,
   formatInteger,
   formatMonth,
+  formatMonthShort,
   formatProgress,
   formatSignedPercent,
   formatSignedSoles,
@@ -135,6 +136,19 @@ describe('formatMonth', () => {
 
   it('returns a dash when unknown', () => {
     expect(formatMonth(null)).toBe('—');
+  });
+});
+
+describe('formatMonthShort', () => {
+  it('abbreviates the Spanish month name', () => {
+    expect(formatMonthShort('2025-04-01')).toBe('abr 2025');
+    expect(formatMonthShort('2022-09-01')).toBe('sep 2022');
+    expect(formatMonthShort('2026-01-01')).toBe('ene 2026');
+    expect(formatMonthShort('2026-12-01')).toBe('dic 2026');
+  });
+
+  it('returns a dash when unknown', () => {
+    expect(formatMonthShort(null)).toBe('—');
   });
 });
 

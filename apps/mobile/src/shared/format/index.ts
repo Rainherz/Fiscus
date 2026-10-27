@@ -121,6 +121,13 @@ export function formatMonth(value: string | null): string {
   return `${MONTHS[date.month - 1]} ${date.year}`;
 }
 
+/** "abr 2025": the first three letters of the Spanish month name, lowercase. */
+export function formatMonthShort(value: string | null): string {
+  const date = toCalendarDate(value);
+  if (!date) return DASH;
+  return `${MONTHS[date.month - 1].slice(0, 3)} ${date.year}`;
+}
+
 /** Full years elapsed between `value` and `now`. */
 export function yearsSince(value: string | null, now: Date = new Date()): number | null {
   const from = toCalendarDate(value);
