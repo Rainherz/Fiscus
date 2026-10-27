@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import {
@@ -24,6 +25,8 @@ import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 interface Props {
   investment: Investment;
   now: Date;
+  /** "Historial del costo" section, shown after the cost figures. */
+  costHistory?: ReactNode;
 }
 
 const DASH = '—';
@@ -42,7 +45,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function InvestmentDetailView({ investment: inv, now }: Props) {
+export function InvestmentDetailView({ investment: inv, now, costHistory }: Props) {
   const invalidCost = hasInvalidUpdatedCost(inv);
   const increased = (inv.costIncrease ?? 0) > 0;
   const viable = formatSoles(inv.viableAmount);
@@ -133,6 +136,8 @@ export function InvestmentDetailView({ investment: inv, now }: Props) {
           />
         </View>
       )}
+
+      {costHistory}
 
       <View style={styles.facts}>
         {facts.map(([label, value]) => (

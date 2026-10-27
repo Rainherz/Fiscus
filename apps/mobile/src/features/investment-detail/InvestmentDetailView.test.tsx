@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 import type { Investment } from '@/features/investments/domain/investment';
 import { NOW, majes } from '@/test/fixtures';
@@ -141,5 +142,10 @@ describe('InvestmentDetailView', () => {
   it('shows a dash for missing values', async () => {
     await render(<InvestmentDetailView investment={{ ...full, beneficiaries: null }} now={NOW} />);
     expect(screen.getByLabelText('Beneficiarios: —')).toBeOnTheScreen();
+  });
+
+  it('renders the cost history it is given', async () => {
+    await render(<InvestmentDetailView investment={full} now={NOW} costHistory={<Text>historial</Text>} />);
+    expect(screen.getByText('historial')).toBeOnTheScreen();
   });
 });
