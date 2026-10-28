@@ -33,6 +33,8 @@ interface Props {
   onPressSeeAll: () => void;
   /** Region home only: opens the comparison with this region first. */
   onPressCompare?: () => void;
+  /** Opens the map of the scope. */
+  onPressMap?: () => void;
   /** "Regiones con más aumentos", national only, shown after the ranking. */
   regions?: ReactNode;
   /** "Aumentos recientes": after the ranking (region) or last (national). */
@@ -50,6 +52,7 @@ export function HomeView({
   onPressInvestment,
   onPressSeeAll,
   onPressCompare,
+  onPressMap,
   regions,
   recentIncreases,
   stalled,
@@ -67,6 +70,18 @@ export function HomeView({
         </DisplayText>
       </Pressable>
     ) : null;
+
+  const mapLink = onPressMap ? (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel="Ver en el mapa"
+      onPress={onPressMap}
+      style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+      <DisplayText weight={900} size={20}>
+        Ver en el mapa →
+      </DisplayText>
+    </Pressable>
+  ) : null;
 
   const blocks = national ? (
     <>
@@ -88,6 +103,7 @@ export function HomeView({
           kind="empty"
           message={`No hay proyectos con aumento de costo ${national ? 'en el país' : 'en esta región'}.`}
         />
+        {mapLink}
         {compare}
         {blocks}
         {footer}
@@ -182,6 +198,8 @@ export function HomeView({
           </Pressable>
         </View>
       ) : null}
+
+      {mapLink}
 
       {compare}
 

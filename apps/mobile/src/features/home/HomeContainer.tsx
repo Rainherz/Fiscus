@@ -51,6 +51,10 @@ export function HomeContainer() {
       national={national}
       onPressInvestment={openInvestment}
       onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'increase-amount' } })}
+      onPressMap={() => {
+        blurActiveElement();
+        router.push('/map');
+      }}
       onPressCompare={() => {
         blurActiveElement();
         router.push(compareHref({ a: code }));
