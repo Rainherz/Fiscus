@@ -5,11 +5,11 @@ import { Text } from 'react-native';
 
 import MapRoute from '@/app/map';
 import { department, NATIONAL, type Scope } from '@/features/department/scope';
-import { ScopeProvider } from '@/features/department/ScopeContext';
+import { ScopeProvider, useScope } from '@/features/department/ScopeContext';
 import { ScopeGate } from '@/features/department/ScopeGate';
-import type { ScopeStorage } from '@/features/department/scopeStorage';
+import type { LevelStorage, ScopeStorage } from '@/features/department/scopeStorage';
 import { createInMemoryInvestmentsRepository } from '@/features/investments/adapters/inMemoryInvestmentsRepository';
-import { MOCK_COST_CHANGES, MOCK_ROWS } from '@/features/investments/adapters/sampleData';
+import { MOCK_COST_CHANGES, MOCK_ROWS, sampleRow } from '@/features/investments/adapters/sampleData';
 import type { InvestmentsRepository } from '@/features/investments/ports/InvestmentsRepository';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
 
@@ -37,6 +37,7 @@ const AREQUIPA_VIEW = { minLat: -17.3, minLon: -75.1, maxLat: -14.6, maxLon: -70
 
 let stored: Scope = NATIONAL;
 const storage: ScopeStorage = { load: async () => stored, save: async () => {} };
+const levelStorage: LevelStorage = { load: async () => null, save: async () => {} };
 let repository: InvestmentsRepository;
 
 beforeEach(() => {
@@ -50,7 +51,7 @@ function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoryProvider repository={repository} isDemo>
-        <ScopeProvider storage={storage}>
+        <ScopeProvider storage={storage} levelStorage={levelStorage}>
           <ScopeGate>
             <Stack screenOptions={{ headerShown: false }} />
           </ScopeGate>
@@ -62,10 +63,16 @@ function RootLayout() {
 
 const placeholder = (name: string) => () => <Text>{name}</Text>;
 
+function Home() {
+  const { label, levelLabel } = useScope();
+  return <Text>{`Inicio · ${label} · ${levelLabel}`}</Text>;
+}
+
 const routes = {
   _layout: RootLayout,
-  index: placeholder('Inicio'),
+  index: Home,
   rankings: placeholder('Rankings'),
+  region: placeholder('Región'),
   map: MapRoute,
   'investment/[cui]': placeholder('Detalle'),
 };
@@ -160,5 +167,98 @@ describe('map screen', () => {
     await openMap();
     await fireEvent.press(screen.getByRole('link', { name: 'Ver como lista' }));
     expect(await screen.findByText('Rankings')).toBeOnTheScreen();
+  });
+});
+
+describe('map insights', () => {
+  const openList = async () => {
+    await fireEvent.press(await screen.findByRole('button', { name: /^Ver lista: \d+ proyectos? en esta zona$/ }));
+  };
+
+  it('reads the filters from the URL and sends them with the map and the list', async () => {
+    const points = jest.spyOn(repository, 'getMapPoints');
+    const list = jest.spyOn(repository, 'getMapList');
+    await openMap('/map?f=stalled,increase');
+    expect(screen.getByRole('checkbox', { name: 'Con aumento' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin gasto reciente' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Gastó más que su costo' })).not.toBeChecked();
+    await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 8 });
+    await waitFor(() => expect(points).toHaveBeenCalledWith(expect.objectContaining({ filters: ['increase', 'stalled'] })));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ filters: ['increase', 'stalled'], page: 0 }));
+  });
+
+  it('keeps the chips in the URL, so the filtered map can be shared', async () => {
+    await openMap();
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Gastó más que su costo' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Con aumento' }));
+    expect(screen).toHaveSearchParams({ f: 'increase,overspent' });
+    expect(screen.getByRole('checkbox', { name: 'Con aumento' })).toBeChecked();
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Con aumento' }));
+    expect(screen).toHaveSearchParams({ f: 'overspent' });
+  });
+
+  it('shows only the stalled projects with the stalled filter, in the map and the list', async () => {
+    await openMap('/map?f=stalled');
+    await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 8 });
+    await waitFor(() => expect(mockMap!.features.map((f) => f.id).sort()).toEqual(['9900001', '9900002', '9900003']));
+    await openList();
+    expect(screen.getByText('3 PROYECTOS EN ESTA ZONA')).toBeOnTheScreen();
+    expect(screen.getByText('Planta de tratamiento de aguas residuales (demo)')).toBeOnTheScreen();
+  });
+
+  it('changes the app level from the map', async () => {
+    const points = jest.spyOn(repository, 'getMapPoints');
+    await openMap();
+    await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 8 });
+    await fireEvent.press(screen.getByRole('tab', { name: 'Local' }));
+    expect(screen.getByRole('tab', { name: 'Local' })).toBeSelected();
+    await waitFor(() => expect(points).toHaveBeenLastCalledWith(expect.objectContaining({ level: 'GL' })));
+    await fireEvent.press(screen.getByRole('button', { name: 'Volver' }));
+    expect(await screen.findByText('Inicio · Todo el Perú · Gobiernos locales')).toBeOnTheScreen();
+  });
+
+  it('opens the region picker from the scope', async () => {
+    await openMap();
+    await fireEvent.press(screen.getByRole('link', { name: 'Región: Todo el Perú. Cambiar región' }));
+    expect(await screen.findByText('Región')).toBeOnTheScreen();
+  });
+
+  it('lists the projects of the view by cost increase; a row selects it on the map with its card', async () => {
+    await openMap();
+    await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 8 });
+    await openList();
+    const rows = await screen.findAllByRole('button', { name: /^\d+\. / });
+    expect(rows[0]).toHaveAccessibleName(/^1\. Majes Siguas II etapa, Gobierno regional, aumento \+S\/ 3,809 M/);
+    await fireEvent.press(rows[0]);
+    expect(mockMap!.highlightCui).toBe('2088142');
+    expect(screen.getByText('COSTO ACTUAL S/ 5,148 M')).toBeOnTheScreen();
+    expect(screen.getByText('GASTADO 18 % DEL COSTO')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ver detalle: Majes Siguas II etapa' }));
+    expect(await screen.findByText('Detalle')).toBeOnTheScreen();
+  });
+
+  it('reads the figures of a project tapped on the map by its CUI', async () => {
+    await openMap();
+    await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 8 });
+    await waitFor(() => expect(mockMap!.features.length).toBeGreaterThan(0));
+    await emit({ type: 'pointPressed', cui: '9900201' });
+    expect(await screen.findByText('MUNICIPALIDAD DISTRITAL DE CAYMA (demo)')).toBeOnTheScreen();
+    expect(screen.getByText('AVANCE FÍSICO 42 %')).toBeOnTheScreen();
+  });
+
+  it('pages the list by 30 with "Cargar más"', async () => {
+    repository = createInMemoryInvestmentsRepository({
+      rows: Array.from({ length: 35 }, (_, i) =>
+        sampleRow({ cui: String(100 + i), viable: 1_000, updated: 2_000 + i, coordinates: { latitude: -16.4, longitude: -71.5 } }),
+      ),
+      lastRun: null,
+    });
+    await openMap();
+    await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 8 });
+    await openList();
+    expect(screen.getByText('35 PROYECTOS EN ESTA ZONA')).toBeOnTheScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Cargar más' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cargar más' })).toBeNull());
+    expect(screen.getByRole('button', { name: /^35\. Proyecto 100,/ })).toBeOnTheScreen();
   });
 });

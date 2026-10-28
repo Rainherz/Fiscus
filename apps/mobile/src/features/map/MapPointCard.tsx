@@ -1,21 +1,24 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { levelTag } from '@/features/government-level/levelPresentation';
-import { hasValidIncrease, type MapPoint } from '@/features/investments/domain/mapPoints';
+import { hasValidIncrease, type MapListItem, type MapPoint } from '@/features/investments/domain/mapPoints';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { LevelTag } from '@/shared/ui/LevelTag';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
-import { pointCardFigure } from './mapPresentation';
+import { pointCardFacts, pointCardFigure } from './mapPresentation';
 
 interface Props {
   point: MapPoint;
+  /** The rest of the figures: from the list row, or read by CUI after a tap on the map. */
+  details: MapListItem | null;
+  detailsStatus: 'loading' | 'ready' | 'error';
   onPressDetail: () => void;
   onClose: () => void;
 }
 
-/** The tapped project, under the map (outside the WebView, so it is native and accessible). */
-export function MapPointCard({ point, onPressDetail, onClose }: Props) {
+/** The selected project (outside the WebView, so it is native and accessible). */
+export function MapPointCard({ point, details, detailsStatus, onPressDetail, onClose }: Props) {
   const name = point.name ?? 'Sin nombre';
   const tag = levelTag(point.governmentLevel);
   return (
@@ -39,9 +42,31 @@ export function MapPointCard({ point, onPressDetail, onClose }: Props) {
       <DisplayText size={20} numberOfLines={2} style={styles.name}>
         {name}
       </DisplayText>
+      {details?.entity ? (
+        <MonoText size={11} muted numberOfLines={1}>
+          {details.entity}
+        </MonoText>
+      ) : null}
       <MonoText bold size={14} style={hasValidIncrease(point) ? styles.increase : undefined}>
         {pointCardFigure(point)}
       </MonoText>
+      {details ? (
+        <View style={styles.facts}>
+          {pointCardFacts(details).map((fact) => (
+            <MonoText key={fact} bold size={12} style={fact.startsWith('Sin gasto') ? styles.stalled : undefined}>
+              {fact}
+            </MonoText>
+          ))}
+        </View>
+      ) : detailsStatus === 'loading' ? (
+        <MonoText size={11} muted>
+          Cargando datos del proyecto…
+        </MonoText>
+      ) : detailsStatus === 'error' ? (
+        <MonoText size={11} muted>
+          No se pudieron cargar los demás datos del proyecto.
+        </MonoText>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Ver detalle: ${name}`}
@@ -55,8 +80,6 @@ export function MapPointCard({ point, onPressDetail, onClose }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderTopWidth: rule,
-    borderTopColor: colors.ink,
     backgroundColor: colors.concrete,
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
@@ -68,6 +91,8 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.6 },
   name: { lineHeight: 21 },
   increase: { alignSelf: 'flex-start', backgroundColor: colors.signal, paddingHorizontal: space.xs },
+  facts: { gap: 2 },
+  stalled: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.ink, paddingHorizontal: space.xs },
   detail: {
     minHeight: minTouch,
     justifyContent: 'center',

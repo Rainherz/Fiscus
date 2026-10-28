@@ -1,6 +1,15 @@
-import type { MapCluster, MapPoint } from '@/features/investments/domain/mapPoints';
+import type { MapCluster, MapListItem, MapPoint } from '@/features/investments/domain/mapPoints';
 
-import { clusterRadius, formatClusterCount, pointCardFigure, toMapFeatures } from './mapPresentation';
+import {
+  clusterRadius,
+  formatClusterCount,
+  mapListCountText,
+  mapListRow,
+  pointCardFacts,
+  pointCardFigure,
+  toMapFeatures,
+  withSelected,
+} from './mapPresentation';
 
 const point: MapPoint = {
   cui: '2088142',
@@ -71,12 +80,90 @@ describe('pointCardFigure', () => {
   });
 
   it('says when there is no increase', () => {
-    expect(pointCardFigure({ ...point, costIncrease: -5_000_000, costIncreasePct: -10 })).toBe('Sin aumento de costo');
+    expect(pointCardFigure({ ...point, costIncrease: -5_000_000, costIncreasePct: -10 })).toBe('Sin aumento');
   });
 
   it('says when the cost is not valid in the source', () => {
     expect(pointCardFigure({ ...point, updatedCostValid: false, costIncrease: null, costIncreasePct: null })).toBe(
       'Costo actualizado no válido en la fuente MEF',
     );
+  });
+});
+
+const item: MapListItem = {
+  ...point,
+  entity: 'GOBIERNO REGIONAL AREQUIPA',
+  status: 'ACTIVO',
+  updatedCost: 5_147_912_126,
+  accruedTotal: 926_624_183,
+  executionProgress: 0.18,
+  spentAnomaly: false,
+  physicalProgress: null,
+  lastAccrualMonth: '2026-10-01',
+  stalled: false,
+};
+
+describe('withSelected', () => {
+  it('adds the selected project when the map does not draw it (clusters, other view)', () => {
+    const clusters = toMapFeatures({ kind: 'clusters', clusters: [cluster] });
+    expect(withSelected(clusters, point)).toEqual([
+      ...clusters,
+      { kind: 'point', id: '2088142', latitude: -16.35, longitude: -72.15, increased: true },
+    ]);
+  });
+
+  it('leaves the features alone when the project is drawn or nothing is selected', () => {
+    const points = toMapFeatures({ kind: 'points', points: [point] });
+    expect(withSelected(points, point)).toBe(points);
+    expect(withSelected(points, null)).toBe(points);
+  });
+});
+
+describe('mapListCountText', () => {
+  it('counts the projects of the view', () => {
+    expect(mapListCountText(1)).toBe('1 proyecto en esta zona');
+    expect(mapListCountText(1_280)).toBe('1,280 proyectos en esta zona');
+    expect(mapListCountText(0)).toBe('0 proyectos en esta zona');
+  });
+});
+
+describe('mapListRow', () => {
+  it('shows the increase as the value and the entity and current cost below', () => {
+    expect(mapListRow(item)).toEqual({
+      value: '+S/ 3,809 M',
+      detail: ['GOBIERNO REGIONAL AREQUIPA', '+285% · costo S/ 5,148 M'],
+      summary: 'aumento +S/ 3,809 M, +285%, costo actual S/ 5,148 M',
+    });
+  });
+
+  it('says when there is no increase or the cost is not valid', () => {
+    expect(mapListRow({ ...item, entity: null, costIncrease: 0, costIncreasePct: 0 })).toEqual({
+      value: 'Sin aumento',
+      detail: ['Costo S/ 5,148 M'],
+      summary: 'sin aumento, costo actual S/ 5,148 M',
+    });
+    expect(mapListRow({ ...item, updatedCostValid: false, costIncrease: null, costIncreasePct: null }).detail).toEqual([
+      'GOBIERNO REGIONAL AREQUIPA',
+      'Costo actualizado no válido en la fuente MEF',
+    ]);
+  });
+});
+
+describe('pointCardFacts', () => {
+  it('lists the current cost and the share spent', () => {
+    expect(pointCardFacts(item)).toEqual(['COSTO ACTUAL S/ 5,148 M', 'GASTADO 18 % DEL COSTO']);
+  });
+
+  it('adds the physical progress and the stalled line when they apply', () => {
+    expect(pointCardFacts({ ...item, physicalProgress: 42, stalled: true, lastAccrualMonth: '2025-02-01' })).toEqual([
+      'COSTO ACTUAL S/ 5,148 M',
+      'GASTADO 18 % DEL COSTO',
+      'AVANCE FÍSICO 42 %',
+      'Sin gasto desde feb 2025',
+    ]);
+  });
+
+  it('leaves out the cost figures when the cost is not valid', () => {
+    expect(pointCardFacts({ ...item, updatedCostValid: false, physicalProgress: 5 })).toEqual(['AVANCE FÍSICO 5 %']);
   });
 });
