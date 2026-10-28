@@ -212,7 +212,7 @@ export function RegionPickerView({
       </Pressable>
       {wide ? (
         <View style={[styles.body, column]}>
-          <ScrollView style={styles.panel} contentContainerStyle={{ paddingBottom: bottomInset + space.xl }}>
+          <ScrollView testID="region-picker-panel" style={styles.panel} contentContainerStyle={{ paddingBottom: bottomInset + space.xl }}>
             {controls}
           </ScrollView>
           {list}

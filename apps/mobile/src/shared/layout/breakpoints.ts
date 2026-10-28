@@ -7,6 +7,8 @@ export const TABLET_MIN_WIDTH = 768;
 export const DESKTOP_MIN_WIDTH = 1200;
 /** Content max width on tablet and desktop; the map stays full-bleed. */
 export const LAYOUT_MAX_WIDTH = 1280;
+/** Max width of single-column lists on tablet and desktop, where a full-width row would read poorly. */
+export const COMPACT_MAX_WIDTH = 880;
 
 export function breakpointFor(width: number): Breakpoint {
   if (width >= DESKTOP_MIN_WIDTH) return 'desktop';

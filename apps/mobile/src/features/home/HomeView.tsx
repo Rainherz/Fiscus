@@ -102,15 +102,24 @@ export function HomeView({
     : styles.content;
   const columns = homeGridColumns(breakpoint);
   const grid = (
-    <View testID="home-grid" style={styles.grid}>
-      {blockList.map((block, index) => (
-        <View key={index} testID="home-grid-cell" style={[styles.cell, { flexBasis: `${100 / columns}%` }]}>
-          {block}
-        </View>
-      ))}
-    </View>
+    <>
+      <View style={styles.gridRule} />
+      <View testID="home-grid" style={styles.grid}>
+        {blockList.map((block, index) => (
+          <View key={index} testID="home-grid-cell" style={[styles.cell, { flexBasis: `${100 / columns}%` }]}>
+            {block}
+          </View>
+        ))}
+      </View>
+    </>
   );
-  const ctas = wide && (mapLink || compare) ? <View style={styles.ctaRow}>{mapLink}{compare}</View> : null;
+  const ctas =
+    wide && (mapLink || compare) ? (
+      <View style={styles.ctaRow}>
+        {mapLink}
+        {compare}
+      </View>
+    ) : null;
 
   if (!hero) {
     const empty = (
@@ -315,7 +324,7 @@ const styles = StyleSheet.create({
   wideColumn: { maxWidth: LAYOUT_MAX_WIDTH, flexGrow: 1, paddingTop: space.md },
   heroRow: { flexDirection: 'row', alignItems: 'stretch' },
   heroColumn: { flex: HERO_PARTS, paddingBottom: space.lg },
-  rankingColumn: { flex: 12 - HERO_PARTS, paddingTop: space.lg, paddingHorizontal: space.sm },
+  rankingColumn: { flex: 12 - HERO_PARTS, paddingTop: space.lg, paddingHorizontal: space.lg },
   heroNameWide: { lineHeight: 42 },
   rankingWide: { marginTop: 0, borderWidth: rule, borderColor: colors.ink },
   cta: {
@@ -327,6 +336,8 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
   },
   ctaRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: space.lg, marginTop: space.lg, gap: space.md },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: space.md, borderTopWidth: rule, borderTopColor: colors.ink },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  /** Closes the hero row; inset like the blocks' text. */
+  gridRule: { height: rule, backgroundColor: colors.ink, marginTop: space.md, marginHorizontal: space.lg },
   cell: { flexGrow: 1, paddingBottom: space.lg },
 });

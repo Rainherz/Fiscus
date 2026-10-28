@@ -6,6 +6,8 @@ import { useReadScope, useScope } from '@/features/department/ScopeContext';
 import { levelFilterLabel, levelTag } from '@/features/government-level/levelPresentation';
 import { useFunctionInvestments } from '@/features/investments/hooks/queries';
 import { formatSoles } from '@/shared/format';
+import { COMPACT_MAX_WIDTH, isWide } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { RankingRow } from '@/shared/ui/RankingRow';
@@ -28,6 +30,7 @@ export function CategoryInvestmentsContainer() {
   const list = useFunctionInvestments(read, fn);
   const items = list.data?.pages.flat() ?? [];
   const label = fn ?? NO_FUNCTION_LABEL;
+  const wide = isWide(useBreakpoint());
 
   return (
     <View style={styles.screen}>
@@ -36,7 +39,7 @@ export function CategoryInvestmentsContainer() {
         onBack={() => (router.canGoBack() ? router.back() : router.replace('/categories'))}
       />
       <FlatList
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, wide && { maxWidth: COMPACT_MAX_WIDTH }]}
         data={items}
         keyExtractor={(item) => item.cui}
         ListHeaderComponent={

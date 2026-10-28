@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Investment } from '@/features/investments/domain/investment';
 import { formatSignedPercent, formatSignedSoles } from '@/shared/format';
+import { gutterFor, isWide } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { StateMessage } from '@/shared/ui/StateMessage';
@@ -42,6 +44,9 @@ interface Props {
   bottomInset?: number;
 }
 
+/** Tablet and desktop: wide enough for long bars, narrow enough to read the two values together. */
+const COMPARE_MAX_WIDTH = 1080;
+
 const SIDE_TITLE: Record<Side, string> = { a: 'Primera región', b: 'Segunda región' };
 
 /** "Comparar regiones": two departments side by side, metric by metric. */
@@ -60,6 +65,10 @@ export function CompareView({
   bottomInset = 0,
 }: Props) {
   const [picking, setPicking] = useState<Side | null>(null);
+  const breakpoint = useBreakpoint();
+  const wideContent = isWide(breakpoint)
+    ? { maxWidth: COMPARE_MAX_WIDTH, paddingHorizontal: gutterFor(breakpoint) - space.lg }
+    : null;
 
   if (picking && pair) {
     return (
@@ -85,7 +94,8 @@ export function CompareView({
       <BackHeader topInset={topInset} onBack={onBack} />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomInset + space.xl }]}
+        testID="compare-content"
+        contentContainerStyle={[styles.content, wideContent, { paddingBottom: bottomInset + space.xl }]}
         stickyHeaderIndices={pair ? [1] : undefined}>
         <View style={styles.intro}>
           <MonoText bold size={11} muted>
