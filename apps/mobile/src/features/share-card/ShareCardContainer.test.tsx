@@ -49,6 +49,21 @@ describe('ShareCardContainer', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('prints the project link on the card when the site URL is configured', async () => {
+    const previous = process.env.EXPO_PUBLIC_SITE_URL;
+    process.env.EXPO_PUBLIC_SITE_URL = 'https://rainherz.github.io/Fiscus/';
+    try {
+      capture.mockResolvedValue('/tmp/card.png');
+      await render(<ShareCardContainer investment={majes} referenceMonth={null} onClose={jest.fn()} />);
+      expect(
+        screen.getByText('rainherz.github.io/Fiscus/investment/2088142', { includeHiddenElements: true }),
+      ).toBeOnTheScreen();
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_SITE_URL;
+      else process.env.EXPO_PUBLIC_SITE_URL = previous;
+    }
+  });
+
   it('explains when the device cannot share images', async () => {
     capture.mockResolvedValue('/tmp/card.png');
     isAvailable.mockResolvedValue(false);

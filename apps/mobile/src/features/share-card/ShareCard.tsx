@@ -113,6 +113,11 @@ export function ShareCard({ content, ref, onLayout }: Props) {
         <MonoText size={24} muted style={styles.footerText}>
           {content.footer}
         </MonoText>
+        {content.link ? (
+          <MonoText bold size={26} numberOfLines={1} style={styles.footerText}>
+            {content.link.label}
+          </MonoText>
+        ) : null}
       </View>
     </View>
   );
@@ -173,6 +178,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.ink,
     paddingTop: 20,
     paddingBottom: 40,
+    gap: 8,
   },
   footerText: { lineHeight: 32 },
 });

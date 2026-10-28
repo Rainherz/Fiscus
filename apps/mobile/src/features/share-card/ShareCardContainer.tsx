@@ -2,6 +2,7 @@ import { useRef, useState, type ComponentRef } from 'react';
 import type { View } from 'react-native';
 
 import type { Investment } from '@/features/investments/domain/investment';
+import { siteUrlFromEnv } from '@/shared/site/siteUrl';
 
 import { ShareCard } from './ShareCard';
 import { captureCard, shareCardImage } from './shareCardImage';
@@ -23,7 +24,7 @@ export const SHARE_FAILED = 'No se pudo compartir la imagen.';
  * that same file, so people see exactly what they send. Mount it while sharing; unmount to close.
  */
 export function ShareCardContainer({ investment, referenceMonth, onClose }: Props) {
-  const content = shareCardContent(investment, { referenceMonth });
+  const content = shareCardContent(investment, { referenceMonth, siteUrl: siteUrlFromEnv() });
   const cardRef = useRef<ComponentRef<typeof View>>(null);
   const capturing = useRef(false);
   const [status, setStatus] = useState<SharePreviewStatus>('preparing');
@@ -49,7 +50,11 @@ export function ShareCardContainer({ investment, referenceMonth, onClose }: Prop
     setStatus('sharing');
     setMessage(null);
     try {
-      const result = await shareCardImage(uri, investment.cui);
+      const result = await shareCardImage(uri, {
+        cui: investment.cui,
+        text: content.shareText,
+        url: content.link?.url ?? null,
+      });
       if (result === 'shared' || result === 'downloaded') {
         onClose();
         return;
