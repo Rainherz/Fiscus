@@ -2,7 +2,10 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
+import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
+import { TableHeader, TableRow } from '@/shared/ui/DataTable';
 import type { Tag } from '@/shared/ui/LevelTag';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { SegmentedTabs } from '@/shared/ui/SegmentedTabs';
@@ -30,6 +33,7 @@ import {
   type RankingList,
   type RankingTab,
 } from './rankingPresentation';
+import { rankingTable } from './rankingTable';
 
 interface Row {
   key: string;
@@ -128,6 +132,76 @@ export function RankingsView({
   const rows = toRows(list, now, national, entitySort, { onPressInvestment, onPressEntity });
   const tabs: readonly { key: RankingTab; label: string }[] =
     options === 'screen' ? RANKINGS_SCREEN_OPTIONS : RANKING_OPTIONS;
+  const breakpoint = useBreakpoint();
+  const wide = isWide(breakpoint);
+  const column = wide ? { maxWidth: LAYOUT_MAX_WIDTH } : null;
+  const gutter = wide ? { paddingHorizontal: gutterFor(breakpoint) } : null;
+
+  const empty =
+    status === 'pending' ? (
+      <StateMessage kind="loading" />
+    ) : status === 'error' ? (
+      <StateMessage kind="error" onRetry={onRetry} />
+    ) : (
+      <StateMessage kind="empty" message={emptyMessage(kind, national)} />
+    );
+  const more = isFetchingMore ? <ActivityIndicator color={colors.ink} style={styles.more} /> : undefined;
+
+  const controls = (
+    <View testID="rankings-controls" style={[styles.tabs, column]}>
+      {header ? <View style={[styles.header, gutter]}>{header}</View> : null}
+      <SegmentedTabs options={tabs} selected={kind} onSelect={onSelectKind} gutter={wide ? gutterFor(breakpoint) : undefined} />
+      {kind === 'entities' ? (
+        <SegmentedTabs
+          options={ENTITY_SORT_OPTIONS}
+          selected={entitySort}
+          onSelect={onSelectEntitySort}
+          accessibilityLabel="Ordenar entidades por"
+          gutter={wide ? gutterFor(breakpoint) : undefined}
+        />
+      ) : null}
+      {note ? (
+        <MonoText size={11} muted style={[styles.note, gutter]}>
+          {note}
+        </MonoText>
+      ) : null}
+    </View>
+  );
+
+  if (wide) {
+    const spread = breakpoint === 'desktop';
+    const table = rankingTable(list, now, { national, compact: !spread, entitySort });
+    const layout = { columns: table.columns, spread, national };
+    return (
+      <View style={styles.screen}>
+        {controls}
+        <FlatList
+          style={styles.list}
+          contentContainerStyle={[styles.listContent, column, gutter]}
+          data={table.rows}
+          keyExtractor={(row) => row.key}
+          stickyHeaderIndices={table.rows.length > 0 ? [0] : undefined}
+          ListHeaderComponent={table.rows.length > 0 ? <TableHeader {...layout} /> : undefined}
+          renderItem={({ item: row, index }) => (
+            <TableRow
+              {...layout}
+              rank={index + 1}
+              row={row}
+              onPress={() => {
+                const { target } = row;
+                if (target.kind === 'investment') onPressInvestment(target.cui);
+                else if (list.kind === 'entities') onPressEntity(list.items[target.index]);
+              }}
+            />
+          )}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          ListEmptyComponent={empty}
+          ListFooterComponent={more}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>

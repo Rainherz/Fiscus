@@ -1,5 +1,7 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
+import { COMPACT_MAX_WIDTH, isWide } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, minTouch, space } from '@/shared/theme/tokens';
 import { OptionRow } from '@/shared/ui/OptionRow';
 import { RankingRow } from '@/shared/ui/RankingRow';
@@ -44,6 +46,7 @@ function toItems(regions: RegionComparison[]): Item[] {
 export function RegionChoiceList({ title, regions, selected, onPick, onClose, topInset = 0, bottomInset = 0 }: Props) {
   const items = toItems(regions);
   const ranked = regions.length > 0;
+  const wide = isWide(useBreakpoint());
   return (
     <View style={styles.screen}>
       <View style={[styles.bar, { paddingTop: topInset + space.sm }]}>
@@ -68,7 +71,12 @@ export function RegionChoiceList({ title, regions, selected, onPick, onClose, to
       </View>
       <FlatList
         style={styles.list}
-        contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset + space.xl }]}
+        testID="region-choice-list"
+        contentContainerStyle={[
+          styles.listContent,
+          wide && { maxWidth: COMPACT_MAX_WIDTH },
+          { paddingBottom: bottomInset + space.xl },
+        ]}
         accessibilityLabel="Regiones"
         data={items}
         initialNumToRender={items.length}

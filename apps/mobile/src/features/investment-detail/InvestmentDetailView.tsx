@@ -21,6 +21,8 @@ import {
   formatYears,
   yearsSince,
 } from '@/shared/format';
+import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
 import { sourceNameOf } from '@/shared/ui/DataFooter';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
@@ -43,9 +45,9 @@ interface Props {
 const DASH = '—';
 const INVALID_COST_NOTICE = 'Costo actualizado no válido en la fuente MEF';
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, grid }: { label: string; value: string; grid: boolean }) {
   return (
-    <View accessible accessibilityLabel={`${label}: ${value}`} style={styles.fact}>
+    <View accessible accessibilityLabel={`${label}: ${value}`} style={[styles.fact, grid && styles.factGrid]}>
       <MonoText size={11} muted style={styles.factLabel}>
         {label.toUpperCase()}
       </MonoText>
@@ -118,14 +120,28 @@ export function InvestmentDetailView({
     ...optional('Distrito', inv.district),
   ];
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+  const breakpoint = useBreakpoint();
+  const wide = isWide(breakpoint);
+  /** Desktop: figures on the left, facts on the right. Tablet: one wider column. */
+  const columns = breakpoint === 'desktop';
+  const wideContent = wide
+    ? [
+        styles.contentWide,
+        {
+          maxWidth: columns ? LAYOUT_MAX_WIDTH : TABLET_DETAIL_WIDTH,
+          paddingHorizontal: gutterFor(breakpoint) - space.lg,
+        },
+      ]
+    : null;
+
+  const main = (
+    <>
       <View style={styles.head}>
         <View style={styles.identity}>
           {tag ? <LevelTag tag={tag} /> : null}
           <MonoText bold size={11} muted>{`CUI ${inv.cui}`}</MonoText>
         </View>
-        <DisplayText size={30} accessibilityRole="header" style={styles.name}>
+        <DisplayText size={columns ? 40 : 30} accessibilityRole="header" style={columns ? styles.nameWide : styles.name}>
           {inv.name ?? 'Sin nombre'}
         </DisplayText>
         <View style={styles.actions}>
@@ -222,21 +238,50 @@ export function InvestmentDetailView({
       {inv.physicalProgress !== null ? <PhysicalProgress percent={inv.physicalProgress} /> : null}
 
       {costHistory}
+    </>
+  );
+  const factList = (
+    <View testID="detail-facts" style={[styles.facts, wide && styles.factsGrid, columns && styles.factsSide]}>
+      {facts.map(([label, value]) => (
+        <Fact key={label} label={label} value={value} grid={wide} />
+      ))}
+    </View>
+  );
+  const sourceNote = (
+    <MonoText size={11} muted style={styles.source}>
+      {`Fuente: ${sourceNameOf(inv.dataSource)}.${
+        inv.sourceUpdatedAt ? ` Último cambio en los datos del MEF: ${formatDate(inv.sourceUpdatedAt)}.` : ''
+      }`}
+    </MonoText>
+  );
 
-      <View style={styles.facts}>
-        {facts.map(([label, value]) => (
-          <Fact key={label} label={label} value={value} />
-        ))}
-      </View>
+  if (columns) {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, wideContent]}>
+        <View testID="detail-columns" style={styles.columns}>
+          <View testID="detail-main" style={styles.mainColumn}>
+            {main}
+          </View>
+          <View style={styles.sideColumn}>
+            {factList}
+            {sourceNote}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
-      <MonoText size={11} muted style={styles.source}>
-        {`Fuente: ${sourceNameOf(inv.dataSource)}.${
-          inv.sourceUpdatedAt ? ` Último cambio en los datos del MEF: ${formatDate(inv.sourceUpdatedAt)}.` : ''
-        }`}
-      </MonoText>
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, wideContent]}>
+      {main}
+      {factList}
+      {sourceNote}
     </ScrollView>
   );
 }
+
+/** Tablet: one column, wider than the phone one, with the facts in two columns. */
+const TABLET_DETAIL_WIDTH = 880;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.concrete },
@@ -247,6 +292,7 @@ const styles = StyleSheet.create({
   physicalTrack: { height: 12, borderWidth: rule, borderColor: colors.ink, backgroundColor: colors.concrete },
   physicalFill: { height: '100%', backgroundColor: colors.ink },
   name: { lineHeight: 30 },
+  nameWide: { lineHeight: 38 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   shareButton: {
     alignSelf: 'flex-start',
@@ -285,6 +331,14 @@ const styles = StyleSheet.create({
     paddingLeft: space.sm,
   },
   facts: { marginTop: space.xl, marginHorizontal: space.lg },
+  contentWide: { paddingTop: space.sm },
+  columns: { flexDirection: 'row', alignItems: 'flex-start' },
+  mainColumn: { flex: 7 },
+  sideColumn: { flex: 5, paddingTop: space.lg },
+  /** Definition grid: two facts per row. */
+  factsGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 0 },
+  factsSide: { marginTop: 0, borderBottomWidth: rule, borderBottomColor: colors.ink },
+  factGrid: { flexBasis: '50%', flexGrow: 0, paddingRight: space.md },
   fact: {
     borderTopWidth: rule,
     borderTopColor: colors.ink,

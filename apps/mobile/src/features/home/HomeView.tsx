@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { regionLabel } from '@/features/department/departments';
 import { levelTag } from '@/features/government-level/levelPresentation';
@@ -14,12 +14,16 @@ import {
   yearsSince,
 } from '@/shared/format';
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
+import { isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { FitDisplayText } from '@/shared/ui/FitDisplayText';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
 import { LevelTag } from '@/shared/ui/LevelTag';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
+
+import { HERO_PARTS, heroFigureWidth, homeColumnPadding, homeGridColumns } from './homeLayout';
 
 interface Props {
   /** The project with the largest absolute cost increase in the scope. */
@@ -58,13 +62,18 @@ export function HomeView({
   stalled,
   footer,
 }: Props) {
+  const breakpoint = useBreakpoint();
+  const { width: windowWidth } = useWindowDimensions();
+  const wide = isWide(breakpoint);
+  const ctaStyle = wide ? styles.cta : styles.compare;
+
   const compare =
     !national && onPressCompare ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Comparar con otra región"
         onPress={onPressCompare}
-        style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+        style={({ pressed }) => [ctaStyle, pressed && styles.comparePressed]}>
         <DisplayText weight={900} size={20}>
           Comparar con otra región →
         </DisplayText>
@@ -76,33 +85,64 @@ export function HomeView({
       accessibilityRole="link"
       accessibilityLabel="Ver en el mapa"
       onPress={onPressMap}
-      style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+      style={({ pressed }) => [ctaStyle, pressed && styles.comparePressed]}>
       <DisplayText weight={900} size={20}>
         Ver en el mapa →
       </DisplayText>
     </Pressable>
   ) : null;
 
-  const blocks = national ? (
+  const blockList = (national ? [regions, stalled, recentIncreases] : [recentIncreases, stalled]).filter(
+    (block): block is NonNullable<ReactNode> => block !== undefined && block !== null && block !== false,
+  );
+  const blocks = <>{blockList}</>;
+
+  const columnStyle = wide
+    ? [styles.content, styles.wideColumn, { paddingHorizontal: homeColumnPadding(breakpoint) }]
+    : styles.content;
+  const columns = homeGridColumns(breakpoint);
+  const grid = (
     <>
-      {regions}
-      {stalled}
-      {recentIncreases}
-    </>
-  ) : (
-    <>
-      {recentIncreases}
-      {stalled}
+      <View style={styles.gridRule} />
+      <View testID="home-grid" style={styles.grid}>
+        {blockList.map((block, index) => (
+          <View key={index} testID="home-grid-cell" style={[styles.cell, { flexBasis: `${100 / columns}%` }]}>
+            {block}
+          </View>
+        ))}
+      </View>
     </>
   );
+  const ctas =
+    wide && (mapLink || compare) ? (
+      <View style={styles.ctaRow}>
+        {mapLink}
+        {compare}
+      </View>
+    ) : null;
 
   if (!hero) {
+    const empty = (
+      <StateMessage
+        kind="empty"
+        message={`No hay proyectos con aumento de costo ${national ? 'en el país' : 'en esta región'}.`}
+      />
+    );
+    if (wide) {
+      return (
+        <ScrollView style={styles.screen} contentContainerStyle={styles.wideScroll}>
+          <View testID="home-column" style={columnStyle}>
+            {empty}
+            {ctas}
+            {grid}
+          </View>
+          {footer}
+        </ScrollView>
+      );
+    }
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <StateMessage
-          kind="empty"
-          message={`No hay proyectos con aumento de costo ${national ? 'en el país' : 'en esta región'}.`}
-        />
+        {empty}
         {mapLink}
         {compare}
         {blocks}
@@ -116,8 +156,8 @@ export function HomeView({
   const name = hero.name ?? 'Sin nombre';
   const heroTag = levelTag(hero.governmentLevel);
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+  const heroBlock = (
+    <>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Ver detalle: ${name}`}
@@ -126,7 +166,10 @@ export function HomeView({
         <MonoText bold size={11} muted>
           {national ? 'EL MAYOR AUMENTO DEL PAÍS' : 'EL MAYOR AUMENTO DE LA REGIÓN'}
         </MonoText>
-        <DisplayText size={34} numberOfLines={3} style={styles.heroName}>
+        <DisplayText
+          size={wide ? 44 : 34}
+          numberOfLines={3}
+          style={wide ? styles.heroNameWide : styles.heroName}>
           {name}
         </DisplayText>
         {national || heroTag ? (
@@ -142,8 +185,9 @@ export function HomeView({
         <View style={styles.figure}>
           <FitDisplayText
             text={formatSignedPercent(hero.costIncreasePct)}
-            maxSize={136}
+            maxSize={wide ? 220 : 136}
             horizontalInset={HERO_FIGURE_INSET}
+            estimatedWidth={wide ? heroFigureWidth(windowWidth) : undefined}
           />
         </View>
         <View style={styles.amounts}>
@@ -171,33 +215,60 @@ export function HomeView({
           anomaly={hero.spentAnomaly}
         />
       </View>
+    </>
+  );
 
-      {ranking.length > 0 ? (
-        <View style={styles.ranking}>
-          <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.rankingTitle}>
-            RANKING DE AUMENTOS
-          </DisplayText>
-          {ranking.map((investment, index) => (
-            <RankingRow
-              key={investment.cui}
-              tone="signal"
-              rank={index + 2}
-              name={investment.name}
-              value={formatSignedSoles(investment.costIncrease)}
-              detail={national ? regionLabel(investment.departmentCode) : undefined}
-              tag={levelTag(investment.governmentLevel)}
-              onPress={() => onPressInvestment(investment.cui)}
-            />
-          ))}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ver ranking completo"
-            onPress={onPressSeeAll}
-            style={({ pressed }) => [styles.seeAll, pressed && styles.seeAllPressed]}>
-            <DisplayText size={18}>Ver ranking completo →</DisplayText>
-          </Pressable>
+  const rankingBlock =
+    ranking.length > 0 ? (
+      <View style={[styles.ranking, wide && styles.rankingWide]}>
+        <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.rankingTitle}>
+          RANKING DE AUMENTOS
+        </DisplayText>
+        {ranking.map((investment, index) => (
+          <RankingRow
+            key={investment.cui}
+            tone="signal"
+            rank={index + 2}
+            name={investment.name}
+            value={formatSignedSoles(investment.costIncrease)}
+            detail={national ? regionLabel(investment.departmentCode) : undefined}
+            tag={levelTag(investment.governmentLevel)}
+            onPress={() => onPressInvestment(investment.cui)}
+          />
+        ))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ver ranking completo"
+          onPress={onPressSeeAll}
+          style={({ pressed }) => [styles.seeAll, pressed && styles.seeAllPressed]}>
+          <DisplayText size={18}>Ver ranking completo →</DisplayText>
+        </Pressable>
+      </View>
+    ) : null;
+
+  if (wide) {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={styles.wideScroll}>
+        <View testID="home-column" style={columnStyle}>
+          <View testID="home-hero-row" style={styles.heroRow}>
+            <View style={styles.heroColumn}>
+              {heroBlock}
+              {ctas}
+            </View>
+            {rankingBlock ? <View style={styles.rankingColumn}>{rankingBlock}</View> : null}
+          </View>
+          {grid}
         </View>
-      ) : null}
+        {footer}
+      </ScrollView>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {heroBlock}
+
+      {rankingBlock}
 
       {mapLink}
 
@@ -248,4 +319,25 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
   },
   comparePressed: { backgroundColor: colors.concretePressed },
+  // Tablet and desktop. Every block keeps its own 20 px padding; the column adds the rest of the gutter.
+  wideScroll: { flexGrow: 1 },
+  wideColumn: { maxWidth: LAYOUT_MAX_WIDTH, flexGrow: 1, paddingTop: space.md },
+  heroRow: { flexDirection: 'row', alignItems: 'stretch' },
+  heroColumn: { flex: HERO_PARTS, paddingBottom: space.lg },
+  rankingColumn: { flex: 12 - HERO_PARTS, paddingTop: space.lg, paddingHorizontal: space.lg },
+  heroNameWide: { lineHeight: 42 },
+  rankingWide: { marginTop: 0, borderWidth: rule, borderColor: colors.ink },
+  cta: {
+    flexGrow: 1,
+    minHeight: minTouch + 8,
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+    borderWidth: rule,
+    borderColor: colors.ink,
+  },
+  ctaRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: space.lg, marginTop: space.lg, gap: space.md },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  /** Closes the hero row; inset like the blocks' text. */
+  gridRule: { height: rule, backgroundColor: colors.ink, marginTop: space.md, marginHorizontal: space.lg },
+  cell: { flexGrow: 1, paddingBottom: space.lg },
 });
