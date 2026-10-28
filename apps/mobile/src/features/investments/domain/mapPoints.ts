@@ -1,5 +1,6 @@
 import type { GovernmentLevel, LevelFilter } from './governmentLevel';
 import type { Investment } from './investment';
+import { stalledStatus } from './stalled';
 
 /**
  * The map: projects with coordinates (open data), as grid clusters or individual points. The
@@ -17,6 +18,16 @@ export interface BBox {
 /** Bounds of every stored coordinate (the investments check constraints). */
 export const PERU_BBOX: BBox = { minLat: -19, minLon: -82, maxLat: 0, maxLon: -68 };
 
+/**
+ * Filters of the map and its list, combined with AND (the `only_*` arguments of map_points and
+ * map_list):
+ * - increase: a positive cost increase on a valid updated cost ("Con aumento").
+ * - stalled: "Sin gasto reciente" (see stalled.ts).
+ * - overspent: the accrued total exceeds a valid updated cost ("Gastó más que su costo").
+ */
+export type MapFilter = 'increase' | 'stalled' | 'overspent';
+export const MAP_FILTERS: readonly MapFilter[] = ['increase', 'stalled', 'overspent'];
+
 export interface MapPointsRequest {
   bbox: BBox;
   /** Integer web-mercator zoom. */
@@ -24,7 +35,21 @@ export interface MapPointsRequest {
   level: LevelFilter;
   /** Undefined: all of Peru. */
   departmentCode?: number;
+  /** None (or undefined): every project. */
+  filters?: readonly MapFilter[];
 }
+
+/** One page of the list beside the map: the projects of the view that match the filters. */
+export interface MapListRequest {
+  bbox: BBox;
+  level: LevelFilter;
+  departmentCode?: number;
+  filters?: readonly MapFilter[];
+  page: number;
+  pageSize?: number;
+}
+
+export const MAP_LIST_PAGE_SIZE = 30;
 
 export interface MapPoint {
   cui: string;
@@ -48,6 +73,27 @@ export interface MapCluster {
   maxCostIncreasePct: number | null;
   /** Projects with a positive, valid cost increase. */
   increasedCount: number;
+}
+
+/** A row of the list (and what the card shows): `map_list`. */
+export interface MapListItem extends MapPoint {
+  entity: string | null;
+  status: string | null;
+  updatedCost: number | null;
+  accruedTotal: number | null;
+  executionProgress: number | null;
+  spentAnomaly: boolean;
+  /** 0-100, as MEF publishes it; null when not reported. */
+  physicalProgress: number | null;
+  lastAccrualMonth: string | null;
+  /** Meets the "Sin gasto reciente" rule. */
+  stalled: boolean;
+}
+
+export interface MapListPage {
+  items: MapListItem[];
+  /** Matching projects in the view (every page). */
+  total: number;
 }
 
 export type MapPoints = { kind: 'points'; points: MapPoint[] } | { kind: 'clusters'; clusters: MapCluster[] };
@@ -118,21 +164,85 @@ function cluster(points: MapPoint[], zoom: number): MapCluster[] {
     .slice(0, MAX_MAP_CELLS);
 }
 
+/** The latest last accrual month of the dataset (accrual_reference_month_all_levels). */
+function referenceMonthOf(investments: Investment[]): string | null {
+  return investments.reduce<string | null>(
+    (latest, i) => (i.lastAccrualMonth !== null && (latest === null || i.lastAccrualMonth > latest) ? i.lastAccrualMonth : latest),
+    null,
+  );
+}
+
+function isOverspent(i: Investment): boolean {
+  return i.updatedCostValid && (i.executionProgress ?? 0) > 1;
+}
+
+type Scoped = Pick<MapPointsRequest, 'bbox' | 'level' | 'departmentCode' | 'filters'>;
+
+/** The located investments of the request's box and scope that match its filters. */
+function located(investments: Investment[], request: Scoped): { investment: Investment; point: MapPoint; stalled: boolean }[] {
+  const referenceMonth = referenceMonthOf(investments);
+  const filters = request.filters ?? [];
+  const within = inBox(request.bbox);
+  return investments.flatMap((investment) => {
+    if (request.level !== 'ALL' && investment.governmentLevel !== request.level) return [];
+    if (request.departmentCode !== undefined && investment.departmentCode !== request.departmentCode) return [];
+    const point = toMapPoint(investment);
+    if (!point || !within(point)) return [];
+    const stalled = stalledStatus(investment, referenceMonth) !== null;
+    if (filters.includes('increase') && !hasValidIncrease(point)) return [];
+    if (filters.includes('stalled') && !stalled) return [];
+    if (filters.includes('overspent') && !isOverspent(investment)) return [];
+    return [{ investment, point, stalled }];
+  });
+}
+
 /** What `map_points` returns for these investments (the in-memory adapter's implementation). */
 export function computeMapPoints(investments: Investment[], request: MapPointsRequest): MapPoints {
-  const inView = investments
-    .filter(
-      (i) =>
-        (request.level === 'ALL' || i.governmentLevel === request.level) &&
-        (request.departmentCode === undefined || i.departmentCode === request.departmentCode),
-    )
-    .flatMap((i) => {
-      const point = toMapPoint(i);
-      return point ? [point] : [];
-    })
-    .filter(inBox(request.bbox));
+  const inView = located(investments, request).map(({ point }) => point);
   if (request.zoom >= MAP_POINTS_MIN_ZOOM || inView.length <= MAX_MAP_POINTS) {
     return { kind: 'points', points: inView.sort(byIncrease).slice(0, MAX_MAP_POINTS) };
   }
   return { kind: 'clusters', clusters: cluster(inView, request.zoom) };
+}
+
+function listItem(i: Investment, point: MapPoint, stalled: boolean): MapListItem {
+  return {
+    ...point,
+    entity: i.entity,
+    status: i.status,
+    updatedCost: i.updatedCost,
+    accruedTotal: i.accruedTotal,
+    executionProgress: i.executionProgress,
+    spentAnomaly: i.spentAnomaly,
+    physicalProgress: i.physicalProgress,
+    lastAccrualMonth: i.lastAccrualMonth,
+    stalled,
+  };
+}
+
+/** The list row (and card figures) of a project read by CUI; null without coordinates. */
+export function toMapListItem(investment: Investment, referenceMonth: string | null): MapListItem | null {
+  const point = toMapPoint(investment);
+  return point ? listItem(investment, point, stalledStatus(investment, referenceMonth) !== null) : null;
+}
+
+const compareNullsLast = (a: number | null, b: number | null): number => {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return b - a;
+};
+
+/** What `map_list` returns for these investments (the in-memory adapter's implementation). */
+export function computeMapList(investments: Investment[], request: MapListRequest): MapListPage {
+  const pageSize = request.pageSize ?? MAP_LIST_PAGE_SIZE;
+  const items = located(investments, request)
+    .map(({ investment, point, stalled }) => listItem(investment, point, stalled))
+    .sort(
+      (a, b) =>
+        compareNullsLast(a.costIncrease, b.costIncrease) ||
+        compareNullsLast(a.updatedCost, b.updatedCost) ||
+        (a.cui < b.cui ? -1 : a.cui > b.cui ? 1 : 0),
+    );
+  return { items: items.slice(request.page * pageSize, (request.page + 1) * pageSize), total: items.length };
 }

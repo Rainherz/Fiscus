@@ -470,6 +470,98 @@ describe('supabase entity comparison', () => {
     ]);
   });
 
+  it('sends the map filters to map_points', async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    const bbox = { minLat: -17.5, minLon: -75.1, maxLat: -14.6, maxLon: -70.8 };
+    await createSupabaseInvestmentsRepository(client).getMapPoints({
+      bbox,
+      zoom: 9,
+      level: 'ALL',
+      filters: ['stalled', 'overspent'],
+    });
+    expect(calls).toEqual([
+      [
+        'rpc',
+        'map_points',
+        {
+          min_lat: -17.5,
+          min_lon: -75.1,
+          max_lat: -14.6,
+          max_lon: -70.8,
+          zoom: 9,
+          level: 'ALL',
+          department: null,
+          only_increase: false,
+          only_stalled: true,
+          only_overspent: true,
+        },
+      ],
+    ]);
+  });
+
+  it('reads a page of the map list through map_list', async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        {
+          cui: '1',
+          name: 'Uno',
+          entity: null,
+          government_level: 'GR',
+          status: 'ACTIVO',
+          latitude: -16.4,
+          longitude: -71.5,
+          updated_cost: 2000,
+          updated_cost_valid: true,
+          accrued_total: 100,
+          cost_increase: 1000,
+          cost_increase_pct: 100,
+          execution_progress: 0.05,
+          spent_anomaly: false,
+          physical_progress: null,
+          last_accrual_month: null,
+          stalled: false,
+          total_count: 31,
+        },
+      ],
+      error: null,
+    });
+    const bbox = { minLat: -17.5, minLon: -75.1, maxLat: -14.6, maxLon: -70.8 };
+    const page = await createSupabaseInvestmentsRepository(client).getMapList({
+      bbox,
+      level: 'GR',
+      departmentCode: 4,
+      filters: ['increase'],
+      page: 1,
+    });
+    expect(page).toEqual({ total: 31, items: [expect.objectContaining({ cui: '1', costIncrease: 1000 })] });
+    expect(calls).toEqual([
+      [
+        'rpc',
+        'map_list',
+        {
+          min_lat: -17.5,
+          min_lon: -75.1,
+          max_lat: -14.6,
+          max_lon: -70.8,
+          level: 'GR',
+          department: 4,
+          only_increase: true,
+          only_stalled: false,
+          only_overspent: false,
+          page_limit: 30,
+          page_offset: 30,
+        },
+      ],
+    ]);
+  });
+
+  it('throws the map_list error', async () => {
+    const { client } = fakeClient({ data: null, error: { message: 'timeout' } });
+    await expect(
+      createSupabaseInvestmentsRepository(client).getMapList({ bbox: { minLat: -19, minLon: -82, maxLat: 0, maxLon: -68 }, level: 'ALL', page: 0 }),
+    ).rejects.toThrow('timeout');
+  });
+
   it('throws the map_points error', async () => {
     const { client } = fakeClient({ data: null, error: { message: 'timeout' } });
     await expect(

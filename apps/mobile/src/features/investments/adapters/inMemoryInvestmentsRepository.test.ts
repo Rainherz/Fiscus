@@ -346,5 +346,26 @@ describe('in-memory government levels', () => {
       points: [expect.objectContaining({ cui: '1', latitude: -16.4, longitude: -71.5, costIncrease: 1_900 })],
     });
   });
-});
 
+  it('filters the map and lists the projects in view like map_list', async () => {
+    const located = createInMemoryInvestmentsRepository({
+      rows: [
+        sampleRow({ cui: '1', viable: 100, updated: 2_000, progress: 0.5, lastAccrualMonth: '2026-10-01', coordinates: { latitude: -16.4, longitude: -71.5 } }),
+        sampleRow({ cui: '2', viable: 5_000, updated: 5_000, progress: 0.4, lastAccrualMonth: '2025-01-01', coordinates: { latitude: -16.3, longitude: -71.6 } }),
+        sampleRow({ cui: '3', viable: 100, updated: 9_000 }),
+      ],
+      lastRun: null,
+    });
+    const bbox = { minLat: -19, minLon: -82, maxLat: 0, maxLon: -68 };
+
+    const stalled = await located.getMapPoints({ bbox, zoom: 14, level: 'ALL', filters: ['stalled'] });
+    const list = await located.getMapList({ bbox, level: 'ALL', page: 0 });
+
+    expect(stalled.kind === 'points' && stalled.points.map((p) => p.cui)).toEqual(['2']);
+    expect(list.total).toBe(2);
+    expect(list.items.map((i) => [i.cui, i.stalled])).toEqual([
+      ['1', false],
+      ['2', true],
+    ]);
+  });
+});
