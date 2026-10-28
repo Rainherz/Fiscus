@@ -1,0 +1,77 @@
+name: Fiscus web deploy
+
+# Publishes the web build of apps/mobile to GitHub Pages: https://rainherz.github.io/Fiscus/
+# Requires Settings > Pages > Source = "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/web-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push replaces a queued one but never cancels a running deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "1"
+      # Sub-path of the Pages site (repository name). Read by apps/mobile/app.config.ts.
+      EXPO_BASE_URL: /Fiscus
+      EXPO_PUBLIC_SITE_URL: https://rainherz.github.io/Fiscus
+      EXPO_PUBLIC_USE_MOCK: "0"
+      # Public anon key: read-only through RLS. Never the service role key here.
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Mobile tests
+        run: pnpm --filter @fiscus/mobile test
+
+      - name: Export web build
+        run: pnpm --filter @fiscus/mobile exec expo export --platform web --output-dir dist
+
+      # Single-page app: GitHub Pages answers unknown paths (deep links such as /investment/2088142)
+      # with 404.html, so it must be the app shell too. .nojekyll keeps _expo/ and node_modules/ assets.
+      - name: Add Pages fallback
+        working-directory: apps/mobile/dist
+        run: |
+          cp index.html 404.html
+          touch .nojekyll
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/mobile/dist
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

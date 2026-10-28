@@ -166,6 +166,8 @@ pnpm --filter @fiscus/mobile export:web        # static web build in apps/mobile
 | `EXPO_PUBLIC_SUPABASE_URL` | Project URL (public) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Anon key (public, read-only through RLS). Never use the service role key here. |
 | `EXPO_PUBLIC_USE_MOCK` | `1` uses bundled sample records from Arequipa, so no credentials are needed |
+| `EXPO_PUBLIC_SITE_URL` | Optional. Public web address (`https://rainherz.github.io/Fiscus`); when set, the share card and the shared message link to `<site>/investment/<cui>` |
+| `EXPO_BASE_URL` | Optional, build time only. Sub-path of the web export (`/Fiscus`); unset, the app lives at `/` |
 
 To run the app on a phone, install Expo Go, keep the phone on the same network as your computer, and scan
 the QR code that `start` prints. If the network blocks LAN, use `pnpm --filter @fiscus/mobile exec expo start --tunnel`.
@@ -322,6 +324,34 @@ Nationwide it frames Peru; with a department it frames approximate department bo
   card plus `stalled` and `total_count` (a window count), ordered by `cost_increase desc nulls last,
   updated_cost desc nulls last, cui`; `page_limit` is capped at 100.
 
+## Web
+
+The web build is published on GitHub Pages: **https://rainherz.github.io/Fiscus/**
+
+- **Deploy**: `.github/workflows/web-deploy.yml` runs on every push to `main` that touches
+  `apps/mobile/**`, `pnpm-lock.yaml` or the workflow, and on manual dispatch. It runs the mobile tests,
+  `expo export --platform web`, then deploys with `actions/deploy-pages` (Pages source: GitHub Actions).
+- **Base path**: the site lives under `/Fiscus/`. `apps/mobile/app.config.ts` sets Expo's
+  `experiments.baseUrl` from `EXPO_BASE_URL`, so assets, fonts and Expo Router links get the prefix.
+  Without it (local `expo start`), the app stays at `/`.
+- **Deep links**: the export is a single-page app (`web.output: "single"`). Pages answers unknown paths
+  such as `/Fiscus/investment/2088142` with `404.html`, which the workflow makes a copy of `index.html`,
+  so every route loads on direct visit and refresh (with HTTP status 404, which browsers ignore).
+  `.nojekyll` is added as well.
+- **Env at build time**: `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` come from the
+  `SUPABASE_URL` and `SUPABASE_ANON_KEY` secrets, `EXPO_PUBLIC_USE_MOCK=0`,
+  `EXPO_PUBLIC_SITE_URL=https://rainherz.github.io/Fiscus`. The service role key is never used there.
+- **Page metadata**: title, description, Open Graph/Twitter tags and `lang="es"` live in
+  `apps/mobile/public/index.html`, the HTML template of the single-page export.
+
+Build the Pages variant locally (demo data, no keys; `EXPO_NO_DOTENV=1` skips `apps/mobile/.env`):
+
+```sh
+cd apps/mobile
+EXPO_NO_DOTENV=1 EXPO_BASE_URL=/Fiscus EXPO_PUBLIC_USE_MOCK=1 pnpm exec expo export --platform web --output-dir dist
+cp dist/index.html dist/404.html   # then serve dist/ under /Fiscus/ with 404.html as fallback
+```
+
 ## Daily ingest
 
 `ofi5.mef.gob.pe` drops TCP connections from GitHub-hosted runners (US datacenter IPs), so the ingest
@@ -370,6 +400,7 @@ The `ingest.yml` workflow is kept for manual dispatch only.
 |---|---|
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key. It bypasses RLS, so use it server-side only and never ship it to clients. |
+| `SUPABASE_ANON_KEY` | Public anon key, baked into the web build (`web-deploy.yml`) |
 
 The public dashboard reads with the anon key. RLS lets the anon key run SELECT and nothing else.
 
