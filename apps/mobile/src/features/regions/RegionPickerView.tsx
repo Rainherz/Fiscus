@@ -211,8 +211,11 @@ export function RegionPickerView({
         </View>
       </Pressable>
       {wide ? (
-        <View style={[styles.body, column]}>
-          <ScrollView testID="region-picker-panel" style={styles.panel} contentContainerStyle={{ paddingBottom: bottomInset + space.xl }}>
+        <View style={[styles.body, column, breakpoint === 'tablet' && styles.bodyTablet]}>
+          <ScrollView
+            testID="region-picker-panel"
+            style={[styles.panel, breakpoint === 'tablet' && styles.panelTablet]}
+            contentContainerStyle={{ paddingBottom: bottomInset + space.xl }}>
             {controls}
           </ScrollView>
           {list}
@@ -265,8 +268,10 @@ const styles = StyleSheet.create({
   header: { paddingTop: space.lg, paddingBottom: space.md, gap: space.sm },
   /** Tablet and desktop: the level, "Todo el Perú" and the sorts on the left, the regions on the right. */
   body: { flex: 1, flexDirection: 'row', gap: space.xl * 2, width: '100%', alignSelf: 'center' },
-  panel: { width: 340, flexGrow: 0 },
-  listContentWide: { paddingTop: space.lg, maxWidth: 760 },
+  panel: { width: 400, flexGrow: 0 },
+  bodyTablet: { gap: space.xl },
+  panelTablet: { width: 320 },
+  listContentWide: { paddingTop: space.lg },
   /** The level applies to every screen, so it sits above the region options, apart from the sorts. */
   levels: { gap: space.sm, marginBottom: space.sm },
   /** All of Peru sits apart from the comparison, closed by a rule like the list rows. */

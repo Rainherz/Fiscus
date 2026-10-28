@@ -152,14 +152,12 @@ export function CategoriesView({ summaries, status, national = false, levelNote,
         renderItem={({ item: row }) => (
           <View testID="category-grid-row" style={styles.gridRow}>
             {row.map((item) => (
-              <CategoryCard
-                key={item.function ?? '__none__'}
-                summary={item}
-                onPress={() => onPressCategory(item.function)}
-              />
+              <View key={item.function ?? '__none__'} style={styles.cell}>
+                <CategoryCard summary={item} onPress={() => onPressCategory(item.function)} />
+              </View>
             ))}
             {Array.from({ length: columns - row.length }, (_, index) => (
-              <View key={`spacer-${index}`} style={styles.spacer} />
+              <View key={`spacer-${index}`} style={styles.cell} />
             ))}
           </View>
         )}
@@ -203,11 +201,11 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: 2 },
   figures: { alignItems: 'flex-end', gap: 2 },
   gridRow: { flexDirection: 'row', gap: space.md, marginBottom: space.md },
+  /** Equal columns: the cells carry no padding, so flex-basis 0 splits the row evenly. */
+  cell: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 },
   card: {
-    flex: 1,
-    minHeight: 168,
-    justifyContent: 'space-between',
-    gap: space.md,
+    flexGrow: 1,
+    gap: space.lg,
     padding: space.md,
     borderWidth: rule,
     borderColor: colors.ink,
@@ -215,5 +213,4 @@ const styles = StyleSheet.create({
   cardTop: { gap: 2 },
   cardFigures: { gap: 2 },
   cardIncrease: { alignSelf: 'flex-start', backgroundColor: colors.signal, paddingHorizontal: space.xs },
-  spacer: { flex: 1 },
 });
