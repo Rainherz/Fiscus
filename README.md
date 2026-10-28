@@ -167,7 +167,6 @@ pnpm --filter @fiscus/mobile export:web        # static web build in apps/mobile
 | `EXPO_PUBLIC_SUPABASE_URL` | Project URL (public) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Anon key (public, read-only through RLS). Never use the service role key here. |
 | `EXPO_PUBLIC_USE_MOCK` | `1` uses bundled sample records from Arequipa, so no credentials are needed |
-| `EXPO_PUBLIC_CARTO_BASEMAPS_KEY` | CARTO basemaps key for the map tiles (public, ships in the app). Without it CARTO serves watermarked "API key required" tiles |
 
 To run the app on a phone, install Expo Go, keep the phone on the same network as your computer, and scan
 the QR code that `start` prints. If the network blocks LAN, use `pnpm --filter @fiscus/mobile exec expo start --tunnel`.
@@ -263,27 +262,34 @@ when it has coordinates). It is a stack screen rather than a fifth tab, which di
 Nationwide it frames Peru; with a department it frames approximate department bounds
 (`features/map/mapRequest.ts`).
 
-- One map implementation: `features/map/mapHtml.ts` builds a Leaflet 1.9.4 page (from cdnjs with
-  subresource integrity). iOS/Android load it in `react-native-webview` (`source={{ html }}`, included in
+- One map implementation: `features/map/mapHtml.ts` builds a MapLibre GL JS 5.24.0 page (from unpkg,
+  pinned, with sha384 subresource integrity; the 5.x single-file build inlines its worker, so the hash
+  covers all the code, while 6.x is ESM-only with separately loaded chunks). iOS/Android load it in `react-native-webview` (`source={{ html }}`, included in
   Expo Go); the web loads it in a sandboxed iframe (`srcDoc`, scripts only). The page only draws and
   reports; data, labels and states stay in React Native.
-- Bridge (`features/map/mapBridge.ts`): the page sends `ready`, `moved` (bbox + zoom on `moveend`),
-  `pointPressed`, `mapPressed` and `loadFailed`; the app sends `setData` and `highlight`. Every message
+- Bridge (`features/map/mapBridge.ts`): the page sends `ready`, `moved` (bbox + MapLibre zoom on load and
+  `moveend`), `pointPressed`, `mapPressed` and `loadFailed` (MapLibre not loaded, no WebGL, or the style
+  or first tiles failed; the screen then shows its error and "Ver como lista"); the app sends `setData` and `highlight`. Every message
   from the page is parsed and validated (unknown types, bad numbers, inverted boxes and non-digit CUIs are
   dropped). On the web only messages from the map's own iframe are read.
 - Requests: 300 ms after the map stops moving, the box is clipped to Peru, rounded outward to 0.01° and
-  sent with the integer zoom, scope and level to `getMapPoints`. The previous view stays on screen while
+  sent with the zoom, scope and level to `getMapPoints`. MapLibre zooms count 512-px tiles and
+  `map_points` sizes cells on 256-px tiles, so the request uses `floor(zoom + 1)` (`toTileZoom`), which
+  keeps a cell at 64 px on screen. The previous view stays on screen while
   the next one loads; a status line over the map says "Cargando…", errors (with "Reintentar"), an empty
   area, or when only the first 500 projects are shown.
-- Clusters are ink circles with a yellow compact count ("1.2 mil"), sized on a log scale; tapping one zooms
-  in by two levels (up to 13). Points are yellow with an ink outline when the project has a positive valid
+- Clusters and points are one GeoJSON source with WebGL circle and symbol layers; the app computes the
+  labels and sizes and passes them as feature properties. Cluster labels use the style's own fonts (Noto
+  Sans Bold, served by OpenFreeMap with the tiles, so they load whenever the basemap does) instead of an
+  HTML marker per cluster. Clusters are ink circles with a yellow compact count ("1.2 mil"), sized on a
+  log scale; tapping one eases in by two levels (up to MapLibre zoom 12, where the server sends projects). Points are yellow with an ink outline when the project has a positive valid
   cost increase, small ink dots otherwise. Tapping a point opens a native card under the map (name, level
   tag, "+S/ X M · +Y%", "Ver detalle →"); "Ver como lista" goes to Rankings. The map is announced as
   supplementary.
-- Tiles: CARTO Positron (`{s}.basemaps.cartocdn.com/light_all`), attribution "© OpenStreetMap
-  contributors © CARTO" always visible. The OpenStreetMap tile servers are not used (their policy forbids
-  app traffic). CARTO now requires a basemaps key (free non-commercial and commercial tiers at
-  carto.com/basemaps/apikey), passed as `?key=` from `EXPO_PUBLIC_CARTO_BASEMAPS_KEY`.
+- Basemap: OpenFreeMap Positron vector tiles (`https://tiles.openfreemap.org/styles/positron`): free, no
+  key, no request limits. The attribution OpenFreeMap requires ("OpenFreeMap © OpenMapTiles Data from
+  OpenStreetMap") is always visible through MapLibre's attribution control; its links open in the system
+  browser on iOS/Android. The OpenStreetMap tile servers are not used (their policy forbids app traffic).
 - Clustering runs in Postgres: `map_points(min_lat, min_lon, max_lat, max_lon, zoom, level = 'ALL',
   department = null)` (`supabase/migrations/20261102000000_map_points.sql`, security invoker, stable,
   executable by anon/authenticated). From zoom 13, or with at most 500 projects in the box, it returns up to
