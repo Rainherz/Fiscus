@@ -87,6 +87,20 @@ describe('MOCK_ROWS', () => {
     );
   });
 
+  it('places most demo rows on the map, inside Peru, but not every one', () => {
+    const located = MOCK_ROWS.filter((r) => r.latitude !== null && r.longitude !== null);
+    expect(located.length).toBeGreaterThanOrEqual(MOCK_ROWS.length - 3);
+    expect(located.length).toBeLessThan(MOCK_ROWS.length);
+    for (const row of located) {
+      expect(row.latitude).toBeGreaterThanOrEqual(-19);
+      expect(row.latitude).toBeLessThan(0);
+      expect(row.longitude).toBeGreaterThanOrEqual(-82);
+      expect(row.longitude).toBeLessThanOrEqual(-68);
+    }
+    // A national project spanning several departments has no single location.
+    expect(MOCK_ROWS.find((r) => r.department_code === null)?.latitude).toBeNull();
+  });
+
   it('gives the demo entities more than one project, for the entity ranking and its drill-down', async () => {
     const repo = createInMemoryInvestmentsRepository({ rows: MOCK_ROWS, lastRun: null });
     const entities = await repo.getEntityComparison({ sort: 'increase-amount', page: 0 });

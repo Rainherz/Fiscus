@@ -1,5 +1,10 @@
 import type { GovernmentLevel } from './governmentLevel';
 
+export interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
 /** Which MEF source owns the figures of a row (`investments.data_source`). */
 export type DataSourceKind = 'ssi' | 'open_data';
 
@@ -54,6 +59,8 @@ export interface Investment {
   /** Physical progress reported to MEF, 0-100 (open data); null when not reported. */
   physicalProgress: number | null;
   dataSource: DataSourceKind;
+  /** Open data location; null when MEF has none or an invalid one (about 23% of projects). */
+  coordinates: Coordinates | null;
 }
 
 /** The source publishes an updated cost, but it is not usable (see `updatedCostValid`). */

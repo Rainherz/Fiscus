@@ -9,6 +9,7 @@ import {
   mapRegionComparisonRow,
   mapEntityComparisonRow,
   mapStalledInvestmentRow,
+  mapMapPointRows,
   ENTITY_COMPARISON_COLUMNS,
   STALLED_INVESTMENT_COLUMNS,
 } from './mappers';
@@ -73,6 +74,7 @@ describe('mapInvestmentRow', () => {
       district: null,
       physicalProgress: null,
       dataSource: 'ssi',
+      coordinates: null,
     });
   });
 
@@ -252,7 +254,7 @@ describe('mapStalledInvestmentRow', () => {
   it('selects the investment columns the view has plus its derived columns', () => {
     const stalled = STALLED_INVESTMENT_COLUMNS.split(',');
     const shared = INVESTMENT_COLUMNS.split(',').filter(
-      (c) => !['executing_unit', 'province', 'district', 'data_source'].includes(c),
+      (c) => !['executing_unit', 'province', 'district', 'data_source', 'latitude', 'longitude'].includes(c),
     );
     expect(stalled).toEqual([...shared, 'months_without_accrual', 'pending_amount']);
   });
@@ -379,5 +381,98 @@ describe('mapEntityComparisonRow', () => {
       stalledPendingAmount: 0,
     });
     expect(ENTITY_COMPARISON_COLUMNS.split(',')).toContain('stalled_pending_amount');
+  });
+});
+
+describe('mapInvestmentRow coordinates', () => {
+  it('maps coordinates sent as numbers or strings', () => {
+    expect(mapInvestmentRow({ ...row, latitude: '-16.3667', longitude: -71.55 }).coordinates).toEqual({
+      latitude: -16.3667,
+      longitude: -71.55,
+    });
+  });
+
+  it('has no coordinates when either is missing', () => {
+    expect(mapInvestmentRow(row).coordinates).toBeNull();
+    expect(mapInvestmentRow({ ...row, latitude: -16.4, longitude: null }).coordinates).toBeNull();
+  });
+
+  it('selects the coordinates from investments only', () => {
+    expect(INVESTMENT_COLUMNS.split(',')).toEqual(expect.arrayContaining(['latitude', 'longitude']));
+    expect(STALLED_INVESTMENT_COLUMNS.split(',')).not.toContain('latitude');
+  });
+});
+
+describe('mapMapPointRows', () => {
+  const point = {
+    kind: 'point',
+    cui: '2088142',
+    name: 'MAJES',
+    latitude: -16.3,
+    longitude: -72.1,
+    point_count: 1,
+    government_level: 'GR',
+    cost_increase: '3809492486',
+    cost_increase_pct: '284.6',
+    updated_cost_valid: true,
+    total_cost_increase: null,
+    max_cost_increase_pct: null,
+    increased_count: null,
+  };
+  const cluster = {
+    ...point,
+    kind: 'cluster',
+    cui: null,
+    name: null,
+    point_count: 1250,
+    government_level: null,
+    cost_increase: null,
+    cost_increase_pct: null,
+    updated_cost_valid: null,
+    total_cost_increase: '5000000',
+    max_cost_increase_pct: '120.5',
+    increased_count: 30,
+  };
+
+  it('maps project rows to points', () => {
+    expect(mapMapPointRows([point])).toEqual({
+      kind: 'points',
+      points: [
+        {
+          cui: '2088142',
+          name: 'MAJES',
+          latitude: -16.3,
+          longitude: -72.1,
+          governmentLevel: 'GR',
+          costIncrease: 3_809_492_486,
+          costIncreasePct: 284.6,
+          updatedCostValid: true,
+        },
+      ],
+    });
+  });
+
+  it('maps cluster rows to clusters', () => {
+    expect(mapMapPointRows([cluster])).toEqual({
+      kind: 'clusters',
+      clusters: [
+        {
+          latitude: -16.3,
+          longitude: -72.1,
+          count: 1250,
+          totalCostIncrease: 5_000_000,
+          maxCostIncreasePct: 120.5,
+          increasedCount: 30,
+        },
+      ],
+    });
+  });
+
+  it('maps no rows to no points', () => {
+    expect(mapMapPointRows([])).toEqual({ kind: 'points', points: [] });
+  });
+
+  it('drops rows without usable coordinates', () => {
+    expect(mapMapPointRows([{ ...point, latitude: null }])).toEqual({ kind: 'points', points: [] });
   });
 });

@@ -33,6 +33,10 @@ function fakeClient(result: { data: unknown; error: { message: string } | null; 
       calls.push(['from', table]);
       return builder;
     },
+    rpc: (fn: string, args: unknown) => {
+      calls.push(['rpc', fn, args]);
+      return Promise.resolve(result);
+    },
   } as unknown as SupabaseClient;
   return { client, calls };
 }
@@ -427,5 +431,53 @@ describe('supabase entity comparison', () => {
     await createSupabaseInvestmentsRepository(client).getEntityComparison({ sort: 'stalled', level: 'ALL', page: 0 });
     expect(calls).toContainEqual(['eq', 'scope_department_code', 0]);
     expect(calls.some(([method, column]) => method === 'eq' && column === 'government_level')).toBe(false);
+  });
+
+  it('reads the map through the map_points function', async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        {
+          kind: 'cluster',
+          cui: null,
+          name: null,
+          latitude: -16.4,
+          longitude: -71.5,
+          point_count: 1200,
+          government_level: null,
+          cost_increase: null,
+          cost_increase_pct: null,
+          updated_cost_valid: null,
+          total_cost_increase: '900000000',
+          max_cost_increase_pct: '310',
+          increased_count: 210,
+        },
+      ],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+    const bbox = { minLat: -17.5, minLon: -75.1, maxLat: -14.6, maxLon: -70.8 };
+
+    const result = await repo.getMapPoints({ bbox, zoom: 7, level: 'GR', departmentCode: 4 });
+    await repo.getMapPoints({ bbox, zoom: 5, level: 'ALL' });
+
+    expect(result).toEqual({
+      kind: 'clusters',
+      clusters: [expect.objectContaining({ count: 1200, totalCostIncrease: 900_000_000 })],
+    });
+    expect(calls).toEqual([
+      ['rpc', 'map_points', { min_lat: -17.5, min_lon: -75.1, max_lat: -14.6, max_lon: -70.8, zoom: 7, level: 'GR', department: 4 }],
+      ['rpc', 'map_points', { min_lat: -17.5, min_lon: -75.1, max_lat: -14.6, max_lon: -70.8, zoom: 5, level: 'ALL', department: null }],
+    ]);
+  });
+
+  it('throws the map_points error', async () => {
+    const { client } = fakeClient({ data: null, error: { message: 'timeout' } });
+    await expect(
+      createSupabaseInvestmentsRepository(client).getMapPoints({
+        bbox: { minLat: -19, minLon: -82, maxLat: 0, maxLon: -68 },
+        zoom: 5,
+        level: 'ALL',
+      }),
+    ).rejects.toThrow('timeout');
   });
 });

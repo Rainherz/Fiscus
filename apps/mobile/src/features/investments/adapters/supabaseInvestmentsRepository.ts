@@ -10,6 +10,7 @@ import {
   mapEntityComparisonRow,
   mapFunctionSummaryRow,
   mapIngestRunRow,
+  mapMapPointRows,
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
   mapRegionComparisonRow,
@@ -18,6 +19,7 @@ import {
   type EntityComparisonRow,
   type FunctionSummaryRow,
   type IngestRunRow,
+  type MapPointRow,
   type InvestmentRow,
   type RecentCostIncreaseRow,
   type RegionComparisonRow,
@@ -192,6 +194,18 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       const source = client.from('entity_comparison').select(ENTITY_COMPARISON_COLUMNS) as unknown as FilterBuilder;
       const rows = unwrap((await applyQuery(source, buildEntityQuery(params))) as Result<EntityComparisonRow[]>);
       return (rows ?? []).map(mapEntityComparisonRow);
+    },
+    async getMapPoints({ bbox, zoom, level, departmentCode }) {
+      const result = (await client.rpc('map_points', {
+        min_lat: bbox.minLat,
+        min_lon: bbox.minLon,
+        max_lat: bbox.maxLat,
+        max_lon: bbox.maxLon,
+        zoom,
+        level,
+        department: departmentCode ?? null,
+      })) as Result<MapPointRow[]>;
+      return mapMapPointRows(unwrap(result) ?? []);
     },
   };
 }
