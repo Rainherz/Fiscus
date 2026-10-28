@@ -4,14 +4,14 @@ import { StyleSheet, View } from 'react-native';
 import { colors } from '@/shared/theme/tokens';
 
 import { serializeCommand, type MapCommand } from './mapBridge';
-import type { LeafletMapProps } from './LeafletMap';
+import type { MapCanvasProps } from './MapCanvas';
 import { useMapSync } from './useMapSync';
 
 /**
- * Web: the same Leaflet page in a sandboxed iframe (scripts only, no same-origin access).
+ * Web: the same map page in a sandboxed iframe (scripts only, no same-origin access).
  * Messages travel with postMessage; only those from this iframe are read.
  */
-export function LeafletMap({ html, accessibilityLabel, ...sync }: LeafletMapProps) {
+export function MapCanvas({ html, accessibilityLabel, ...sync }: MapCanvasProps) {
   const frame = useRef<HTMLIFrameElement>(null);
   const send = useCallback(
     (command: MapCommand) => frame.current?.contentWindow?.postMessage(serializeCommand(command), '*'),

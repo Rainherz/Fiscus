@@ -9,7 +9,7 @@ export interface MapSyncProps {
 }
 
 /**
- * Keeps the Leaflet page in step with the props, whatever carries the messages (WebView or
+ * Keeps the map page in step with the props, whatever carries the messages (WebView or
  * iframe). Nothing is sent before the page says it is ready; a reloaded page gets everything
  * again. Returns the handler for raw messages from the page.
  */

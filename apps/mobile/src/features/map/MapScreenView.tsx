@@ -24,7 +24,7 @@ interface Props {
   /** "Arequipa · Todos los niveles". */
   scopeLine: string;
   status: MapStatus;
-  /** The LeafletMap element. */
+  /** The MapCanvas element. */
   map: ReactNode;
   selected: MapPoint | null;
   onRetry: () => void;

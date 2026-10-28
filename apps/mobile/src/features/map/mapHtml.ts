@@ -3,126 +3,148 @@ import { colors } from '@/shared/theme/tokens';
 import { safeJson, type InitialView } from './mapBridge';
 
 /**
- * The Leaflet page shared by every platform: a WebView loads it as `source={{ html }}` on
+ * The MapLibre GL JS page shared by every platform: a WebView loads it as `source={{ html }}` on
  * iOS/Android and an iframe as `srcDoc` on the web. It only draws what the app sends
  * (mapBridge.ts) and reports views and taps; data, labels and states live in the app.
  */
 
-const LEAFLET = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4';
-/** Subresource integrity of Leaflet 1.9.4 (identical on cdnjs and unpkg). */
-const LEAFLET_JS_SRI = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-const LEAFLET_CSS_SRI = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+/**
+ * MapLibre GL JS 5.24.0, the last line with a classic (UMD) single-file build: the worker is inlined,
+ * so the subresource integrity below covers all the code and no module workers are needed (v6 is
+ * ESM-only and loads its worker and a shared chunk without integrity). Hashes computed from unpkg
+ * and identical on jsDelivr.
+ */
+const MAPLIBRE = 'https://unpkg.com/maplibre-gl@5.24.0/dist';
+const MAPLIBRE_JS_SRI = 'sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp';
+const MAPLIBRE_CSS_SRI = 'sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK';
+
+/** OpenFreeMap Positron: free, no key, no request limits (openfreemap.org). */
+export const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 
 /**
- * CARTO Positron, with attribution (the OSM tile servers forbid app traffic). CARTO watermarks
- * tiles requested without a basemaps key ("API key required"); its free tiers need one.
+ * The attribution OpenFreeMap requires, exactly as its tiles declare it, so MapLibre shows it once
+ * even if the style ever stops declaring it.
  */
-export const CARTO_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 export const MAP_ATTRIBUTION =
-  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ' +
-  '© <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
+  '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> ' +
+  '<a href="https://www.openmaptiles.org/" target="_blank">&copy; OpenMapTiles</a> ' +
+  'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
 
-/** Clusters zoom in by this much on tap, up to the zoom where points show. */
+/**
+ * MapLibre zooms (512-px tiles). Clusters zoom in by CLUSTER_ZOOM_STEP on tap, up to POINTS_ZOOM,
+ * where the server sends individual projects (its tile zoom 13, see mapRequest.ts).
+ */
 const CLUSTER_ZOOM_STEP = 2;
-const POINTS_ZOOM = 13;
+const POINTS_ZOOM = 12;
+const MIN_ZOOM = 3;
+const MAX_ZOOM = 17;
+/** Extra px around a tap that still hit a point or cluster. */
+const TAP_TOLERANCE = 8;
 
 const STYLE = `
 html, body, #map { height: 100%; margin: 0; padding: 0; }
 body { background: ${colors.concrete}; }
-.leaflet-container { background: ${colors.concrete}; font-family: -apple-system, Roboto, 'Segoe UI', sans-serif; }
-.fiscus-cluster { display: flex; align-items: center; justify-content: center; box-sizing: border-box;
-  border-radius: 50%; background: ${colors.ink}; color: ${colors.signal}; border: 2px solid ${colors.signal};
-  font: 700 12px/1 ui-monospace, Menlo, 'Roboto Mono', monospace; white-space: nowrap; }
-.leaflet-control-attribution { font-size: 10px; }
-.leaflet-bar a { color: ${colors.ink}; }
+#map { background: ${colors.concrete}; font-family: -apple-system, Roboto, 'Segoe UI', sans-serif; }
+.maplibregl-ctrl-attrib { font-size: 10px; }
 `;
 
 /* The page script is plain ES5 so old Android WebViews run it. It uses no template literals. */
 const SCRIPT = `
 (function () {
-  var INK = '${colors.ink}';
-  var SIGNAL = '${colors.signal}';
   function send(message) {
     var text = JSON.stringify(message);
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(text);
     else if (window.parent && window.parent !== window) window.parent.postMessage(text, '*');
   }
-  if (!window.L) { send({ type: 'loadFailed' }); return; }
-
-  var map = L.map('map', {
-    preferCanvas: true,
-    zoomControl: false,
-    minZoom: 4,
-    maxZoom: 18,
-    maxBounds: [[-26, -92], [7, -58]],
-    maxBoundsViscosity: 0.8
-  });
-  // Bottom left: the app shows its status line over the top of the map.
-  L.control.zoom({ position: 'bottomleft', zoomInTitle: 'Acercar', zoomOutTitle: 'Alejar' }).addTo(map);
-  map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
-  L.tileLayer(TILES, { subdomains: 'abcd', maxZoom: 20, attribution: ATTRIBUTION }).addTo(map);
-
-  var renderer = L.canvas({ padding: 0.5, tolerance: 8 });
-  var layer = L.layerGroup().addTo(map);
-  var points = {};
-  var highlighted = null;
-
-  function escapeHtml(text) {
-    return String(text).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-  function pointStyle(feature, on) {
-    if (feature.increased) {
-      return { radius: on ? 11 : 7, color: INK, weight: on ? 3 : 2, fillColor: SIGNAL, fillOpacity: 1 };
+  function hasWebGL() {
+    try {
+      var canvas = document.createElement('canvas');
+      return !!(canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+    } catch (error) {
+      return false;
     }
-    return { radius: on ? 10 : 5, color: on ? SIGNAL : INK, weight: on ? 3 : 1, fillColor: INK, fillOpacity: 1 };
   }
-  function addCluster(feature) {
-    var size = feature.radius * 2;
-    var icon = L.divIcon({
-      className: 'fiscus-cluster',
-      html: escapeHtml(feature.label),
-      iconSize: [size, size]
-    });
-    L.marker([feature.latitude, feature.longitude], { icon: icon, keyboard: false })
-      .on('click', function () {
-        map.setView([feature.latitude, feature.longitude], Math.min(map.getZoom() + CLUSTER_ZOOM_STEP, POINTS_ZOOM));
-      })
-      .addTo(layer);
+  if (!window.maplibregl) { send({ type: 'loadFailed', reason: 'library' }); return; }
+  if (!hasWebGL()) { send({ type: 'loadFailed', reason: 'webgl' }); return; }
+
+  var options = {
+    container: 'map',
+    style: STYLE_URL,
+    attributionControl: false,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    maxBounds: [[-92, -26], [-58, 7]],
+    renderWorldCopies: false,
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
+    locale: { 'NavigationControl.ZoomIn': 'Acercar', 'NavigationControl.ZoomOut': 'Alejar' }
+  };
+  if (VIEW.kind === 'center') {
+    options.center = [VIEW.longitude, VIEW.latitude];
+    options.zoom = VIEW.zoom;
+  } else {
+    options.bounds = [[VIEW.bbox.minLon, VIEW.bbox.minLat], [VIEW.bbox.maxLon, VIEW.bbox.maxLat]];
   }
-  function addPoint(feature) {
-    var options = pointStyle(feature, feature.id === highlighted);
-    options.renderer = renderer;
-    options.bubblingMouseEvents = false;
-    var marker = L.circleMarker([feature.latitude, feature.longitude], options)
-      .on('click', function () { send({ type: 'pointPressed', cui: feature.id }); })
-      .addTo(layer);
-    points[feature.id] = { marker: marker, feature: feature };
+
+  var map;
+  try {
+    map = new maplibregl.Map(options);
+  } catch (error) {
+    // The WebGL context could not be created after all.
+    send({ type: 'loadFailed', reason: 'webgl' });
+    return;
+  }
+  map.touchZoomRotate.disableRotation();
+  map.keyboard.disableRotation();
+  // Bottom left: the app shows its status line over the top of the map.
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-left');
+  map.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: ATTRIBUTION }), 'bottom-right');
+
+  // Until the first complete render, an error (style, fonts, tiles) leaves an empty map: report it.
+  // Later tile errors are transient (MapLibre requests them again on the next move).
+  var settled = false;
+  var failed = false;
+  map.once('idle', function () { settled = true; });
+  map.on('error', function () {
+    if (settled || failed) return;
+    failed = true;
+    send({ type: 'loadFailed', reason: 'tiles' });
+  });
+
+  var IS_CLUSTER = ['==', ['get', 'kind'], 'cluster'];
+  var IS_POINT = ['==', ['get', 'kind'], 'point'];
+  var INCREASED = ['==', ['get', 'increased'], true];
+  var loaded = false;
+  var pending = [];
+
+  function toGeoJson(features) {
+    var out = [];
+    for (var i = 0; i < features.length; i++) {
+      var f = features[i];
+      if (!f || !isFinite(f.latitude) || !isFinite(f.longitude) || typeof f.id !== 'string') continue;
+      var properties;
+      if (f.kind === 'cluster') properties = { kind: 'cluster', id: f.id, label: String(f.label), radius: Number(f.radius) || 14 };
+      else if (f.kind === 'point') properties = { kind: 'point', id: f.id, increased: f.increased === true };
+      else continue;
+      out.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.longitude, f.latitude] }, properties: properties });
+    }
+    return { type: 'FeatureCollection', features: out };
   }
   function setData(features) {
-    layer.clearLayers();
-    points = {};
-    for (var i = 0; i < features.length; i++) {
-      var feature = features[i];
-      if (!feature || typeof feature.latitude !== 'number' || typeof feature.longitude !== 'number') continue;
-      if (feature.kind === 'cluster') addCluster(feature);
-      else if (feature.kind === 'point') addPoint(feature);
-    }
-    if (highlighted && points[highlighted]) points[highlighted].marker.bringToFront();
+    map.getSource('features').setData(toGeoJson(features));
   }
   function highlight(cui) {
-    var previous = highlighted;
-    highlighted = cui;
-    [previous, cui].forEach(function (id) {
-      if (id && points[id]) points[id].marker.setStyle(pointStyle(points[id].feature, id === highlighted));
-    });
-    if (cui && points[cui]) points[cui].marker.bringToFront();
+    map.setFilter('point-highlight', ['all', IS_POINT, ['==', ['get', 'id'], cui || '']]);
+  }
+  function apply(command) {
+    if (command.type === 'setData' && Array.isArray(command.features)) setData(command.features);
+    else if (command.type === 'highlight') highlight(typeof command.cui === 'string' ? command.cui : null);
   }
   function receive(command) {
     if (!command || typeof command !== 'object') return;
-    if (command.type === 'setData' && Array.isArray(command.features)) setData(command.features);
-    else if (command.type === 'highlight') highlight(typeof command.cui === 'string' ? command.cui : null);
+    if (loaded) apply(command);
+    else pending.push(command);
   }
   window.fiscusMap = { receive: receive };
   window.addEventListener('message', function (event) {
@@ -130,42 +152,137 @@ const SCRIPT = `
     try { receive(JSON.parse(event.data)); } catch (error) { /* not a command */ }
   });
 
-  map.on('moveend', function () {
+  function addLayers() {
+    map.addSource('features', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({
+      id: 'clusters',
+      type: 'circle',
+      source: 'features',
+      filter: IS_CLUSTER,
+      paint: {
+        'circle-radius': ['-', ['get', 'radius'], 2],
+        'circle-color': INK,
+        'circle-stroke-color': SIGNAL,
+        'circle-stroke-width': 2
+      }
+    });
+    // The style's own fonts (served by OpenFreeMap with the tiles): no DOM marker per cluster.
+    map.addLayer({
+      id: 'cluster-labels',
+      type: 'symbol',
+      source: 'features',
+      filter: IS_CLUSTER,
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-font': ['Noto Sans Bold'],
+        'text-size': 12,
+        'text-allow-overlap': true,
+        'text-ignore-placement': true
+      },
+      paint: { 'text-color': SIGNAL }
+    });
+    map.addLayer({
+      id: 'points',
+      type: 'circle',
+      source: 'features',
+      filter: IS_POINT,
+      paint: {
+        'circle-radius': ['case', INCREASED, 7, 5],
+        'circle-color': ['case', INCREASED, SIGNAL, INK],
+        'circle-stroke-color': INK,
+        'circle-stroke-width': ['case', INCREASED, 2, 1]
+      }
+    });
+    map.addLayer({
+      id: 'point-highlight',
+      type: 'circle',
+      source: 'features',
+      filter: ['all', IS_POINT, ['==', ['get', 'id'], '']],
+      paint: {
+        'circle-radius': ['case', INCREASED, 11, 10],
+        'circle-color': ['case', INCREASED, SIGNAL, INK],
+        'circle-stroke-color': ['case', INCREASED, INK, SIGNAL],
+        'circle-stroke-width': 3
+      }
+    });
+  }
+
+  function sendView() {
     var b = map.getBounds();
     send({
       type: 'moved',
       bbox: { minLat: b.getSouth(), minLon: b.getWest(), maxLat: b.getNorth(), maxLon: b.getEast() },
       zoom: map.getZoom()
     });
-  });
-  map.on('click', function () { send({ type: 'mapPressed' }); });
+  }
 
-  send({ type: 'ready' });
-  if (VIEW.kind === 'center') map.setView([VIEW.latitude, VIEW.longitude], VIEW.zoom);
-  else map.fitBounds([[VIEW.bbox.minLat, VIEW.bbox.minLon], [VIEW.bbox.maxLat, VIEW.bbox.maxLon]]);
+  function nearest(hits, point) {
+    var best = null;
+    var bestDistance = Infinity;
+    for (var i = 0; i < hits.length; i++) {
+      var at = map.project(hits[i].geometry.coordinates);
+      var distance = Math.pow(at.x - point.x, 2) + Math.pow(at.y - point.y, 2);
+      if (distance < bestDistance) { best = hits[i]; bestDistance = distance; }
+    }
+    return best;
+  }
+
+  map.on('load', function () {
+    addLayers();
+    loaded = true;
+    for (var i = 0; i < pending.length; i++) apply(pending[i]);
+    pending = [];
+    send({ type: 'ready' });
+    sendView();
+    map.on('moveend', sendView);
+  });
+
+  map.on('click', function (event) {
+    if (!loaded) return;
+    var p = event.point;
+    var box = [[p.x - TAP_TOLERANCE, p.y - TAP_TOLERANCE], [p.x + TAP_TOLERANCE, p.y + TAP_TOLERANCE]];
+    var point = nearest(map.queryRenderedFeatures(box, { layers: ['points'] }), p);
+    if (point) { send({ type: 'pointPressed', cui: point.properties.id }); return; }
+    var cluster = nearest(map.queryRenderedFeatures(box, { layers: ['clusters'] }), p);
+    if (cluster) {
+      var zoom = map.getZoom();
+      map.easeTo({ center: cluster.geometry.coordinates, zoom: Math.max(zoom, Math.min(zoom + CLUSTER_ZOOM_STEP, POINTS_ZOOM)) });
+      return;
+    }
+    send({ type: 'mapPressed' });
+  });
+
+  ['points', 'clusters'].forEach(function (layer) {
+    map.on('mouseenter', layer, function () { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', layer, function () { map.getCanvas().style.cursor = ''; });
+  });
 })();
 `;
 
-export function buildMapHtml(view: InitialView, options: { tilesKey?: string } = {}): string {
-  const tiles = options.tilesKey ? `${CARTO_TILES}?key=${encodeURIComponent(options.tilesKey)}` : CARTO_TILES;
+export function buildMapHtml(view: InitialView): string {
   const constants = [
     `var VIEW = ${safeJson(view)};`,
-    `var TILES = ${safeJson(tiles)};`,
+    `var STYLE_URL = ${safeJson(MAP_STYLE_URL)};`,
     `var ATTRIBUTION = ${safeJson(MAP_ATTRIBUTION)};`,
+    `var INK = ${safeJson(colors.ink)};`,
+    `var SIGNAL = ${safeJson(colors.signal)};`,
     `var CLUSTER_ZOOM_STEP = ${CLUSTER_ZOOM_STEP};`,
     `var POINTS_ZOOM = ${POINTS_ZOOM};`,
+    `var MIN_ZOOM = ${MIN_ZOOM};`,
+    `var MAX_ZOOM = ${MAX_ZOOM};`,
+    `var TAP_TOLERANCE = ${TAP_TOLERANCE};`,
   ].join('\n');
   return `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<link rel="stylesheet" href="${LEAFLET}/leaflet.css" integrity="${LEAFLET_CSS_SRI}" crossorigin="anonymous">
+<link rel="stylesheet" href="${MAPLIBRE}/maplibre-gl.css" integrity="${MAPLIBRE_CSS_SRI}" crossorigin="anonymous">
 <style>${STYLE}</style>
 </head>
 <body>
 <div id="map"></div>
-<script src="${LEAFLET}/leaflet.js" integrity="${LEAFLET_JS_SRI}" crossorigin="anonymous"></script>
+<script src="${MAPLIBRE}/maplibre-gl.js" integrity="${MAPLIBRE_JS_SRI}" crossorigin="anonymous"></script>
 <script>
 ${constants}
 ${SCRIPT}

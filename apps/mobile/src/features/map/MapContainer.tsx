@@ -12,15 +12,12 @@ import { colors } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { StateMessage } from '@/shared/ui/StateMessage';
 
-import { LeafletMap } from './LeafletMap';
+import { MapCanvas } from './MapCanvas';
 import type { MapEvent } from './mapBridge';
 import { buildMapHtml } from './mapHtml';
 import { toMapFeatures } from './mapPresentation';
 import { initialMapView, toMapPointsRequest } from './mapRequest';
 import { MapScreenView, type MapStatus } from './MapScreenView';
-
-/** CARTO basemaps key (public by design: it ships in the app); without it tiles are watermarked. */
-const CARTO_BASEMAPS_KEY = process.env.EXPO_PUBLIC_CARTO_BASEMAPS_KEY || undefined;
 
 /** Wait this long after the map stops moving before asking for its projects. */
 const MOVE_DEBOUNCE_MS = 300;
@@ -66,9 +63,7 @@ function MapScreen({ focus }: { focus: MapPoint | null }) {
   const { label, levelLabel } = useScope();
   const read = useReadScope();
   // The page is built once: a new string would reload the WebView. The scope cannot change here.
-  const [html] = useState(() =>
-    buildMapHtml(initialMapView({ departmentCode: read.departmentCode, focus }), { tilesKey: CARTO_BASEMAPS_KEY }),
-  );
+  const [html] = useState(() => buildMapHtml(initialMapView({ departmentCode: read.departmentCode, focus })));
 
   const [view, setView] = useState<{ bbox: BBox; zoom: number } | null>(null);
   const settled = useDebouncedValue(view, MOVE_DEBOUNCE_MS);
@@ -117,7 +112,7 @@ function MapScreen({ focus }: { focus: MapPoint | null }) {
       scopeLine={`${label} · ${levelLabel}`}
       status={status}
       map={
-        <LeafletMap
+        <MapCanvas
           html={html}
           features={features}
           highlightCui={selected?.cui ?? null}

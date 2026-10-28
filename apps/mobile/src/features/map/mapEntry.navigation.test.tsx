@@ -12,15 +12,15 @@ import { createInMemoryInvestmentsRepository } from '@/features/investments/adap
 import { MOCK_COST_CHANGES, MOCK_ROWS } from '@/features/investments/adapters/sampleData';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
 
-import type { LeafletMapProps } from './LeafletMap';
+import type { MapCanvasProps } from './MapCanvas';
 
-let mockMap: LeafletMapProps | null = null;
-jest.mock('./LeafletMap', () => {
+let mockMap: MapCanvasProps | null = null;
+jest.mock('./MapCanvas', () => {
   const { View: MockView } = jest.requireActual<typeof import('react-native')>('react-native');
   return {
-    LeafletMap: (props: LeafletMapProps) => {
+    MapCanvas: (props: MapCanvasProps) => {
       mockMap = props;
-      return <MockView testID="leaflet-map" />;
+      return <MockView testID="map-canvas" />;
     },
   };
 });
@@ -56,7 +56,7 @@ describe('map entry points', () => {
   it('opens the map from home', async () => {
     const router = await renderRouter(routes, { initialUrl: '/' });
     await fireEvent.press(await screen.findByRole('link', { name: 'Ver en el mapa' }));
-    expect(await screen.findByTestId('leaflet-map')).toBeOnTheScreen();
+    expect(await screen.findByTestId('map-canvas')).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/map');
     expect(mockMap?.html).toContain('"kind":"bounds"');
   });
@@ -64,7 +64,7 @@ describe('map entry points', () => {
   it('opens the map centered on a project with coordinates from its detail', async () => {
     const router = await renderRouter(routes, { initialUrl: '/investment/2088142' });
     await fireEvent.press(await screen.findByRole('link', { name: 'Ver en el mapa' }));
-    expect(await screen.findByTestId('leaflet-map')).toBeOnTheScreen();
+    expect(await screen.findByTestId('map-canvas')).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/map');
     expect(router.getSearchParams()).toEqual({ cui: '2088142' });
     expect(mockMap?.highlightCui).toBe('2088142');

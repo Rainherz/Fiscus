@@ -14,17 +14,17 @@ import type { InvestmentsRepository } from '@/features/investments/ports/Investm
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
 
 import type { MapEvent } from './mapBridge';
-import type { LeafletMapProps } from './LeafletMap';
+import type { MapCanvasProps } from './MapCanvas';
 import { DEPARTMENT_BOUNDS, PERU_VIEW } from './mapRequest';
 
 // The WebView cannot run in Jest: a stand-in records the props and lets tests play page events.
-let mockMap: LeafletMapProps | null = null;
-jest.mock('./LeafletMap', () => {
+let mockMap: MapCanvasProps | null = null;
+jest.mock('./MapCanvas', () => {
   const { View: MockView } = jest.requireActual<typeof import('react-native')>('react-native');
   return {
-    LeafletMap: (props: LeafletMapProps) => {
+    MapCanvas: (props: MapCanvasProps) => {
       mockMap = props;
-      return <MockView testID="leaflet-map" accessibilityLabel={props.accessibilityLabel} />;
+      return <MockView testID="map-canvas" accessibilityLabel={props.accessibilityLabel} />;
     },
   };
 });
@@ -72,7 +72,7 @@ const routes = {
 
 const openMap = async (url = '/map') => {
   const router = await renderRouter(routes, { initialUrl: url });
-  await screen.findByTestId('leaflet-map');
+  await screen.findByTestId('map-canvas');
   return router;
 };
 
@@ -90,7 +90,8 @@ describe('map screen', () => {
     await openMap();
     expect(mockMap!.html).toContain(JSON.stringify({ kind: 'bounds', bbox: DEPARTMENT_BOUNDS[4] }));
     await emit({ type: 'moved', bbox: AREQUIPA_VIEW, zoom: 7 });
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ departmentCode: 4, zoom: 7 })));
+    // MapLibre zoom 7 (512-px tiles) is the 256-px tile zoom 8 that map_points expects.
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ departmentCode: 4, zoom: 8 })));
   });
 
   it('loads the projects of the view after the map stops moving and sends them to the map', async () => {

@@ -7,8 +7,23 @@ import type { InitialView } from './mapBridge';
 /** The country on screen when the map opens nationwide. */
 export const PERU_VIEW: BBox = { minLat: -18.4, minLon: -81.4, maxLat: -0.03, maxLon: -68.6 };
 
-/** Close enough to see the project's street and its neighbors as individual points. */
-export const FOCUS_ZOOM = 15;
+/**
+ * Close enough to see the project's street and its neighbors as individual points (a MapLibre zoom,
+ * like every zoom the page uses).
+ */
+export const FOCUS_ZOOM = 14;
+
+/** The largest zoom map_points accepts. */
+const MAX_TILE_ZOOM = 22;
+
+/**
+ * MapLibre zooms count 512-px tiles; map_points sizes its grid cells on 256-px tiles (a quarter
+ * tile, `360 / 2^zoom / 4` degrees), as Leaflet zooms did. One level up keeps a cell at 64 px on
+ * screen. Rounded down to an integer.
+ */
+export function toTileZoom(maplibreZoom: number): number {
+  return Math.min(Math.max(0, Math.floor(maplibreZoom + 1)), MAX_TILE_ZOOM);
+}
 
 const box = (minLat: number, maxLat: number, minLon: number, maxLon: number): BBox => ({
   minLat,
@@ -62,7 +77,8 @@ const up = (value: number) => Math.ceil(value * 100) / 100;
 
 /**
  * The query for one map view: the box clipped to where coordinates exist and rounded outward
- * (small pans reuse the cached answer), the zoom as an integer. Null when nothing can be in view.
+ * (small pans reuse the cached answer), the zoom as the integer tile zoom of the server. Null when
+ * nothing can be in view.
  */
 export function toMapPointsRequest(
   view: { bbox: BBox; zoom: number },
@@ -77,7 +93,7 @@ export function toMapPointsRequest(
   if (bbox.minLat > bbox.maxLat || bbox.minLon > bbox.maxLon) return null;
   return {
     bbox,
-    zoom: Math.max(0, Math.floor(view.zoom)),
+    zoom: toTileZoom(view.zoom),
     level: read.level,
     departmentCode: read.departmentCode,
   };

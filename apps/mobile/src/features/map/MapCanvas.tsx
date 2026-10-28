@@ -7,7 +7,7 @@ import { colors } from '@/shared/theme/tokens';
 import { commandScript, type MapCommand } from './mapBridge';
 import { useMapSync, type MapSyncProps } from './useMapSync';
 
-export interface LeafletMapProps extends MapSyncProps {
+export interface MapCanvasProps extends MapSyncProps {
   /** The page from buildMapHtml. A new string reloads the map. */
   html: string;
   accessibilityLabel: string;
@@ -22,8 +22,8 @@ const MapWebView = WebView as unknown as ComponentType<WebViewProps & RefAttribu
 
 const isWebLink = (url: string) => /^https?:\/\//.test(url);
 
-/** iOS/Android: the shared Leaflet page in a WebView (react-native-webview ships with Expo Go). */
-export function LeafletMap({ html, accessibilityLabel, ...sync }: LeafletMapProps) {
+/** iOS/Android: the shared map page in a WebView (react-native-webview ships with Expo Go). */
+export function MapCanvas({ html, accessibilityLabel, ...sync }: MapCanvasProps) {
   const webView = useRef<WebViewHandle>(null);
   const send = useCallback((command: MapCommand) => webView.current?.injectJavaScript(commandScript(command)), []);
   const receive = useMapSync(sync, send);

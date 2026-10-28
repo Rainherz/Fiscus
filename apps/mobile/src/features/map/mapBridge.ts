@@ -1,7 +1,7 @@
 import type { BBox } from '@/features/investments/domain/mapPoints';
 
 /**
- * Typed messages between the app and the Leaflet page (mapHtml.ts), which runs in a WebView on
+ * Typed messages between the app and the MapLibre page (mapHtml.ts), which runs in a WebView on
  * iOS/Android and in an iframe on the web. Everything that arrives from the page is untrusted
  * text: parseMapEvent validates it and drops anything malformed.
  */
@@ -9,12 +9,18 @@ import type { BBox } from '@/features/investments/domain/mapPoints';
 /** Page → app. */
 export type MapEvent =
   | { type: 'ready' }
-  /** After every pan or zoom (Leaflet `moveend`), and once after the first view is set. */
+  /**
+   * After every pan or zoom (MapLibre `moveend`), and once when the map has loaded. `zoom` is the
+   * MapLibre zoom (512-px tiles); mapRequest.ts converts it for the server.
+   */
   | { type: 'moved'; bbox: BBox; zoom: number }
   | { type: 'pointPressed'; cui: string }
   /** A tap on the map outside any marker. */
   | { type: 'mapPressed' }
-  /** Leaflet could not be loaded (offline, CDN blocked). */
+  /**
+   * The map could not start: MapLibre not loaded (offline, CDN blocked), no WebGL, or the style or
+   * first tiles failed. The page adds a `reason` for debugging; it is dropped here.
+   */
   | { type: 'loadFailed' };
 
 /** What the page draws. Labels and sizes are computed in the app (mapPresentation.ts). */
