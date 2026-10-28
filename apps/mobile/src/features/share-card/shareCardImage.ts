@@ -9,6 +9,13 @@ type Os = typeof Platform.OS;
 /** shared: handed to a share target; downloaded: saved by the browser; cancelled: sheet dismissed. */
 export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'unavailable';
 
+/** What is shared next to the image: the CUI names the file; text and url go to the Web Share API. */
+export interface ShareTarget {
+  cui: string;
+  text: string;
+  url: string | null;
+}
+
 /**
  * Renders the card view to a 1080x1350 PNG: a temporary file on iOS/Android, a data URI on web
  * (react-native-view-shot draws the DOM with html2canvas-pro there).
@@ -52,14 +59,17 @@ function download(dataUri: string, name: string): ShareResult {
   return 'downloaded';
 }
 
-async function shareWeb(dataUri: string, cui: string): Promise<ShareResult> {
-  const name = shareFileName(cui);
+async function shareWeb(dataUri: string, target: ShareTarget): Promise<ShareResult> {
+  const name = shareFileName(target.cui);
   const nav = globalThis.navigator as Partial<Navigator> | undefined;
   if (typeof nav?.canShare === 'function' && typeof nav.share === 'function') {
     const files = [dataUriToFile(dataUri, name)];
-    if (nav.canShare({ files })) {
+    const withText: ShareData = { files, text: target.text, ...(target.url ? { url: target.url } : {}) };
+    // Some browsers accept files only on their own; the link is still printed on the card.
+    const data = nav.canShare(withText) ? withText : nav.canShare({ files }) ? { files } : null;
+    if (data) {
       try {
-        await nav.share({ files });
+        await nav.share(data);
         return 'shared';
       } catch (error) {
         if ((error as { name?: string } | null)?.name === 'AbortError') return 'cancelled';
@@ -70,7 +80,10 @@ async function shareWeb(dataUri: string, cui: string): Promise<ShareResult> {
   return download(dataUri, name);
 }
 
-/** Shares a captured card: system share sheet on iOS/Android; Web Share API or a download on web. */
-export function shareCardImage(uri: string, cui: string, os: Os = Platform.OS): Promise<ShareResult> {
-  return os === 'web' ? shareWeb(uri, cui) : shareNative(uri);
+/**
+ * Shares a captured card: system share sheet on iOS/Android (expo-sharing sends the file only, so
+ * the link reaches people through the card itself); Web Share API with text and url, or a download.
+ */
+export function shareCardImage(uri: string, target: ShareTarget, os: Os = Platform.OS): Promise<ShareResult> {
+  return os === 'web' ? shareWeb(uri, target) : shareNative(uri);
 }

@@ -29,6 +29,20 @@ describe('ShareCard', () => {
     ).toBeOnTheScreen();
   });
 
+  it('prints the short project link in the footer when a site URL is set', async () => {
+    const withLink = shareCardContent(
+      { ...majes, sourceUpdatedAt: '2026-10-26T15:00:00Z' },
+      { referenceMonth: '2026-09-01', siteUrl: 'https://rainherz.github.io/Fiscus' },
+    );
+    await render(<ShareCard content={withLink} />);
+    expect(screen.getByText('rainherz.github.io/Fiscus/investment/2088142')).toBeOnTheScreen();
+  });
+
+  it('prints no link without a site URL', async () => {
+    await render(<ShareCard content={content()} />);
+    expect(screen.queryByText(/investment\/2088142/)).toBeNull();
+  });
+
   it('caps the project name at three lines', async () => {
     await render(<ShareCard content={content()} />);
     expect(screen.getByText('Majes Siguas II etapa')).toHaveProp('numberOfLines', 3);

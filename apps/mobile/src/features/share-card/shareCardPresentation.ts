@@ -13,6 +13,7 @@ import {
   formatYear,
 } from '@/shared/format';
 import { MULTI_REGION_LABEL } from '@/features/department/departments';
+import { investmentLink, type SiteLink } from '@/shared/site/siteUrl';
 import { sourceNameOf } from '@/shared/ui/DataFooter';
 import { SPENT_ANOMALY_NOTICE, overspendSentence } from '@/shared/ui/HazardProgressBar';
 
@@ -38,6 +39,10 @@ export interface ShareCardContent {
   /** Share of the updated cost spent; null when the updated cost is not usable. */
   spent: { label: string; ratio: number; notes: string[] } | null;
   footer: string;
+  /** The project's page on the published site, printed under the footer; null when not configured. */
+  link: SiteLink | null;
+  /** Text sent next to the image (Web Share API); the link travels separately as its url. */
+  shareText: string;
   /** Whole card as one sentence, for the preview image. */
   accessibilityLabel: string;
 }
@@ -102,7 +107,7 @@ function spentFor(inv: Investment, referenceMonth: string | null): ShareCardCont
 /** Everything the share card states, derived from the same rules as the detail screen. */
 export function shareCardContent(
   inv: Investment,
-  options: { referenceMonth: string | null },
+  options: { referenceMonth: string | null; siteUrl?: string | null },
 ): ShareCardContent {
   const hero = heroFor(inv);
   const costLines = costLinesFor(inv, hero);
@@ -113,6 +118,7 @@ export function shareCardContent(
     // source_updated_at moves only when the figures change.
     ...(inv.sourceUpdatedAt ? [`Último cambio en los datos: ${formatDate(inv.sourceUpdatedAt)}`] : []),
   ].join(' · ');
+  const link = investmentLink(options.siteUrl ?? null, inv.cui);
   const brand = 'FISCUS';
   const region = inv.departmentCode === null ? MULTI_REGION_LABEL.toUpperCase() : (inv.departmentName ?? 'PERÚ');
   const name = inv.name ? shortenName(inv.name) : 'Sin nombre';
@@ -127,8 +133,10 @@ export function shareCardContent(
   ]
     .map((part) => `${part.replace(/\.$/, '')}. `)
     .join('')
-    .concat(footer);
-  return { brand, region, name, hero, costLines, spent, footer, accessibilityLabel };
+    .concat(footer)
+    .concat(link ? `. ${link.label}` : '');
+  const shareText = `${name} (${region}). ${heroSentence.replace(/\.$/, '')}.`;
+  return { brand, region, name, hero, costLines, spent, footer, link, shareText, accessibilityLabel };
 }
 
 export function shareFileName(cui: string): string {

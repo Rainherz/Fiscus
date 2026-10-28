@@ -139,6 +139,22 @@ describe('shareCardContent', () => {
         'CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Último cambio en los datos: 26/10/2026',
     );
   });
+
+  it('has no link when no site URL is configured', () => {
+    const card = content(base);
+    expect(card.link).toBeNull();
+    expect(card.shareText).toBe('Majes Siguas II etapa (AREQUIPA). AUMENTO DEL COSTO: +285%.');
+  });
+
+  it('links to the project page on the site, printed on the card and read out', () => {
+    const card = shareCardContent(base, { referenceMonth: '2026-09-01', siteUrl: 'https://rainherz.github.io/Fiscus' });
+    expect(card.link).toEqual({
+      url: 'https://rainherz.github.io/Fiscus/investment/2088142',
+      label: 'rainherz.github.io/Fiscus/investment/2088142',
+    });
+    expect(card.shareText).toBe('Majes Siguas II etapa (AREQUIPA). AUMENTO DEL COSTO: +285%.');
+    expect(card.accessibilityLabel).toMatch(/\. rainherz\.github\.io\/Fiscus\/investment\/2088142$/);
+  });
 });
 
 describe('shareFileName', () => {
