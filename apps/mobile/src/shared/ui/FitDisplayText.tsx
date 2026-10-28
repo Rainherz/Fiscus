@@ -14,6 +14,11 @@ interface Props {
    * margins). Only used for the first render, before the real width is measured.
    */
   horizontalInset?: number;
+  /**
+   * Width of the column the text sits in, when it is not the page column (multi-column layouts).
+   * Replaces the window-based estimate for the first render.
+   */
+  estimatedWidth?: number;
   style?: TextStyle;
   accessibilityLabel?: string;
 }
@@ -28,12 +33,13 @@ export function FitDisplayText({
   maxSize,
   minSize,
   horizontalInset = 0,
+  estimatedWidth,
   style,
   accessibilityLabel,
 }: Props) {
   const window = useWindowDimensions();
   const [measured, setMeasured] = useState(0);
-  const estimated = Math.min(window.width, maxContentWidth) - horizontalInset;
+  const estimated = estimatedWidth ?? Math.min(window.width, maxContentWidth) - horizontalInset;
   const width = measured > 0 ? measured : estimated;
   const size = fitFontSize({ text, width, max: maxSize, min: minSize });
   const onLayout = (event: LayoutChangeEvent) => setMeasured(event.nativeEvent.layout.width);

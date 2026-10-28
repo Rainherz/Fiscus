@@ -1,7 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
 import { formatDate } from '../format';
-import { space } from '../theme/tokens';
+import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '../layout/breakpoints';
+import { useBreakpoint } from '../layout/useBreakpoint';
+import { colors, rule, space } from '../theme/tokens';
 import { MonoText } from './typography';
 
 interface Props {
@@ -18,18 +20,41 @@ export function sourceNameOf(dataSource: 'ssi' | 'open_data'): string {
   return dataSource === 'open_data' ? OPEN_DATA_SOURCE_NAME : SOURCE_NAME;
 }
 
+/**
+ * Demo notice, last update and sources. Phones show it as the last block of the screen; tablet
+ * and desktop as a page footer: a full-width rule, sources on the left and the date on the right.
+ */
 export function DataFooter({ finishedAt, isDemo }: Props) {
+  const breakpoint = useBreakpoint();
+  const demo = isDemo ? (
+    <MonoText bold size={11}>
+      Modo demostración: datos de ejemplo.
+    </MonoText>
+  ) : null;
+  const updated = finishedAt ? (
+    <MonoText size={11} muted>{`Datos actualizados el ${formatDate(finishedAt)}`}</MonoText>
+  ) : null;
+  const sources = <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}`}</MonoText>;
+
+  if (isWide(breakpoint)) {
+    return (
+      <View testID="page-footer" role="contentinfo" style={styles.page}>
+        <View testID="page-footer-row" style={[styles.pageRow, { paddingHorizontal: gutterFor(breakpoint) }]}>
+          <View style={styles.sources}>{sources}</View>
+          <View style={styles.status}>
+            {demo}
+            {updated}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.footer}>
-      {isDemo ? (
-        <MonoText bold size={11}>
-          Modo demostración: datos de ejemplo.
-        </MonoText>
-      ) : null}
-      {finishedAt ? (
-        <MonoText size={11} muted>{`Datos actualizados el ${formatDate(finishedAt)}`}</MonoText>
-      ) : null}
-      <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}`}</MonoText>
+      {demo}
+      {updated}
+      {sources}
     </View>
   );
 }
@@ -40,4 +65,17 @@ const styles = StyleSheet.create({
     paddingVertical: space.lg,
     gap: space.xs,
   },
+  page: { marginTop: space.xl, borderTopWidth: rule, borderTopColor: colors.ink },
+  pageRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: space.xl,
+    width: '100%',
+    maxWidth: LAYOUT_MAX_WIDTH,
+    alignSelf: 'center',
+    paddingVertical: space.lg,
+  },
+  sources: { flexShrink: 1 },
+  status: { alignItems: 'flex-end', gap: space.xs },
 });

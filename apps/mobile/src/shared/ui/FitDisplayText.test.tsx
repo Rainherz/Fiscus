@@ -46,6 +46,12 @@ describe('FitDisplayText', () => {
     expect(fontSizeOf('+285%')).toBe(136);
   });
 
+  it('fits the column it is given before layout, not the window', async () => {
+    mockWindowWidth(1440);
+    await render(<FitDisplayText text="+1,285%" maxSize={220} estimatedWidth={300} />);
+    expect(widthAt('+1,285%', fontSizeOf('+1,285%'))).toBeLessThanOrEqual(300);
+  });
+
   it('never truncates with an ellipsis', async () => {
     mockWindowWidth(320);
     await render(<FitDisplayText text="+285%" maxSize={136} />);
