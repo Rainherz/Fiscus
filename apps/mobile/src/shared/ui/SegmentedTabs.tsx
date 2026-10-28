@@ -18,6 +18,8 @@ interface Props<K extends string> {
   onSelect: (key: K) => void;
   /** Names the tab list for screen readers when a screen has more than one. */
   accessibilityLabel?: string;
+  /** Side padding, when the screen's gutter is not the phone one. */
+  gutter?: number;
 }
 
 /**
@@ -26,7 +28,14 @@ interface Props<K extends string> {
  * from a link is visible. On wide screens (tablet and desktop) the content column is capped, so a
  * scrolling row looks cut off at the column edge; there it wraps onto several lines instead.
  */
-export function SegmentedTabs<K extends string>({ options, selected, onSelect, accessibilityLabel }: Props<K>) {
+export function SegmentedTabs<K extends string>({
+  options,
+  selected,
+  onSelect,
+  accessibilityLabel,
+  gutter,
+}: Props<K>) {
+  const padding = gutter === undefined ? null : { paddingHorizontal: gutter };
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [offsets, setOffsets] = useState<Partial<Record<K, number>>>({});
   const selectedOffset = offsets[selected];
@@ -64,7 +73,7 @@ export function SegmentedTabs<K extends string>({ options, selected, onSelect, a
 
   if (wrap) {
     return (
-      <View accessibilityRole="tablist" accessibilityLabel={accessibilityLabel} style={[styles.list, styles.wrap]}>
+      <View accessibilityRole="tablist" accessibilityLabel={accessibilityLabel} style={[styles.list, styles.wrap, padding]}>
         {tabs}
       </View>
     );
@@ -77,7 +86,7 @@ export function SegmentedTabs<K extends string>({ options, selected, onSelect, a
       showsHorizontalScrollIndicator={false}
       accessibilityRole="tablist"
       accessibilityLabel={accessibilityLabel}
-      contentContainerStyle={styles.list}>
+      contentContainerStyle={[styles.list, padding]}>
       {tabs}
     </ScrollView>
   );
