@@ -2,7 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-qu
 
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { RankingKind } from '../domain/investment';
-import type { MapPointsRequest } from '../domain/mapPoints';
+import { MAP_LIST_PAGE_SIZE, type MapListRequest, type MapPointsRequest } from '../domain/mapPoints';
 import {
   PAGE_SIZE,
   buildFunctionQuery,
@@ -185,6 +185,22 @@ export function useMapPoints(request: MapPointsRequest | null) {
     queryKey: ['map-points', request],
     queryFn: () => repository.getMapPoints(request!),
     enabled: request !== null,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The list beside the map, 30 projects a page ("Cargar más"). Like the map, the previous view's list
+ * stays on screen while the next one loads; null asks for nothing.
+ */
+export function useMapList(request: Omit<MapListRequest, 'page' | 'pageSize'> | null) {
+  const { repository } = useRepository();
+  return useInfiniteQuery({
+    queryKey: ['map-list', request],
+    queryFn: ({ pageParam }) => repository.getMapList({ ...request!, page: pageParam, pageSize: MAP_LIST_PAGE_SIZE }),
+    enabled: request !== null,
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => (all.length * MAP_LIST_PAGE_SIZE < last.total ? all.length : undefined),
     placeholderData: keepPreviousData,
   });
 }

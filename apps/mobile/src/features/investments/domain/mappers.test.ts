@@ -10,6 +10,7 @@ import {
   mapEntityComparisonRow,
   mapStalledInvestmentRow,
   mapMapPointRows,
+  mapMapListRows,
   ENTITY_COMPARISON_COLUMNS,
   STALLED_INVESTMENT_COLUMNS,
 } from './mappers';
@@ -474,5 +475,60 @@ describe('mapMapPointRows', () => {
 
   it('drops rows without usable coordinates', () => {
     expect(mapMapPointRows([{ ...point, latitude: null }])).toEqual({ kind: 'points', points: [] });
+  });
+});
+
+describe('mapMapListRows', () => {
+  const row = {
+    cui: '9900201',
+    name: 'Pistas en Cayma',
+    entity: 'MUNI CAYMA',
+    government_level: 'GL',
+    status: 'ACTIVO',
+    latitude: -16.37,
+    longitude: -71.55,
+    updated_cost: '12900000',
+    updated_cost_valid: true,
+    accrued_total: '7869000',
+    cost_increase: '4300000',
+    cost_increase_pct: '50',
+    execution_progress: '0.61',
+    spent_anomaly: false,
+    physical_progress: '42',
+    last_accrual_month: '2026-10-01',
+    stalled: false,
+    total_count: '128',
+  };
+
+  it('maps rows to list items and reads the total from the window count', () => {
+    expect(mapMapListRows([row])).toEqual({
+      total: 128,
+      items: [
+        {
+          cui: '9900201',
+          name: 'Pistas en Cayma',
+          entity: 'MUNI CAYMA',
+          governmentLevel: 'GL',
+          status: 'ACTIVO',
+          latitude: -16.37,
+          longitude: -71.55,
+          updatedCost: 12_900_000,
+          updatedCostValid: true,
+          accruedTotal: 7_869_000,
+          costIncrease: 4_300_000,
+          costIncreasePct: 50,
+          executionProgress: 0.61,
+          spentAnomaly: false,
+          physicalProgress: 42,
+          lastAccrualMonth: '2026-10-01',
+          stalled: false,
+        },
+      ],
+    });
+  });
+
+  it('drops rows without coordinates or CUI and reads an empty page as zero', () => {
+    expect(mapMapListRows([{ ...row, latitude: null }, { ...row, cui: null }])).toEqual({ total: 128, items: [] });
+    expect(mapMapListRows([])).toEqual({ total: 0, items: [] });
   });
 });

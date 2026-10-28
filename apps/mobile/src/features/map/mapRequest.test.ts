@@ -5,6 +5,7 @@ import {
   FOCUS_ZOOM,
   PERU_VIEW,
   initialMapView,
+  toMapListRequest,
   toMapPointsRequest,
   toTileZoom,
 } from './mapRequest';
@@ -20,6 +21,7 @@ describe('toMapPointsRequest', () => {
       zoom: 13,
       level: 'ALL',
       departmentCode: undefined,
+      filters: [],
     });
   });
 
@@ -38,6 +40,27 @@ describe('toMapPointsRequest', () => {
       { departmentCode: 4, level: 'GL' },
     );
     expect(request).toEqual(expect.objectContaining({ departmentCode: 4, level: 'GL' }));
+  });
+});
+
+describe('map filters in requests', () => {
+  const view = { bbox: { minLat: -16.4567, minLon: -71.6012, maxLat: -16.3011, maxLon: -71.4499 }, zoom: 9 };
+
+  it('sends the filters to the map points', () => {
+    expect(toMapPointsRequest(view, read, ['increase', 'stalled'])?.filters).toEqual(['increase', 'stalled']);
+  });
+
+  it('asks the list for the same rounded box, scope and filters, without zoom', () => {
+    expect(toMapListRequest(view, { departmentCode: 4, level: 'GR' }, ['overspent'])).toEqual({
+      bbox: { minLat: -16.46, minLon: -71.61, maxLat: -16.3, maxLon: -71.44 },
+      level: 'GR',
+      departmentCode: 4,
+      filters: ['overspent'],
+    });
+  });
+
+  it('asks the list for nothing outside Peru', () => {
+    expect(toMapListRequest({ bbox: { minLat: 10, minLon: -80, maxLat: 12, maxLon: -78 }, zoom: 8 }, read, [])).toBeNull();
   });
 });
 

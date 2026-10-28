@@ -2,7 +2,7 @@ import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChang
 import type { EntityComparison } from './entityComparison';
 import { isGovernmentLevel } from './governmentLevel';
 import type { Coordinates, FunctionSummary, IngestRun, Investment } from './investment';
-import type { MapPoints } from './mapPoints';
+import type { MapListPage, MapPoints } from './mapPoints';
 import type { RegionComparison } from './regionComparison';
 import type { StalledInvestment } from './stalled';
 
@@ -182,6 +182,58 @@ export function mapMapPointRows(rows: MapPointRow[]): MapPoints {
         : [],
     ),
   };
+}
+
+/** Row shape of the `map_list` function (see its migration). */
+export interface MapListRow {
+  cui: Text;
+  name: Text;
+  entity: Text;
+  government_level: Text;
+  status: Text;
+  latitude: Numeric;
+  longitude: Numeric;
+  updated_cost: Numeric;
+  updated_cost_valid: boolean | null | undefined;
+  accrued_total: Numeric;
+  cost_increase: Numeric;
+  cost_increase_pct: Numeric;
+  execution_progress: Numeric;
+  spent_anomaly: boolean | null | undefined;
+  physical_progress: Numeric;
+  last_accrual_month: Text;
+  stalled: boolean | null | undefined;
+  /** count(*) over (): the matching projects in the view, on every row. */
+  total_count: Numeric;
+}
+
+export function mapMapListRows(rows: MapListRow[]): MapListPage {
+  const total = rows.length ? (toNumber(rows[0].total_count) ?? 0) : 0;
+  const items = rows.flatMap((row) => {
+    const at = toCoordinates(row.latitude, row.longitude);
+    if (!at || !row.cui) return [];
+    return [
+      {
+        cui: row.cui,
+        name: toText(row.name),
+        entity: toText(row.entity),
+        governmentLevel: isGovernmentLevel(row.government_level) ? row.government_level : null,
+        status: toText(row.status),
+        ...at,
+        updatedCost: toNumber(row.updated_cost),
+        updatedCostValid: row.updated_cost_valid === true,
+        accruedTotal: toNumber(row.accrued_total),
+        costIncrease: toNumber(row.cost_increase),
+        costIncreasePct: toNumber(row.cost_increase_pct),
+        executionProgress: toNumber(row.execution_progress),
+        spentAnomaly: row.spent_anomaly === true,
+        physicalProgress: toNumber(row.physical_progress),
+        lastAccrualMonth: toText(row.last_accrual_month),
+        stalled: row.stalled === true,
+      },
+    ];
+  });
+  return { items, total };
 }
 
 export function mapStalledInvestmentRow(row: StalledInvestmentRow): StalledInvestment {

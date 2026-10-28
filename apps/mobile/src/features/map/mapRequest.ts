@@ -1,6 +1,12 @@
 import type { LevelFilter } from '@/features/investments/domain/governmentLevel';
 import type { Coordinates } from '@/features/investments/domain/investment';
-import { PERU_BBOX, type BBox, type MapPointsRequest } from '@/features/investments/domain/mapPoints';
+import {
+  PERU_BBOX,
+  type BBox,
+  type MapFilter,
+  type MapListRequest,
+  type MapPointsRequest,
+} from '@/features/investments/domain/mapPoints';
 
 import type { InitialView } from './mapBridge';
 
@@ -80,21 +86,41 @@ const up = (value: number) => Math.ceil(value * 100) / 100;
  * (small pans reuse the cached answer), the zoom as the integer tile zoom of the server. Null when
  * nothing can be in view.
  */
+function queryBox(view: BBox): BBox | null {
+  const bbox: BBox = {
+    minLat: Math.max(down(view.minLat), PERU_BBOX.minLat),
+    minLon: Math.max(down(view.minLon), PERU_BBOX.minLon),
+    maxLat: Math.min(up(view.maxLat), PERU_BBOX.maxLat),
+    maxLon: Math.min(up(view.maxLon), PERU_BBOX.maxLon),
+  };
+  return bbox.minLat > bbox.maxLat || bbox.minLon > bbox.maxLon ? null : bbox;
+}
+
+type ReadScope = { departmentCode: number | undefined; level: LevelFilter };
+
 export function toMapPointsRequest(
   view: { bbox: BBox; zoom: number },
-  read: { departmentCode: number | undefined; level: LevelFilter },
+  read: ReadScope,
+  filters: readonly MapFilter[] = [],
 ): MapPointsRequest | null {
-  const bbox: BBox = {
-    minLat: Math.max(down(view.bbox.minLat), PERU_BBOX.minLat),
-    minLon: Math.max(down(view.bbox.minLon), PERU_BBOX.minLon),
-    maxLat: Math.min(up(view.bbox.maxLat), PERU_BBOX.maxLat),
-    maxLon: Math.min(up(view.bbox.maxLon), PERU_BBOX.maxLon),
-  };
-  if (bbox.minLat > bbox.maxLat || bbox.minLon > bbox.maxLon) return null;
+  const bbox = queryBox(view.bbox);
+  if (!bbox) return null;
   return {
     bbox,
     zoom: toTileZoom(view.zoom),
     level: read.level,
     departmentCode: read.departmentCode,
+    filters,
   };
+}
+
+/** The list of the same view (every page): the same box, scope and filters as the map. */
+export function toMapListRequest(
+  view: { bbox: BBox; zoom: number },
+  read: ReadScope,
+  filters: readonly MapFilter[],
+): Omit<MapListRequest, 'page'> | null {
+  const bbox = queryBox(view.bbox);
+  if (!bbox) return null;
+  return { bbox, level: read.level, departmentCode: read.departmentCode, filters };
 }

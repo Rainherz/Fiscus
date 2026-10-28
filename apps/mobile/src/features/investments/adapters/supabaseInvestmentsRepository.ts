@@ -10,6 +10,7 @@ import {
   mapEntityComparisonRow,
   mapFunctionSummaryRow,
   mapIngestRunRow,
+  mapMapListRows,
   mapMapPointRows,
   mapInvestmentRow,
   mapRecentCostIncreaseRow,
@@ -19,6 +20,7 @@ import {
   type EntityComparisonRow,
   type FunctionSummaryRow,
   type IngestRunRow,
+  type MapListRow,
   type MapPointRow,
   type InvestmentRow,
   type RecentCostIncreaseRow,
@@ -26,6 +28,7 @@ import {
   type StalledInvestmentRow,
 } from '../domain/mappers';
 import type { LevelFilter } from '../domain/governmentLevel';
+import { MAP_LIST_PAGE_SIZE, type MapFilter } from '../domain/mapPoints';
 import { buildEntityQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
@@ -49,6 +52,15 @@ interface Result<T> {
   error: { message: string } | null;
   /** Present when the select asked for a count. */
   count?: number | null;
+}
+
+/** The `only_*` arguments of map_points and map_list. */
+function filterArguments(filters: readonly MapFilter[]) {
+  return {
+    only_increase: filters.includes('increase'),
+    only_stalled: filters.includes('stalled'),
+    only_overspent: filters.includes('overspent'),
+  };
 }
 
 function applyFilter(builder: FilterBuilder, filter: Filter<string>): FilterBuilder {
@@ -195,7 +207,7 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       const rows = unwrap((await applyQuery(source, buildEntityQuery(params))) as Result<EntityComparisonRow[]>);
       return (rows ?? []).map(mapEntityComparisonRow);
     },
-    async getMapPoints({ bbox, zoom, level, departmentCode }) {
+    async getMapPoints({ bbox, zoom, level, departmentCode, filters }) {
       const result = (await client.rpc('map_points', {
         min_lat: bbox.minLat,
         min_lon: bbox.minLon,
@@ -204,8 +216,24 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
         zoom,
         level,
         department: departmentCode ?? null,
+        // Without filters, the arguments of the original function (older deployments accept them).
+        ...(filters?.length ? filterArguments(filters) : {}),
       })) as Result<MapPointRow[]>;
       return mapMapPointRows(unwrap(result) ?? []);
+    },
+    async getMapList({ bbox, level, departmentCode, filters = [], page, pageSize = MAP_LIST_PAGE_SIZE }) {
+      const result = (await client.rpc('map_list', {
+        min_lat: bbox.minLat,
+        min_lon: bbox.minLon,
+        max_lat: bbox.maxLat,
+        max_lon: bbox.maxLon,
+        level,
+        department: departmentCode ?? null,
+        ...filterArguments(filters),
+        page_limit: pageSize,
+        page_offset: page * pageSize,
+      })) as Result<MapListRow[]>;
+      return mapMapListRows(unwrap(result) ?? []);
     },
   };
 }

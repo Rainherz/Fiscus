@@ -5,8 +5,13 @@ import {
   MAX_MAP_CELLS,
   MAX_MAP_POINTS,
   PERU_BBOX,
+  MAP_LIST_PAGE_SIZE,
   clusterCellSize,
+  computeMapList,
   computeMapPoints,
+  toMapListItem,
+  type MapFilter,
+  type MapListRequest,
   type MapPointsRequest,
 } from './mapPoints';
 
@@ -104,5 +109,126 @@ describe('computeMapPoints', () => {
     expect(cuis(national(8, { bbox: { minLat: -12.5, minLon: -77.5, maxLat: -11.5, maxLon: -76.5 } }))).toEqual([
       'lima',
     ]);
+  });
+});
+
+describe('map filters', () => {
+  // Reference month (latest accrual of the dataset): October 2026.
+  const recent = { lastAccrualMonth: '2026-10-01' };
+  const projects = [
+    at('inc', -16.4, -71.5, { viable: 1_000, updated: 1_900, progress: 0.5, ...recent }),
+    at('stl', -16.4, -71.5, { viable: 5_000, updated: 5_000, progress: 0.4, lastAccrualMonth: '2025-02-01' }),
+    at('ovr', -16.4, -71.5, { viable: 2_000, updated: 3_000, progress: 1.5, ...recent }),
+    at('inc-stl', -13.5, -72, { viable: 1_000, updated: 5_000, progress: 0.2, lastAccrualMonth: '2024-01-01', level: 'GN', departmentCode: 8 }),
+    at('invalid', -16.4, -71.5, { viable: 100_000, updated: 10, accrued: 50_000, lastAccrualMonth: '2024-01-01' }),
+    at('twelve', -16.4, -71.5, { viable: 5_000, updated: 5_000, progress: 0.5, lastAccrualMonth: '2025-10-01' }),
+    at('closed', -16.4, -71.5, { viable: 5_000, updated: 5_000, progress: 0.4, lastAccrualMonth: '2024-01-01', status: 'CERRADO' }),
+  ];
+  const cuis = (filters: MapFilter[], extra: Partial<MapPointsRequest> = {}) => {
+    const result = computeMapPoints(projects, national(14, { filters, ...extra }));
+    return result.kind === 'points' ? result.points.map((p) => p.cui).sort() : [];
+  };
+
+  it('keeps every project without filters', () => {
+    expect(cuis([])).toHaveLength(projects.length);
+  });
+
+  it('applies each filter with the rules of the SQL function', () => {
+    expect(cuis(['increase'])).toEqual(['inc', 'inc-stl', 'ovr']);
+    expect(cuis(['stalled'])).toEqual(['inc-stl', 'stl']);
+    expect(cuis(['overspent'])).toEqual(['ovr']);
+  });
+
+  it('combines filters with AND, and with level and department', () => {
+    expect(cuis(['increase', 'stalled'])).toEqual(['inc-stl']);
+    expect(cuis(['increase', 'overspent'])).toEqual(['ovr']);
+    expect(cuis(['increase', 'stalled', 'overspent'])).toEqual([]);
+    expect(cuis(['increase'], { level: 'GN' })).toEqual(['inc-stl']);
+    expect(cuis(['increase'], { departmentCode: 4 })).toEqual(['inc', 'ovr']);
+  });
+
+  it('clusters count only the projects that match', () => {
+    const many = Array.from({ length: 2 * MAX_MAP_POINTS + 2 }, (_, i) =>
+      at(String(1_000_000 + i), -16 - (i % 20) * 0.05, -72 + i * 0.001, i % 2 === 0 ? {} : { updated: 1_000_000 }),
+    );
+    const result = computeMapPoints(many, national(5, { filters: ['increase'] }));
+    expect(result.kind).toBe('clusters');
+    if (result.kind !== 'clusters') return;
+    expect(result.clusters.reduce((sum, c) => sum + c.count, 0)).toBe(MAX_MAP_POINTS + 1);
+    expect(result.clusters.every((c) => c.increasedCount === c.count)).toBe(true);
+  });
+});
+
+describe('computeMapList', () => {
+  const list = (request: Partial<MapListRequest>, rows = listRows) =>
+    computeMapList(rows, { bbox: PERU_BBOX, level: 'ALL', page: 0, ...request });
+  const listRows = [
+    at('small', -16.4, -71.5, { viable: 1_000, updated: 1_900, progress: 0.5, lastAccrualMonth: '2026-10-01' }),
+    at('big', -16.4, -71.5, { viable: 1_000, updated: 5_000, progress: 0.2, lastAccrualMonth: '2024-01-01', physicalProgress: 10, entity: 'MTC' }),
+    at('flat-b', -16.4, -71.5, { viable: 5_000, updated: 5_000, progress: 0.5, lastAccrualMonth: '2026-10-01' }),
+    at('flat-a', -16.4, -71.5, { viable: 5_000, updated: 5_000, progress: 0.5, lastAccrualMonth: '2026-10-01' }),
+    at('flat-cheap', -16.4, -71.5, { viable: 2_000, updated: 2_000, progress: 0.5, lastAccrualMonth: '2026-10-01' }),
+    at('invalid', -16.4, -71.5, { viable: 100_000, updated: 10, accrued: 50_000 }),
+    at('far', -5.2, -80.6, { viable: 1_000, updated: 3_000, progress: 0.5, departmentCode: 20 }),
+    mapInvestmentRow(sampleRow({ cui: 'nowhere', viable: 1_000, updated: 9_000 })),
+  ];
+
+  it('orders by cost increase (nulls last), then updated cost, then CUI, with the total', () => {
+    expect(list({})).toEqual({
+      total: 7,
+      items: ['big', 'far', 'small', 'flat-a', 'flat-b', 'flat-cheap', 'invalid'].map((cui) => expect.objectContaining({ cui })),
+    });
+  });
+
+  it('pages by 30 by default and keeps the total', () => {
+    const many = Array.from({ length: 65 }, (_, i) => at(String(100 + i), -16, -72));
+    expect(list({}, many).items).toHaveLength(MAP_LIST_PAGE_SIZE);
+    expect(list({ page: 2 }, many)).toEqual({ total: 65, items: expect.any(Array) });
+    expect(list({ page: 2 }, many).items).toHaveLength(5);
+    expect(list({ page: 1, pageSize: 2 }).items.map((i) => i.cui)).toEqual(['small', 'flat-a']);
+  });
+
+  it('applies the box, scope and filters', () => {
+    const arequipa = { minLat: -17, minLon: -72, maxLat: -16, maxLon: -71 };
+    expect(list({ bbox: arequipa }).total).toBe(6);
+    expect(list({ departmentCode: 20 }).items.map((i) => i.cui)).toEqual(['far']);
+    expect(list({ filters: ['stalled'] }).items.map((i) => i.cui)).toEqual(['big']);
+  });
+
+  it('returns what the list and the card show', () => {
+    expect(list({ filters: ['stalled'] }).items[0]).toEqual({
+      cui: 'big',
+      name: 'Proyecto big',
+      entity: 'MTC',
+      status: 'ACTIVO',
+      latitude: -16.4,
+      longitude: -71.5,
+      governmentLevel: 'GR',
+      updatedCost: 5_000,
+      updatedCostValid: true,
+      accruedTotal: 1_000,
+      costIncrease: 4_000,
+      costIncreasePct: 400,
+      executionProgress: 0.2,
+      spentAnomaly: false,
+      physicalProgress: 10,
+      lastAccrualMonth: '2024-01-01',
+      stalled: true,
+    });
+  });
+});
+
+describe('toMapListItem', () => {
+  it('builds the card figures of a project read by CUI, with the stalled rule', () => {
+    const investment = at('9', -16.4, -71.5, { viable: 1_000, updated: 5_000, progress: 0.2, lastAccrualMonth: '2024-01-01', physicalProgress: 7 });
+    expect(toMapListItem(investment, '2026-10-01')).toEqual(
+      expect.objectContaining({ cui: '9', latitude: -16.4, updatedCost: 5_000, physicalProgress: 7, stalled: true }),
+    );
+    expect(toMapListItem(investment, '2024-06-01')?.stalled).toBe(false);
+    expect(toMapListItem(investment, null)?.stalled).toBe(false);
+  });
+
+  it('is null without coordinates', () => {
+    expect(toMapListItem(mapInvestmentRow(sampleRow({ cui: '1' })), null)).toBeNull();
   });
 });

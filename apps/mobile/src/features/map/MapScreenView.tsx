@@ -1,12 +1,16 @@
-import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import type { MapPoint } from '@/features/investments/domain/mapPoints';
+import type { MapListItem, MapPoint } from '@/features/investments/domain/mapPoints';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
 import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 
+import { MAP_WIDE_MIN_WIDTH } from './MapControls';
+import { MapLegend } from './MapLegend';
 import { MapPointCard } from './MapPointCard';
+import { mapListCountText } from './mapPresentation';
+import { MapProjectList, type MapListState } from './MapProjectList';
 
 /** What the strip above the map says about the current view. */
 export type MapStatus =
@@ -21,12 +25,18 @@ export type MapStatus =
 export const COVERAGE_NOTE = 'Solo proyectos con coordenadas registradas en el MEF (≈77 %).';
 
 interface Props {
-  /** "Arequipa · Todos los niveles". */
-  scopeLine: string;
+  /** The MapControls element: scope, level and filters. */
+  controls: ReactNode;
   status: MapStatus;
   /** The MapCanvas element. */
   map: ReactNode;
-  selected: MapPoint | null;
+  list: MapListState;
+  /** Some filter is on. */
+  filtered: boolean;
+  selected: MapSelection | null;
+  onPressItem: (item: MapListItem) => void;
+  onLoadMore: () => void;
+  onRetryList: () => void;
   onRetry: () => void;
   onPressDetail: (cui: string) => void;
   onCloseCard: () => void;
@@ -87,12 +97,24 @@ function StatusLine({ status, onRetry }: { status: MapStatus; onRetry: () => voi
   }
 }
 
-/** "Mapa": the projects with coordinates of the scope, as clusters or points, and the tapped one. */
+/** The project shown in the card. */
+export interface MapSelection {
+  point: MapPoint;
+  details: MapListItem | null;
+  detailsStatus: 'loading' | 'ready' | 'error';
+}
+
+/** "Mapa": legend, filters, the projects of the scope as clusters or points, their list and the selected one. */
 export function MapScreenView({
-  scopeLine,
+  controls,
   status,
   map,
+  list,
+  filtered,
   selected,
+  onPressItem,
+  onLoadMore,
+  onRetryList,
   onRetry,
   onPressDetail,
   onCloseCard,
@@ -101,24 +123,93 @@ export function MapScreenView({
   topInset = 0,
   bottomInset = 0,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const wide = width >= MAP_WIDE_MIN_WIDTH;
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const card = selected ? (
+    <View style={styles.cardBox}>
+      <MapPointCard
+        point={selected.point}
+        details={selected.details}
+        detailsStatus={selected.detailsStatus}
+        onPressDetail={() => onPressDetail(selected.point.cui)}
+        onClose={onCloseCard}
+      />
+    </View>
+  ) : null;
+
+  const projectList = (onPress: (item: MapListItem) => void, showCount: boolean) => (
+    <MapProjectList
+      list={list}
+      filtered={filtered}
+      selectedCui={selected?.point.cui ?? null}
+      showCount={showCount}
+      onPressItem={onPress}
+      onLoadMore={onLoadMore}
+      onRetry={onRetryList}
+    />
+  );
+
+  const mapArea = (sheet: ReactNode = null) => (
+    <View style={styles.map}>
+      {map}
+      {/* Over the map, so its size (and view) does not change when the status does. */}
+      <View style={styles.overlay} pointerEvents="box-none">
+        <StatusLine status={status} onRetry={onRetry} />
+        <MapLegend collapsible={!wide} />
+      </View>
+      {sheet}
+    </View>
+  );
+
+  const countText = list.kind === 'ready' ? mapListCountText(list.total) : null;
+
   return (
     <View style={[styles.screen, { paddingBottom: bottomInset }]}>
       <BackHeader title="MAPA" topInset={topInset} onBack={onBack} />
-      <View style={styles.scope}>
-        <MonoText bold size={12}>
-          {scopeLine.toUpperCase()}
-        </MonoText>
-      </View>
-      <View style={styles.map}>
-        {map}
-        {/* Over the map, so its size (and view) does not change when the status does. */}
-        <View style={styles.overlay} pointerEvents="box-none">
-          <StatusLine status={status} onRetry={onRetry} />
+      {controls}
+      {wide ? (
+        <View style={styles.row}>
+          {mapArea()}
+          <View testID="map-side-panel" style={styles.panel}>
+            {card}
+            <View style={styles.flex}>{projectList(onPressItem, true)}</View>
+          </View>
         </View>
-      </View>
-      {selected ? (
-        <MapPointCard point={selected} onPressDetail={() => onPressDetail(selected.cui)} onClose={onCloseCard} />
-      ) : null}
+      ) : (
+        <>
+          {/* The open list covers the lower part of the map instead of shrinking it: a smaller map
+              would report a smaller view and refresh the very list being opened. */}
+          {mapArea(
+            sheetOpen ? (
+              <View style={styles.sheetPanel}>
+                {projectList((item) => {
+                  // Close the sheet so the map and the card of the project are visible.
+                  setSheetOpen(false);
+                  onPressItem(item);
+                }, false)}
+              </View>
+            ) : null,
+          )}
+          {sheetOpen ? null : card}
+          <View style={styles.sheet}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={countText ? `${sheetOpen ? 'Ocultar lista' : 'Ver lista'}: ${countText}` : sheetOpen ? 'Ocultar lista' : 'Ver lista'}
+              accessibilityState={{ expanded: sheetOpen }}
+              onPress={() => setSheetOpen((open) => !open)}
+              style={({ pressed }) => [styles.sheetBar, pressed && styles.sheetBarPressed]}>
+              <MonoText bold size={12} style={styles.flex}>
+                {(countText ?? 'Proyectos en esta zona').toUpperCase()}
+              </MonoText>
+              <MonoText bold size={12}>
+                {sheetOpen ? 'OCULTAR ▾' : 'VER LISTA ▴'}
+              </MonoText>
+            </Pressable>
+          </View>
+        </>
+      )}
       <View style={styles.footer}>
         <MonoText size={11} muted style={styles.flex}>
           {COVERAGE_NOTE}
@@ -136,15 +227,34 @@ export function MapScreenView({
   );
 }
 
+const PANEL_WIDTH = 380;
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.concrete },
   flex: { flex: 1 },
-  scope: {
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
-    borderBottomWidth: rule,
-    borderBottomColor: colors.ink,
+  row: { flex: 1, flexDirection: 'row' },
+  panel: { width: PANEL_WIDTH, borderLeftWidth: rule, borderLeftColor: colors.ink },
+  cardBox: { borderTopWidth: rule, borderTopColor: colors.ink, borderBottomWidth: rule, borderBottomColor: colors.ink },
+  sheet: { borderTopWidth: rule, borderTopColor: colors.ink },
+  sheetPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '70%',
+    backgroundColor: colors.concrete,
+    borderTopWidth: rule,
+    borderTopColor: colors.ink,
   },
+  sheetBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: minTouch,
+    paddingHorizontal: space.lg,
+    backgroundColor: colors.concrete,
+  },
+  sheetBarPressed: { backgroundColor: colors.concretePressed },
   status: {
     flexDirection: 'row',
     alignItems: 'center',

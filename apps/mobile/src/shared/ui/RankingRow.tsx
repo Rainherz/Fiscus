@@ -18,6 +18,8 @@ interface Props {
   tone?: 'concrete' | 'signal';
   /** The current choice: ink row with signal text, an "ACTUAL" tag, announced as selected. */
   selected?: boolean;
+  /** The tag of a selected row ("ACTUAL" by default), also announced in lowercase. */
+  selectedTag?: string;
   /** Government level code shown before the first detail line, announced after the name. */
   tag?: Tag;
 }
@@ -31,6 +33,7 @@ export function RankingRow({
   onPress,
   tone = 'concrete',
   selected = false,
+  selectedTag = 'ACTUAL',
   tag,
 }: Props) {
   const title = name ?? 'Sin nombre';
@@ -40,7 +43,7 @@ export function RankingRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${rank}. ${title}, ${tag ? `${tag.label}, ` : ''}${announced}${selected ? ', actual' : ''}`}
+      accessibilityLabel={`${rank}. ${title}, ${tag ? `${tag.label}, ` : ''}${announced}${selected ? `, ${selectedTag.toLowerCase()}` : ''}`}
       accessibilityState={selected ? { selected: true } : undefined}
       onPress={onPress}
       style={({ pressed }) => [
@@ -81,7 +84,7 @@ export function RankingRow({
             </MonoText>
           ) : null}
           <MonoText bold size={11} style={styles.tag}>
-            ACTUAL
+            {selectedTag}
           </MonoText>
         </View>
       ) : value !== undefined ? (

@@ -2,7 +2,7 @@ import { isCostIncrease, type CostChange } from '../domain/costChange';
 import { computeEntityComparison, type EntityComparison } from '../domain/entityComparison';
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { FunctionSummary, IngestRun } from '../domain/investment';
-import { computeMapPoints } from '../domain/mapPoints';
+import { computeMapList, computeMapPoints } from '../domain/mapPoints';
 import {
   mapCostChangeRow,
   mapInvestmentRow,
@@ -238,6 +238,9 @@ export function createInMemoryInvestmentsRepository(seed: {
     },
     async getMapPoints(request) {
       return computeMapPoints(rows.map(mapInvestmentRow), request);
+    },
+    async getMapList(request) {
+      return computeMapList(rows.map(mapInvestmentRow), request);
     },
   };
 }

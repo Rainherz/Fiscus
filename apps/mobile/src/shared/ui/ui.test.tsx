@@ -53,6 +53,13 @@ describe('HazardProgressBar', () => {
 });
 
 describe('RankingRow', () => {
+  it('names the selected tag after what the selection means', async () => {
+    await render(<RankingRow rank={1} name="Majes" value="+S/ 1 M" selected selectedTag="EN EL MAPA" onPress={() => {}} />);
+    expect(screen.getByText('EN EL MAPA')).toBeOnTheScreen();
+    expect(screen.queryByText('ACTUAL')).toBeNull();
+    expect(screen.getByRole('button')).toHaveAccessibleName('1. Majes, +S/ 1 M, en el mapa');
+  });
+
   it('shows rank, name and value and is pressable', async () => {
     const onPress = jest.fn();
     await render(
