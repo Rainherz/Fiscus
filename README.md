@@ -254,7 +254,7 @@ DOM with `html2canvas-pro` (its optional web peer, loaded lazily as a separate c
 the Web Share API with the file when `navigator.canShare({ files })` allows it, otherwise it downloads
 `fiscus-<cui>.png`. Card logic is in `features/share-card/shareCardPresentation.ts`.
 
-Mapa (`/map`, `/map?cui=…`): the projects with coordinates (open data `latitude`/`longitude`, about 77 %
+Mapa (`/map`, `/map?f=increase,stalled,overspent`, `/map?cui=…`): the projects with coordinates (open data `latitude`/`longitude`, about 77 %
 of the rows; the screen says so) in the current scope and level. It opens from "Ver en el mapa →" on home
 and, centered on the project with its card open, from "VER EN EL MAPA" on a project's detail (shown only
 when it has coordinates). It is a stack screen rather than a fifth tab, which did not fit at 320 px.
@@ -282,9 +282,25 @@ Nationwide it frames Peru; with a department it frames approximate department bo
   Sans Bold, served by OpenFreeMap with the tiles, so they load whenever the basemap does) instead of an
   HTML marker per cluster. Clusters are ink circles with a yellow compact count ("1.2 mil"), sized on a
   log scale; tapping one eases in by two levels (up to MapLibre zoom 12, where the server sends projects). Points are yellow with an ink outline when the project has a positive valid
-  cost increase, small ink dots otherwise. Tapping a point opens a native card under the map (name, level
-  tag, "+S/ X M · +Y%", "Ver detalle →"); "Ver como lista" goes to Rankings. The map is announced as
-  supplementary.
+  cost increase, small ink dots otherwise. A fixed native legend over the map names the three marks
+  ("Con aumento de costo", "Sin aumento", "Grupo de proyectos (toca para acercar)"); phones can collapse
+  it. "Ver como lista" goes to Rankings. The map is announced as supplementary.
+- Controls above the map (`features/map/MapControls.tsx`): the scope ("TODO EL PERÚ  CAMBIAR →" opens
+  `/region`; a new region remounts the map on its bounds), the level of government (the app's global
+  level, the same state as the region picker) and three filter chips combined with AND: "Con aumento"
+  (positive increase on a valid cost), "Sin gasto reciente" (the stalled rule of `domain/stalled.ts`) and
+  "Gastó más que su costo" (valid cost, accrued above it). Filters live in the URL (`f`, parsed and written
+  in a fixed order by `features/map/mapFilters.ts`), so a filtered map can be shared.
+- List of the view (`features/map/MapProjectList.tsx`): the projects of the same box, scope and filters,
+  largest increase first (then updated cost), 30 a page with "Cargar más", refreshed with the map (same
+  debounce). From 768 px it is a side panel next to the map; on phones a bar under the map says "N
+  proyectos en esta zona" and opens the list over the lower part of the map (covering instead of
+  shrinking it, so the view and the list stay the same). No gesture library is involved.
+- Card (`features/map/MapPointCard.tsx`): name, level tag, entity, "+S/ X M · +Y%" (or "Sin aumento", or
+  the invalid-cost notice), "COSTO ACTUAL", "GASTADO X % DEL COSTO", "AVANCE FÍSICO X %" when reported,
+  "Sin gasto desde mmm yyyy" when stalled, and "Ver detalle →". A row of the list brings its figures; a
+  point tapped on the map is read by CUI (`useInvestment`). The selected project is always drawn and
+  highlighted, even inside a cluster (`withSelected`).
 - Basemap: OpenFreeMap Positron vector tiles (`https://tiles.openfreemap.org/styles/positron`): free, no
   key, no request limits. The attribution OpenFreeMap requires ("OpenFreeMap © OpenMapTiles Data from
   OpenStreetMap") is always visible through MapLibre's attribution control; its links open in the system
@@ -297,6 +313,14 @@ Nationwide it frames Peru; with a department it frames approximate department bo
   with an increase, at most 400 cells. The bbox filter uses `investments_coordinates_idx`. The in-memory
   adapter applies the same rules (`domain/mapPoints.ts`); the demo rows carry approximate demo
   coordinates.
+- Filters and list in Postgres (`supabase/migrations/20261103000000_map_filters_and_list.sql`):
+  `map_points` gains `only_increase`, `only_stalled` and `only_overspent` (default false; clusters count
+  only the matching projects). It is dropped and created again with the same grants, because an overload
+  would make the original seven-argument calls ambiguous; the app sends the filter arguments only when a
+  filter is on. `map_list(min_lat, min_lon, max_lat, max_lon, level, department, only_increase,
+  only_stalled, only_overspent, page_limit = 30, page_offset = 0)` returns the columns of the list and
+  card plus `stalled` and `total_count` (a window count), ordered by `cost_increase desc nulls last,
+  updated_cost desc nulls last, cui`; `page_limit` is capped at 100.
 
 ## Daily ingest
 
