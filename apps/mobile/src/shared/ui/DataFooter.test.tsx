@@ -6,7 +6,11 @@ describe('DataFooter', () => {
   it('shows the last update and source', async () => {
     await render(<DataFooter finishedAt="2026-10-26T10:30:00Z" isDemo={false} />);
     expect(screen.getByText('Datos actualizados el 26/10/2026')).toBeOnTheScreen();
-    expect(screen.getByText('Fuente: MEF – Sistema de Seguimiento de Inversiones')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Fuentes: MEF – Sistema de Seguimiento de Inversiones; MEF – Datos Abiertos, Detalle de inversiones',
+      ),
+    ).toBeOnTheScreen();
   });
 
   it('omits the date when unknown', async () => {

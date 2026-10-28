@@ -4,6 +4,7 @@ import {
   buildFunctionQuery,
   buildRankingQuery,
   buildSearchQuery,
+  buildEntityQuery,
   buildStalledQuery,
 } from './queries';
 
@@ -203,5 +204,100 @@ describe('buildStalledQuery', () => {
 
   it('accepts a page size for short previews', () => {
     expect(buildStalledQuery({ departmentCode: 4, page: 0, pageSize: 3 }).range).toEqual({ from: 0, to: 2 });
+  });
+});
+
+describe('government level filter', () => {
+  const level = { column: 'government_level', op: 'eq', value: 'GL' };
+
+  it('adds no level filter for every level', () => {
+    for (const query of [
+      buildRankingQuery({ kind: 'cost', level: 'ALL', page: 0 }),
+      buildSearchQuery('hospital', undefined, 'ALL')!,
+      buildFunctionQuery({ fn: 'SALUD', level: 'ALL', page: 0 }),
+      buildStalledQuery({ level: 'ALL', page: 0 }),
+    ]) {
+      expect(query.filters.some((f) => f.column === 'government_level')).toBe(false);
+    }
+  });
+
+  it('filters rankings, name searches, functions and stalled lists by one level after the department', () => {
+    expect(buildRankingQuery({ kind: 'cost', departmentCode: 4, level: 'GL', page: 0 }).filters).toEqual([
+      { column: 'department_code', op: 'eq', value: 4 },
+      level,
+      { column: 'updated_cost_valid', op: 'eq', value: true },
+    ]);
+    expect(buildSearchQuery('hospital', 4, 'GL')!.filters.slice(0, 2)).toEqual([
+      { column: 'department_code', op: 'eq', value: 4 },
+      level,
+    ]);
+    expect(buildFunctionQuery({ fn: 'SALUD', level: 'GL', page: 0 }).filters[0]).toEqual(level);
+    expect(buildStalledQuery({ level: 'GL', page: 0 }).filters).toEqual([level]);
+  });
+
+  it('looks up an exact CUI at every level, like in every department', () => {
+    expect(buildSearchQuery('2088142', 4, 'GN')?.filters).toEqual([{ column: 'cui', op: 'eq', value: '2088142' }]);
+  });
+
+  it('limits rankings and stalled lists to one entity of a level', () => {
+    expect(
+      buildRankingQuery({ kind: 'increase-amount', level: 'GN', entity: 'MINISTERIO DE SALUD', page: 0 }).filters.slice(0, 2),
+    ).toEqual([
+      { column: 'government_level', op: 'eq', value: 'GN' },
+      { column: 'entity', op: 'eq', value: 'MINISTERIO DE SALUD' },
+    ]);
+    expect(buildStalledQuery({ departmentCode: 8, level: 'GL', entity: 'MUNI', page: 0 }).filters).toEqual([
+      { column: 'department_code', op: 'eq', value: 8 },
+      { column: 'government_level', op: 'eq', value: 'GL' },
+      { column: 'entity', op: 'eq', value: 'MUNI' },
+    ]);
+  });
+});
+
+describe('buildEntityQuery', () => {
+  const tieBreak = [
+    { column: 'entity', ascending: true },
+    { column: 'government_level', ascending: true },
+  ];
+
+  it('ranks entities of all of Peru by total increase, only entities with increases', () => {
+    expect(buildEntityQuery({ sort: 'increase-amount', level: 'ALL', page: 0 })).toEqual({
+      filters: [
+        { column: 'scope_department_code', op: 'eq', value: 0 },
+        { column: 'total_cost_increase', op: 'gt', value: 0 },
+      ],
+      order: [{ column: 'total_cost_increase', ascending: false }, ...tieBreak],
+      range: { from: 0, to: 29 },
+    });
+  });
+
+  it('reads the department rows and one level', () => {
+    expect(buildEntityQuery({ sort: 'overspent', departmentCode: 4, level: 'GL', page: 1 })).toEqual({
+      filters: [
+        { column: 'scope_department_code', op: 'eq', value: 4 },
+        { column: 'government_level', op: 'eq', value: 'GL' },
+        { column: 'overspent_count', op: 'gt', value: 0 },
+      ],
+      order: [{ column: 'overspent_count', ascending: false }, ...tieBreak],
+      range: { from: 30, to: 59 },
+    });
+  });
+
+  it('ranks percentages only over increases on more than S/ 1 M approved', () => {
+    const query = buildEntityQuery({ sort: 'increase-pct', level: 'ALL', page: 0 });
+    expect(query.filters.slice(1)).toEqual([
+      { column: 'increased_viable_amount', op: 'gte', value: PCT_RANKING_MIN_VIABLE_AMOUNT },
+      { column: 'cost_increase_pct', op: 'gt', value: 0 },
+    ]);
+    expect(query.order[0]).toEqual({ column: 'cost_increase_pct', ascending: false });
+  });
+
+  it('ranks stalled projects by count, then by the amount not yet spent', () => {
+    const query = buildEntityQuery({ sort: 'stalled', level: 'ALL', page: 0 });
+    expect(query.filters[1]).toEqual({ column: 'stalled_count', op: 'gt', value: 0 });
+    expect(query.order.slice(0, 2)).toEqual([
+      { column: 'stalled_count', ascending: false },
+      { column: 'stalled_pending_amount', ascending: false },
+    ]);
   });
 });

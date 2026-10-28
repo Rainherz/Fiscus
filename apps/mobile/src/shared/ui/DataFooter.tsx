@@ -10,6 +10,13 @@ interface Props {
 }
 
 export const SOURCE_NAME = 'MEF – Sistema de Seguimiento de Inversiones';
+/** Investments of every level that only the open-data file has (DETALLE_INVERSIONES.csv). */
+export const OPEN_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Detalle de inversiones';
+
+/** The source a project's figures come from (`investments.data_source`). */
+export function sourceNameOf(dataSource: 'ssi' | 'open_data'): string {
+  return dataSource === 'open_data' ? OPEN_DATA_SOURCE_NAME : SOURCE_NAME;
+}
 
 export function DataFooter({ finishedAt, isDemo }: Props) {
   return (
@@ -22,7 +29,7 @@ export function DataFooter({ finishedAt, isDemo }: Props) {
       {finishedAt ? (
         <MonoText size={11} muted>{`Datos actualizados el ${formatDate(finishedAt)}`}</MonoText>
       ) : null}
-      <MonoText size={11} muted>{`Fuente: ${SOURCE_NAME}`}</MonoText>
+      <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}`}</MonoText>
     </View>
   );
 }

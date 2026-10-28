@@ -1,3 +1,5 @@
+import type { LevelFilter } from '../investments/domain/governmentLevel';
+import { parseLevel, serializeLevel } from '../government-level/level';
 import { parseScope, serializeScope, type Scope } from './scope';
 
 /** The subset of AsyncStorage the scope needs (on web it is backed by localStorage). */
@@ -28,6 +30,33 @@ export function createScopeStorage(store: KeyValueStore): ScopeStorage {
         await store.setItem(SCOPE_STORAGE_KEY, serializeScope(scope));
       } catch {
         // Persisting is a convenience: the app keeps working with the scope in memory.
+      }
+    },
+  };
+}
+
+/** Last chosen government level on the device. Never throws, like the scope. */
+export interface LevelStorage {
+  load(): Promise<LevelFilter | null>;
+  save(level: LevelFilter): Promise<void>;
+}
+
+export const LEVEL_STORAGE_KEY = 'fiscus.level';
+
+export function createLevelStorage(store: KeyValueStore): LevelStorage {
+  return {
+    async load() {
+      try {
+        return parseLevel(await store.getItem(LEVEL_STORAGE_KEY));
+      } catch {
+        return null;
+      }
+    },
+    async save(level) {
+      try {
+        await store.setItem(LEVEL_STORAGE_KEY, serializeLevel(level));
+      } catch {
+        // Like the scope: the level keeps working in memory.
       }
     },
   };

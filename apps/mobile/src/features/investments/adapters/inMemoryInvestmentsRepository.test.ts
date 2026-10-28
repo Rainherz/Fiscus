@@ -243,3 +243,86 @@ describe('in-memory region comparison', () => {
     });
   });
 });
+
+describe('in-memory government levels', () => {
+  const levelRows = [
+    sampleRow({ cui: 'gr', level: 'GR', entity: 'GR AREQUIPA', function: 'SALUD', viable: 1_000_000, updated: 1_200_000, progress: 0.5, lastAccrualMonth: '2026-09-01' }),
+    sampleRow({ cui: 'gn', level: 'GN', entity: 'MTC', function: 'TRANSPORTE', viable: 1_000_000, updated: 2_000_000, progress: 0.3, lastAccrualMonth: '2024-01-01' }),
+    sampleRow({ cui: 'gn-multi', level: 'GN', entity: 'MTC', function: 'TRANSPORTE', viable: 5_000_000, updated: 9_000_000, progress: 0.4, lastAccrualMonth: '2024-02-01', departmentCode: null, departmentName: null }),
+    sampleRow({ cui: 'gl', level: 'GL', entity: 'MUNI CUSCO', function: 'SALUD', viable: 1_000_000, updated: 1_100_000, progress: 0.2, lastAccrualMonth: '2026-10-01', departmentCode: 8 }),
+  ];
+  const changes: CostChangeRow[] = levelRows.map((row, index) => ({
+    id: index + 1,
+    cui: row.cui,
+    change_kind: 'changed',
+    observed_at: `2026-11-0${index + 1}T10:00:00Z`,
+    source_updated_at: null,
+    previous_viable_amount: row.viable_amount,
+    viable_amount: row.viable_amount,
+    previous_updated_cost: 1,
+    updated_cost: row.updated_cost,
+    accrued_total: row.accrued_total,
+    updated_cost_delta: Number(row.updated_cost) - 1,
+  }));
+  const levels = createInMemoryInvestmentsRepository({ rows: levelRows, lastRun: null, costChanges: changes });
+
+  it('ranks one level or every level, and keeps multi-department projects nationwide only', async () => {
+    expect(cuis(await levels.findMany(buildRankingQuery({ kind: 'increase-amount', level: 'GN', page: 0 })))).toEqual([
+      'gn-multi',
+      'gn',
+    ]);
+    expect(cuis(await levels.findMany(buildRankingQuery({ kind: 'increase-amount', page: 0 })))).toHaveLength(4);
+    expect(cuis(await levels.findMany(buildRankingQuery({ kind: 'increase-amount', departmentCode: 4, page: 0 })))).toEqual([
+      'gn',
+      'gr',
+    ]);
+  });
+
+  it('aggregates functions of one level', async () => {
+    const summaries = await levels.functionSummaries(undefined, 'GL');
+    expect(summaries).toEqual([expect.objectContaining({ function: 'SALUD', investmentCount: 1 })]);
+  });
+
+  it('lists recent increases of one level with the level of each investment', async () => {
+    const increases = await levels.getRecentCostIncreases({ level: 'GN', limit: 5 });
+    expect(increases.map((i) => [i.cui, i.governmentLevel])).toEqual([
+      ['gn-multi', 'GN'],
+      ['gn', 'GN'],
+    ]);
+  });
+
+  it('lists and counts stalled projects by level, against the reference month of every level', async () => {
+    expect(await levels.getAccrualReferenceMonth()).toBe('2026-10-01');
+    expect(cuis(await levels.getStalledInvestments({ level: 'GN', page: 0 }))).toEqual(['gn-multi', 'gn']);
+    expect(await levels.countStalledInvestments(undefined, 'GR')).toBe(0);
+    expect(await levels.countStalledInvestments(4, 'ALL')).toBe(1);
+    expect(cuis(await levels.getStalledInvestments({ level: 'GN', entity: 'MTC', departmentCode: 4, page: 0 }))).toEqual(['gn']);
+  });
+
+  it('compares the departments of one level, leaving out projects without department', async () => {
+    const all = await levels.getRegionComparison('ALL');
+    expect(all.map((r) => [r.departmentCode, r.projectCount])).toEqual([
+      [4, 2],
+      [8, 1],
+    ]);
+    expect((await levels.getRegionComparison('GL')).map((r) => r.departmentCode)).toEqual([8]);
+  });
+
+  it('ranks and pages entities in the scope', async () => {
+    const national = await levels.getEntityComparison({ sort: 'increase-amount', page: 0 });
+    expect(national.map((e) => [e.entity, e.totalCostIncrease])).toEqual([
+      ['MTC', 5_000_000],
+      ['GR AREQUIPA', 200_000],
+      ['MUNI CUSCO', 100_000],
+    ]);
+    expect(national[0].departmentCode).toBeNull();
+    const arequipa = await levels.getEntityComparison({ sort: 'increase-amount', departmentCode: 4, page: 0 });
+    expect(arequipa.map((e) => [e.entity, e.totalCostIncrease, e.departmentCode])).toEqual([
+      ['MTC', 1_000_000, 4],
+      ['GR AREQUIPA', 200_000, 4],
+    ]);
+    expect((await levels.getEntityComparison({ sort: 'stalled', level: 'GN', page: 0 })).map((e) => e.stalledCount)).toEqual([2]);
+    expect(await levels.getEntityComparison({ sort: 'overspent', page: 0 })).toEqual([]);
+    expect(await levels.getEntityComparison({ sort: 'increase-amount', page: 1, pageSize: 2 })).toHaveLength(1);
+  });
+});

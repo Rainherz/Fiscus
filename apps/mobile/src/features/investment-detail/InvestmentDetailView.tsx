@@ -7,6 +7,8 @@ import {
   type Investment,
 } from '@/features/investments/domain/investment';
 import { stalledStatus } from '@/features/investments/domain/stalled';
+import { regionLabel } from '@/features/department/departments';
+import { levelName, levelTag } from '@/features/government-level/levelPresentation';
 import { stalledSinceSentence } from '@/features/stalled/stalledPresentation';
 import {
   formatDate,
@@ -20,8 +22,9 @@ import {
   yearsSince,
 } from '@/shared/format';
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
-import { SOURCE_NAME } from '@/shared/ui/DataFooter';
+import { sourceNameOf } from '@/shared/ui/DataFooter';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
+import { LevelTag } from '@/shared/ui/LevelTag';
 import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 
 interface Props {
@@ -51,6 +54,31 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * Physical progress as MEF publishes it (0-100): a plain ink bar, unlike the striped "gastado"
+ * bar, so the two are not read as the same figure.
+ */
+function PhysicalProgress({ percent }: { percent: number }) {
+  const shown = formatProgress(percent / 100);
+  const fill = Math.min(Math.max(percent, 0), 100);
+  return (
+    <View style={styles.physical}>
+      <MonoText bold size={12}>{`AVANCE FÍSICO ${shown}`}</MonoText>
+      <View
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={`Avance físico: ${Math.round(percent)} por ciento, reportado al MEF`}
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(fill) }}
+        style={styles.physicalTrack}>
+        <View style={[styles.physicalFill, { width: `${fill}%` }]} />
+      </View>
+      <MonoText size={11} muted>
+        Avance de la obra reportado al MEF. No es lo gastado.
+      </MonoText>
+    </View>
+  );
+}
+
 export function InvestmentDetailView({
   investment: inv,
   now,
@@ -64,8 +92,12 @@ export function InvestmentDetailView({
   const viable = formatSoles(inv.viableAmount);
   const updated = formatSoles(inv.updatedCost);
 
+  const tag = levelTag(inv.governmentLevel);
+  const optional = (label: string, value: string | null): [string, string][] => (value ? [[label, value]] : []);
   const facts: [string, string][] = [
+    ...optional('Nivel de gobierno', inv.governmentLevel ? levelName(inv.governmentLevel) : null),
     ['Entidad', inv.entity ?? DASH],
+    ...optional('Unidad ejecutora', inv.executingUnit),
     ['Función', inv.function ?? DASH],
     ['División funcional', inv.functionalDivision ?? DASH],
     ['Grupo funcional', inv.functionalGroup ?? DASH],
@@ -78,13 +110,18 @@ export function InvestmentDetailView({
     ['Último devengado', formatMonth(inv.lastAccrualMonth)],
     ['Devengado acumulado', formatSoles(inv.accruedTotal)],
     ['Beneficiarios', formatInteger(inv.beneficiaries)],
-    ['Región', inv.departmentName ?? DASH],
+    ['Región', inv.departmentCode === null ? regionLabel(null) : (inv.departmentName ?? DASH)],
+    ...optional('Provincia', inv.province),
+    ...optional('Distrito', inv.district),
   ];
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.head}>
-        <MonoText bold size={11} muted>{`CUI ${inv.cui}`}</MonoText>
+        <View style={styles.identity}>
+          {tag ? <LevelTag tag={tag} /> : null}
+          <MonoText bold size={11} muted>{`CUI ${inv.cui}`}</MonoText>
+        </View>
         <DisplayText size={30} accessibilityRole="header" style={styles.name}>
           {inv.name ?? 'Sin nombre'}
         </DisplayText>
@@ -166,6 +203,8 @@ export function InvestmentDetailView({
         </View>
       )}
 
+      {inv.physicalProgress !== null ? <PhysicalProgress percent={inv.physicalProgress} /> : null}
+
       {costHistory}
 
       <View style={styles.facts}>
@@ -175,7 +214,9 @@ export function InvestmentDetailView({
       </View>
 
       <MonoText size={11} muted style={styles.source}>
-        {`Fuente: ${SOURCE_NAME}.${inv.sourceUpdatedAt ? ` Actualizado el ${formatDate(inv.sourceUpdatedAt)}.` : ''}`}
+        {`Fuente: ${sourceNameOf(inv.dataSource)}.${
+          inv.sourceUpdatedAt ? ` Último cambio en los datos del MEF: ${formatDate(inv.sourceUpdatedAt)}.` : ''
+        }`}
       </MonoText>
     </ScrollView>
   );
@@ -185,6 +226,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.concrete },
   content: { width: '100%', maxWidth: maxContentWidth, alignSelf: 'center', paddingBottom: space.xl },
   head: { paddingHorizontal: space.lg, paddingTop: space.lg, gap: 6 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  physical: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },
+  physicalTrack: { height: 12, borderWidth: rule, borderColor: colors.ink, backgroundColor: colors.concrete },
+  physicalFill: { height: '100%', backgroundColor: colors.ink },
   name: { lineHeight: 30 },
   shareButton: {
     alignSelf: 'flex-start',

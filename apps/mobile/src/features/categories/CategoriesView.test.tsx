@@ -44,4 +44,19 @@ describe('CategoriesView', () => {
     await render(<CategoriesView summaries={[]} status="success" onRetry={() => {}} onPressCategory={() => {}} />);
     expect(screen.getByText('No hay proyectos registrados en esta región.')).toBeOnTheScreen();
   });
+
+  it('states which government levels the totals cover', async () => {
+    await render(
+      <CategoriesView
+        summaries={summaries}
+        status="success"
+        levelNote="Gobiernos locales."
+        onRetry={() => {}}
+        onPressCategory={() => {}}
+      />,
+    );
+    expect(
+      screen.getByText('Funciones tal como las publica el MEF. Costo actual total por función. Gobiernos locales.'),
+    ).toBeOnTheScreen();
+  });
 });

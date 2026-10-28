@@ -2,10 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   COST_CHANGE_COLUMNS,
+  ENTITY_COMPARISON_COLUMNS,
   INVESTMENT_COLUMNS,
   REGION_COMPARISON_COLUMNS,
   STALLED_INVESTMENT_COLUMNS,
   mapCostChangeRow,
+  mapEntityComparisonRow,
   mapFunctionSummaryRow,
   mapIngestRunRow,
   mapInvestmentRow,
@@ -13,6 +15,7 @@ import {
   mapRegionComparisonRow,
   mapStalledInvestmentRow,
   type CostChangeRow,
+  type EntityComparisonRow,
   type FunctionSummaryRow,
   type IngestRunRow,
   type InvestmentRow,
@@ -20,7 +23,8 @@ import {
   type RegionComparisonRow,
   type StalledInvestmentRow,
 } from '../domain/mappers';
-import { buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
+import type { LevelFilter } from '../domain/governmentLevel';
+import { buildEntityQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
 /** Minimal structural view of a PostgREST filter builder, so filters compose without generics noise. */
@@ -81,10 +85,14 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
     client.from(name).select(name === 'investments' ? INVESTMENT_COLUMNS : '*') as unknown as FilterBuilder;
   const costChanges = (columns: string) =>
     client.from('investment_cost_changes').select(columns) as unknown as FilterBuilder;
+  // Every view read goes through the level-aware views; the GR-only ones are kept for other readers.
   const stalled = (columns: string, options?: { count: 'exact'; head: true }) =>
     (options
-      ? client.from('stalled_investments').select(columns, options)
-      : client.from('stalled_investments').select(columns)) as unknown as FilterBuilder;
+      ? client.from('stalled_investments_by_level').select(columns, options)
+      : client.from('stalled_investments_by_level').select(columns)) as unknown as FilterBuilder;
+  /** Only one level, unless every level is asked for. */
+  const atLevel = (builder: FilterBuilder, column: string, level: LevelFilter = 'ALL') =>
+    level === 'ALL' ? builder : builder.eq(column, level);
 
   return {
     async findMany(query: InvestmentQuery) {
@@ -95,12 +103,14 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       const row = unwrap(await table('investments').eq('cui', cui).maybeSingle<InvestmentRow>());
       return row ? mapInvestmentRow(row) : null;
     },
-    async functionSummaries(departmentCode) {
-      // `function_summary` is the same aggregate over all of Peru.
+    async functionSummaries(departmentCode, level = 'ALL') {
+      // The *_by_level views have one row per level plus an 'ALL' row, so the level is always filtered.
       const source =
         departmentCode === undefined
-          ? table('function_summary')
-          : table('department_function_summary').eq('department_code', departmentCode);
+          ? table('function_summary_by_level').eq('government_level', level)
+          : table('department_function_summary_by_level')
+              .eq('government_level', level)
+              .eq('department_code', departmentCode);
       const rows = unwrap(
         (await source
           .order('total_updated_cost', { ascending: false, nullsFirst: false })) as Result<
@@ -127,13 +137,16 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       );
       return (rows ?? []).map(mapCostChangeRow);
     },
-    async getRecentCostIncreases({ departmentCode, limit }) {
-      // `!inner` turns the embedded investment into a join, so its filter drops other departments.
-      const increases = costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code)`)
+    async getRecentCostIncreases({ departmentCode, level, limit }) {
+      // `!inner` turns the embedded investment into a join, so its filters drop other departments and levels.
+      const increases = costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level)`)
         .eq('change_kind', 'changed')
         .gt('updated_cost_delta', 0);
-      const scoped =
-        departmentCode === undefined ? increases : increases.eq('investments.department_code', departmentCode);
+      const scoped = atLevel(
+        departmentCode === undefined ? increases : increases.eq('investments.department_code', departmentCode),
+        'investments.government_level',
+        level,
+      );
       const rows = unwrap(
         (await scoped
           .order('observed_at', { ascending: false })
@@ -150,27 +163,35 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       );
       return (rows ?? []).map(mapStalledInvestmentRow);
     },
-    async countStalledInvestments(departmentCode) {
+    async countStalledInvestments(departmentCode, level) {
       const all = stalled('cui', { count: 'exact', head: true });
-      const result = (await (departmentCode === undefined
-        ? all
-        : all.eq('department_code', departmentCode))) as Result<unknown>;
+      const result = (await atLevel(
+        departmentCode === undefined ? all : all.eq('department_code', departmentCode),
+        'government_level',
+        level,
+      )) as Result<unknown>;
       unwrap(result);
       return result.count ?? 0;
     },
     async getAccrualReferenceMonth() {
       const row = unwrap(
-        await (client.from('accrual_reference_month').select('reference_month') as unknown as FilterBuilder)
+        await (client.from('accrual_reference_month_all_levels').select('reference_month') as unknown as FilterBuilder)
           .maybeSingle<{ reference_month: string | null }>(),
       );
       return row?.reference_month ?? null;
     },
-    async getRegionComparison() {
+    async getRegionComparison(level = 'ALL') {
       const rows = unwrap(
-        (await (client.from('region_comparison').select(REGION_COMPARISON_COLUMNS) as unknown as FilterBuilder)
+        (await (client.from('region_comparison_by_level').select(REGION_COMPARISON_COLUMNS) as unknown as FilterBuilder)
+          .eq('government_level', level)
           .order('department_code', { ascending: true })) as Result<RegionComparisonRow[]>,
       );
       return (rows ?? []).map(mapRegionComparisonRow);
+    },
+    async getEntityComparison(params) {
+      const source = client.from('entity_comparison').select(ENTITY_COMPARISON_COLUMNS) as unknown as FilterBuilder;
+      const rows = unwrap((await applyQuery(source, buildEntityQuery(params))) as Result<EntityComparisonRow[]>);
+      return (rows ?? []).map(mapEntityComparisonRow);
     },
   };
 }

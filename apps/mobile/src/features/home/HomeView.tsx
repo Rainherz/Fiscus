@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { departmentName } from '@/features/department/departments';
+import { regionLabel } from '@/features/department/departments';
+import { levelTag } from '@/features/government-level/levelPresentation';
 import { spentOverUpdatedCost, type Investment } from '@/features/investments/domain/investment';
 import {
   formatProgress,
@@ -15,6 +16,7 @@ import {
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
 import { FitDisplayText } from '@/shared/ui/FitDisplayText';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
+import { LevelTag } from '@/shared/ui/LevelTag';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
@@ -96,6 +98,7 @@ export function HomeView({
   const years = yearsSince(hero.viabilityAt, now);
   const approvedYear = hero.viabilityAt ? ` aprobado en ${formatYear(hero.viabilityAt)}` : ' aprobado';
   const name = hero.name ?? 'Sin nombre';
+  const heroTag = levelTag(hero.governmentLevel);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -110,10 +113,15 @@ export function HomeView({
         <DisplayText size={34} numberOfLines={3} style={styles.heroName}>
           {name}
         </DisplayText>
-        {national ? (
-          <MonoText bold size={12}>
-            {departmentName(hero.departmentCode).toUpperCase()}
-          </MonoText>
+        {national || heroTag ? (
+          <View style={styles.heroPlace}>
+            {heroTag ? <LevelTag tag={heroTag} /> : null}
+            {national ? (
+              <MonoText bold size={12}>
+                {regionLabel(hero.departmentCode).toUpperCase()}
+              </MonoText>
+            ) : null}
+          </View>
         ) : null}
         <View style={styles.figure}>
           <FitDisplayText
@@ -160,7 +168,8 @@ export function HomeView({
               rank={index + 2}
               name={investment.name}
               value={formatSignedSoles(investment.costIncrease)}
-              detail={national ? departmentName(investment.departmentCode) : undefined}
+              detail={national ? regionLabel(investment.departmentCode) : undefined}
+              tag={levelTag(investment.governmentLevel)}
               onPress={() => onPressInvestment(investment.cui)}
             />
           ))}
@@ -192,6 +201,7 @@ const styles = StyleSheet.create({
   hero: { paddingTop: space.lg, paddingHorizontal: space.lg, gap: 6 },
   heroPressed: { backgroundColor: colors.concretePressed },
   heroName: { lineHeight: 32 },
+  heroPlace: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   figure: { marginTop: space.sm, marginHorizontal: -8 },
   amounts: { gap: space.xs, paddingTop: 2 },
   progress: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },

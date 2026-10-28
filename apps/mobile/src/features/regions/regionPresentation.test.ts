@@ -1,7 +1,6 @@
 import type { RegionComparison } from '../investments/domain/regionComparison';
 import {
   ALPHABETICAL_DEPARTMENTS,
-  REGIONS_HEADER_NOTE,
   REGION_SORT_OPTIONS,
   departmentsWithoutData,
   isRegionSort,
@@ -83,7 +82,6 @@ describe('region presentation', () => {
   });
 
   it('explains each sort and the scope of the data', () => {
-    expect(REGIONS_HEADER_NOTE).toBe('Solo inversiones de gobiernos regionales. Montos en soles corrientes.');
     expect(regionNote('increase-amount')).toBe('Suma de los aumentos de costo. No descuenta las reducciones.');
     expect(regionNote('increase-pct')).toBe('Aumentos sumados sobre el monto viable de los proyectos que aumentaron.');
     expect(regionNote('stalled')).toMatch(/^Proyectos activos que gastaron entre 5 % y 95 %/);

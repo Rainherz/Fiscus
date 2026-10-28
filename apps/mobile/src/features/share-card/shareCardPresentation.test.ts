@@ -23,7 +23,7 @@ describe('shareCardContent', () => {
     expect(card.costLines).toEqual(['S/ 1,338 M aprobado en 2008', 'S/ 5,148 M cuesta hoy']);
     expect(card.spent).toEqual({ label: 'GASTADO 18 % DEL COSTO', ratio: 0.18, notes: [] });
     expect(card.footer).toBe(
-      'CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Datos al 26/10/2026',
+      'CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Último cambio en los datos: 26/10/2026',
     );
   });
 
@@ -111,6 +111,12 @@ describe('shareCardContent', () => {
     expect(card.footer).toBe('CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones');
   });
 
+  it('names a multi-department national project and cites the open data', () => {
+    const card = content({ ...base, departmentCode: null, departmentName: null, dataSource: 'open_data' });
+    expect(card.region).toBe('VARIAS REGIONES');
+    expect(card.footer).toBe('CUI 2088142 · Fuente: MEF – Datos Abiertos, Detalle de inversiones · Último cambio en los datos: 26/10/2026');
+  });
+
   it('shortens long names at a word, with an ellipsis, so they fit three lines', () => {
     const name =
       'Mejoramiento y ampliación del servicio de transitabilidad vehicular y peatonal de la carretera departamental';
@@ -130,7 +136,7 @@ describe('shareCardContent', () => {
     expect(content(base).accessibilityLabel).toBe(
       'FISCUS, AREQUIPA. Majes Siguas II etapa. AUMENTO DEL COSTO: +285%. ' +
         'S/ 1,338 M aprobado en 2008. S/ 5,148 M cuesta hoy. GASTADO 18 % DEL COSTO. ' +
-        'CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Datos al 26/10/2026',
+        'CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Último cambio en los datos: 26/10/2026',
     );
   });
 });

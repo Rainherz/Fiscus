@@ -1,8 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 import { sampleRow } from '@/features/investments/adapters/sampleData';
 import { mapInvestmentRow } from '@/features/investments/domain/mappers';
 import { toStalledInvestment } from '@/features/investments/domain/stalled';
+import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import { NOW, arequipa } from '@/test/fixtures';
 
 import { RankingsView } from './RankingsView';
@@ -21,20 +23,21 @@ describe('RankingsView', () => {
   it('renders ranked rows with the metric of the selected ranking', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: arequipa }} />);
     expect(screen.getByRole('tab', { name: 'Mayor aumento (S/)' })).toBeSelected();
-    expect(screen.getByRole('button', { name: '1. Majes Siguas II etapa, +S/ 3,809 M' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: '1. Majes Siguas II etapa, Gobierno regional, +S/ 3,809 M' })).toBeOnTheScreen();
     expect(screen.queryByText('Solo proyectos aprobados por más de S/ 1 M.')).toBeNull();
   });
 
   it('only ranks projects of the selected region: the region comparison lives in the region picker', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: arequipa }} />);
-    expect(screen.getAllByRole('tab')).toHaveLength(5);
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
+    expect(screen.getByRole('tab', { name: 'Entidades' })).toBeOnTheScreen();
     expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
   });
 
   it('explains the minimum approved amount on the percentage ranking', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-pct', items: arequipa }} />);
     expect(screen.getByText('Solo proyectos aprobados por más de S/ 1 M.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: '1. Majes Siguas II etapa, +285%' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: '1. Majes Siguas II etapa, Gobierno regional, +285%' })).toBeOnTheScreen();
   });
 
   it('switches rankings', async () => {
@@ -77,7 +80,7 @@ describe('RankingsView', () => {
     ).toBeOnTheScreen();
     await fireEvent.press(
       screen.getByRole('button', {
-        name: '1. Hospital regional, Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
+        name: '1. Hospital regional, Gobierno regional, Sin gasto desde abr 2025, Gastó 32 % · S/ 202 M por ejecutar',
       }),
     );
     expect(onPressInvestment).toHaveBeenCalledWith('7');
@@ -114,6 +117,76 @@ describe('RankingsView', () => {
     it('speaks of the country when a ranking is empty', async () => {
       await render(<RankingsView {...baseProps} national list={{ kind: 'cost', items: [] }} />);
       expect(screen.getByText('No hay proyectos para este ranking en el país.')).toBeOnTheScreen();
+    });
+  });
+
+  describe('Entidades', () => {
+    const entity = (name: string, values: Partial<EntityComparison>): EntityComparison => ({
+      entity: name,
+      governmentLevel: 'GL',
+      departmentCode: 4,
+      departmentName: 'AREQUIPA',
+      projectCount: 12,
+      validCostCount: 10,
+      totalUpdatedCost: 50_000_000,
+      totalCostIncrease: 8_000_000,
+      projectsWithIncrease: 3,
+      increasedViableAmount: 20_000_000,
+      costIncreasePct: 40,
+      overspentCount: 1,
+      stalledCount: 2,
+      stalledPendingAmount: 7_000_000,
+      ...values,
+    });
+    const items = [
+      entity('MINISTERIO DE TRANSPORTES', { governmentLevel: 'GN', departmentCode: null, totalCostIncrease: 900_000_000 }),
+      entity('MUNICIPALIDAD DISTRITAL DE CAYMA', {}),
+    ];
+
+    it('lists entities with their level, figure and region nationwide, and sorts them', async () => {
+      const onSelectEntitySort = jest.fn();
+      const onPressEntity = jest.fn();
+      await render(
+        <RankingsView
+          {...baseProps}
+          national
+          list={{ kind: 'entities', items }}
+          entitySort="increase-amount"
+          onSelectEntitySort={onSelectEntitySort}
+          onPressEntity={onPressEntity}
+        />,
+      );
+      expect(screen.getByRole('tab', { name: 'Entidades' })).toBeSelected();
+      expect(screen.getByText('GN')).toBeOnTheScreen();
+      expect(screen.getByText('Varias regiones · 12 proyectos · 3 con aumento')).toBeOnTheScreen();
+      await fireEvent.press(
+        screen.getByRole('button', { name: '2. MUNICIPALIDAD DISTRITAL DE CAYMA, Gobierno local, +S/ 8.0 M' }),
+      );
+      expect(onPressEntity).toHaveBeenCalledWith(items[1]);
+      await fireEvent.press(screen.getByRole('tab', { name: 'Más obras sin gasto reciente' }));
+      expect(onSelectEntitySort).toHaveBeenCalledWith('stalled');
+      expect(
+        screen.getByText('Suma de los aumentos de costo de los proyectos de cada entidad. No descuenta las reducciones.'),
+      ).toBeOnTheScreen();
+    });
+
+    it('says so when no entity has the figure', async () => {
+      await render(<RankingsView {...baseProps} list={{ kind: 'entities', items: [] }} entitySort="overspent" />);
+      expect(screen.getByText('No hay entidades con este dato en el ámbito elegido.')).toBeOnTheScreen();
+    });
+
+    it('can show only the project tabs under a header, for one entity', async () => {
+      await render(
+        <RankingsView
+          {...baseProps}
+          list={{ kind: 'increase-amount', items: arequipa }}
+          options="projects"
+          header={<Text>Cabecera</Text>}
+        />,
+      );
+      expect(screen.getByText('Cabecera')).toBeOnTheScreen();
+      expect(screen.getAllByRole('tab')).toHaveLength(5);
+      expect(screen.queryByRole('tab', { name: 'Entidades' })).toBeNull();
     });
   });
 });

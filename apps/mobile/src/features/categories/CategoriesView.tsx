@@ -11,6 +11,8 @@ interface Props {
   status: 'pending' | 'error' | 'success';
   /** Summaries of all of Peru. */
   national?: boolean;
+  /** Which government levels the totals cover (see levelScopeNote). */
+  levelNote?: string;
   onRetry: () => void;
   onPressCategory: (fn: string | null) => void;
 }
@@ -55,7 +57,7 @@ function CategoryRow({ summary, onPress }: { summary: FunctionSummary; onPress: 
   );
 }
 
-export function CategoriesView({ summaries, status, national = false, onRetry, onPressCategory }: Props) {
+export function CategoriesView({ summaries, status, national = false, levelNote, onRetry, onPressCategory }: Props) {
   return (
     <FlatList
       style={styles.screen}
@@ -68,7 +70,9 @@ export function CategoriesView({ summaries, status, national = false, onRetry, o
             Categorías
           </DisplayText>
           <MonoText size={11} muted>
-            Funciones tal como las publica el MEF. Costo actual total por función.
+            {['Funciones tal como las publica el MEF. Costo actual total por función.', levelNote]
+              .filter(Boolean)
+              .join(' ')}
           </MonoText>
         </View>
       }

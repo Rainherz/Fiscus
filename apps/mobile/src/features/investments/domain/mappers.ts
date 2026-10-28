@@ -1,4 +1,6 @@
 import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChange';
+import type { EntityComparison } from './entityComparison';
+import { isGovernmentLevel } from './governmentLevel';
 import type { FunctionSummary, IngestRun, Investment } from './investment';
 import type { RegionComparison } from './regionComparison';
 import type { StalledInvestment } from './stalled';
@@ -29,24 +31,37 @@ export interface InvestmentRow {
   cost_increase: Numeric;
   cost_increase_pct: Numeric;
   execution_progress: Numeric;
-  department_code: number;
+  department_code: number | null;
   department_name: Text;
   source_updated_at: Text;
+  government_level?: Text;
+  physical_progress?: Numeric;
+  /** Not in stalled_investments_by_level. */
+  executing_unit?: Text;
+  province?: Text;
+  district?: Text;
+  data_source?: Text;
+  /** Stored (open data) but not read by the app; the demo rows carry them. */
+  latitude?: Numeric;
+  longitude?: Numeric;
 }
 
-export const INVESTMENT_COLUMNS =
+/** Columns shared by `investments` and `stalled_investments_by_level`. */
+const SHARED_COLUMNS =
   'cui,name,entity,status,situation,function,functional_division,functional_group,beneficiaries,' +
   'registered_at,viability_at,first_accrual_month,last_accrual_month,viable_amount,updated_cost,' +
   'updated_cost_valid,accrued_total,cost_increase,cost_increase_pct,execution_progress,department_code,' +
-  'department_name,source_updated_at,spent_anomaly';
+  'department_name,source_updated_at,spent_anomaly,government_level,physical_progress';
 
-/** Row shape of the `stalled_investments` view. */
+export const INVESTMENT_COLUMNS = `${SHARED_COLUMNS},executing_unit,province,district,data_source`;
+
+/** Row shape of the `stalled_investments_by_level` view. */
 export interface StalledInvestmentRow extends InvestmentRow {
   months_without_accrual: Numeric;
   pending_amount: Numeric;
 }
 
-export const STALLED_INVESTMENT_COLUMNS = `${INVESTMENT_COLUMNS},months_without_accrual,pending_amount`;
+export const STALLED_INVESTMENT_COLUMNS = `${SHARED_COLUMNS},months_without_accrual,pending_amount`;
 
 export interface FunctionSummaryRow {
   department_code: number;
@@ -92,9 +107,15 @@ export function mapInvestmentRow(row: InvestmentRow): Investment {
     costIncrease: toNumber(row.cost_increase),
     costIncreasePct: toNumber(row.cost_increase_pct),
     executionProgress: toNumber(row.execution_progress),
-    departmentCode: row.department_code,
+    departmentCode: row.department_code ?? null,
     departmentName: toText(row.department_name),
     sourceUpdatedAt: toText(row.source_updated_at),
+    governmentLevel: isGovernmentLevel(row.government_level) ? row.government_level : null,
+    executingUnit: toText(row.executing_unit),
+    province: toText(row.province),
+    district: toText(row.district),
+    physicalProgress: toNumber(row.physical_progress),
+    dataSource: row.data_source === 'open_data' ? 'open_data' : 'ssi',
   };
 }
 
@@ -140,7 +161,7 @@ export const COST_CHANGE_COLUMNS =
 
 /** A cost change with its investment embedded through the `cui` foreign key. */
 export interface RecentCostIncreaseRow extends CostChangeRow {
-  investments: { name: Text; department_code: number } | null;
+  investments: { name: Text; department_code: number | null; government_level?: Text } | null;
 }
 
 export function mapCostChangeRow(row: CostChangeRow): CostChange {
@@ -164,6 +185,7 @@ export function mapRecentCostIncreaseRow(row: RecentCostIncreaseRow): RecentCost
     ...mapCostChangeRow(row),
     name: toText(row.investments?.name),
     departmentCode: row.investments?.department_code ?? null,
+    governmentLevel: isGovernmentLevel(row.investments?.government_level) ? row.investments.government_level : null,
   };
 }
 
@@ -200,6 +222,49 @@ export function mapRegionComparisonRow(row: RegionComparisonRow): RegionComparis
     totalUpdatedCost: toNumber(row.total_updated_cost),
     totalCostIncrease: toNumber(row.total_cost_increase) ?? 0,
     projectsWithIncrease: toNumber(row.projects_with_increase) ?? 0,
+    costIncreasePct: toNumber(row.cost_increase_pct),
+    overspentCount: toNumber(row.overspent_count) ?? 0,
+    stalledCount: toNumber(row.stalled_count) ?? 0,
+    stalledPendingAmount: toNumber(row.stalled_pending_amount) ?? 0,
+  };
+}
+
+/** Row shape of the `entity_comparison` view. */
+export interface EntityComparisonRow {
+  entity: string;
+  government_level: Text;
+  scope_department_code: number;
+  department_code: number | null;
+  department_name: Text;
+  project_count: Numeric;
+  valid_cost_count: Numeric;
+  total_updated_cost: Numeric;
+  total_cost_increase: Numeric;
+  projects_with_increase: Numeric;
+  increased_viable_amount: Numeric;
+  cost_increase_pct: Numeric;
+  overspent_count: Numeric;
+  stalled_count: Numeric;
+  stalled_pending_amount: Numeric;
+}
+
+export const ENTITY_COMPARISON_COLUMNS =
+  'entity,government_level,scope_department_code,department_code,department_name,project_count,' +
+  'valid_cost_count,total_updated_cost,total_cost_increase,projects_with_increase,increased_viable_amount,' +
+  'cost_increase_pct,overspent_count,stalled_count,stalled_pending_amount';
+
+export function mapEntityComparisonRow(row: EntityComparisonRow): EntityComparison {
+  return {
+    entity: row.entity,
+    governmentLevel: isGovernmentLevel(row.government_level) ? row.government_level : null,
+    departmentCode: row.department_code ?? null,
+    departmentName: toText(row.department_name),
+    projectCount: toNumber(row.project_count) ?? 0,
+    validCostCount: toNumber(row.valid_cost_count) ?? 0,
+    totalUpdatedCost: toNumber(row.total_updated_cost),
+    totalCostIncrease: toNumber(row.total_cost_increase) ?? 0,
+    projectsWithIncrease: toNumber(row.projects_with_increase) ?? 0,
+    increasedViableAmount: toNumber(row.increased_viable_amount),
     costIncreasePct: toNumber(row.cost_increase_pct),
     overspentCount: toNumber(row.overspent_count) ?? 0,
     stalledCount: toNumber(row.stalled_count) ?? 0,

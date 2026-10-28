@@ -1,4 +1,4 @@
-import { DEPARTMENTS, departmentName } from './departments';
+import { DEPARTMENTS, departmentName, regionLabel } from './departments';
 
 /** What every screen shows: all of Peru, or one department (region). */
 export type Scope = { kind: 'national' } | { kind: 'department'; code: number };
@@ -20,9 +20,9 @@ export function scopeLabel(scope: Scope): string {
   return scope.kind === 'national' ? NATIONAL_LABEL : departmentName(scope.code);
 }
 
-/** A detail line led by the region name, for rows that list all of Peru. */
-export function withRegion(departmentCode: number, line: string): string {
-  return `${departmentName(departmentCode)} · ${line}`;
+/** A detail line led by the region name (or "Varias regiones"), for rows that list all of Peru. */
+export function withRegion(departmentCode: number | null, line: string): string {
+  return `${regionLabel(departmentCode)} · ${line}`;
 }
 
 export function isSameScope(a: Scope, b: Scope): boolean {

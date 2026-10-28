@@ -8,12 +8,13 @@ import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 import type { Department } from '../department/departments';
+import { LEVEL_OPTIONS, regionsNote } from '../government-level/levelPresentation';
+import type { LevelFilter } from '../investments/domain/governmentLevel';
 import { NATIONAL, NATIONAL_LABEL, department, isSameScope, type Scope } from '../department/scope';
 import type { RegionComparison, RegionSort } from '../investments/domain/regionComparison';
 import {
   ALPHABETICAL_DEPARTMENTS,
   REGIONS_EMPTY,
-  REGIONS_HEADER_NOTE,
   REGION_SORT_OPTIONS,
   departmentsWithoutData,
   regionDetail,
@@ -24,6 +25,9 @@ import {
 } from './regionPresentation';
 
 interface Props {
+  /** The global government level: it filters the comparison and every screen. */
+  level: LevelFilter;
+  onSelectLevel: (level: LevelFilter) => void;
   sort: RegionSort;
   /** Already ranked by `sort`. */
   regions: RegionComparison[];
@@ -58,6 +62,8 @@ function toItems(regions: RegionComparison[], status: Props['status']): Item[] {
  * option selects it.
  */
 export function RegionPickerView({
+  level,
+  onSelectLevel,
   sort,
   regions,
   status,
@@ -119,6 +125,19 @@ export function RegionPickerView({
         keyExtractor={(item) => String(item.kind === 'ranked' ? item.region.departmentCode : item.department.code)}
         ListHeaderComponent={
           <View style={styles.header}>
+            <View style={styles.levels}>
+              <MonoText bold size={11}>
+                NIVEL DE GOBIERNO
+              </MonoText>
+              <View style={styles.sorts}>
+                <SegmentedTabs
+                  options={LEVEL_OPTIONS}
+                  selected={level}
+                  onSelect={onSelectLevel}
+                  accessibilityLabel="Nivel de gobierno"
+                />
+              </View>
+            </View>
             <View style={styles.national}>
               <OptionRow
                 name={NATIONAL_LABEL}
@@ -128,7 +147,7 @@ export function RegionPickerView({
               />
             </View>
             <MonoText size={11} muted>
-              {REGIONS_HEADER_NOTE}
+              {regionsNote(level)}
             </MonoText>
             {ranked ? (
               <>
@@ -223,6 +242,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: { paddingTop: space.lg, paddingBottom: space.md, gap: space.sm },
+  /** The level applies to every screen, so it sits above the region options, apart from the sorts. */
+  levels: { gap: space.sm, marginBottom: space.sm },
   /** All of Peru sits apart from the comparison, closed by a rule like the list rows. */
   national: { marginBottom: space.sm, borderBottomWidth: rule, borderBottomColor: colors.ink },
   // The tabs carry their own gutter; cancel the list's so they align with the notes.

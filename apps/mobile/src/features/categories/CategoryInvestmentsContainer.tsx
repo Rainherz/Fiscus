@@ -2,8 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { departmentCodeOf } from '@/features/department/scope';
-import { useScope } from '@/features/department/ScopeContext';
+import { useReadScope, useScope } from '@/features/department/ScopeContext';
+import { levelFilterLabel, levelTag } from '@/features/government-level/levelPresentation';
 import { useFunctionInvestments } from '@/features/investments/hooks/queries';
 import { formatSoles } from '@/shared/format';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
@@ -22,10 +22,10 @@ export function CategoryInvestmentsContainer() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ fn: string }>();
   const fn = decodeFunctionParam(params.fn);
-  const { scope, label: scopeName } = useScope();
-  const code = departmentCodeOf(scope);
-  const national = code === undefined;
-  const list = useFunctionInvestments(code, fn);
+  const { label: scopeName } = useScope();
+  const read = useReadScope();
+  const national = read.departmentCode === undefined;
+  const list = useFunctionInvestments(read, fn);
   const items = list.data?.pages.flat() ?? [];
   const label = fn ?? NO_FUNCTION_LABEL;
 
@@ -44,7 +44,7 @@ export function CategoryInvestmentsContainer() {
             <DisplayText weight={900} size={26} accessibilityRole="header">
               {label}
             </DisplayText>
-            <MonoText size={11} muted>{`${scopeName} · ordenado por costo actual`}</MonoText>
+            <MonoText size={11} muted>{`${scopeName} · ${levelFilterLabel(read.level)} · ordenado por costo actual`}</MonoText>
           </View>
         }
         renderItem={({ item, index }) => (
@@ -53,6 +53,7 @@ export function CategoryInvestmentsContainer() {
             name={item.name}
             value={formatSoles(item.updatedCost)}
             detail={categoryRowDetail(item, { national })}
+            tag={levelTag(item.governmentLevel)}
             onPress={() => router.push({ pathname: '/investment/[cui]', params: { cui: item.cui } })}
           />
         )}

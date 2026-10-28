@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { departmentName } from '@/features/department/departments';
+import { regionLabel } from '@/features/department/departments';
+import { levelTag } from '@/features/government-level/levelPresentation';
+import { LevelTag } from '@/shared/ui/LevelTag';
 import { withRegion } from '@/features/department/scope';
 import { COST_HISTORY_START, type RecentCostIncrease } from '@/features/investments/domain/costChange';
 import { formatDate, formatSignedSolesCompact } from '@/shared/format';
@@ -36,22 +38,24 @@ function IncreaseRow({
   const name = item.name ?? 'Sin nombre';
   const date = formatDate(item.observedAt);
   const delta = formatSignedSolesCompact(item.updatedCostDelta);
-  const region = national && item.departmentCode !== null ? item.departmentCode : null;
+  const tag = levelTag(item.governmentLevel);
+  const announced = [name, tag?.label, national ? regionLabel(item.departmentCode) : null, date, delta];
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={
-        region !== null ? `${name}, ${departmentName(region)}, ${date}, ${delta}` : `${name}, ${date}, ${delta}`
-      }
+      accessibilityLabel={announced.filter(Boolean).join(', ')}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
       <View style={styles.main}>
         <BodyText weight={600} size={14} numberOfLines={2}>
           {name}
         </BodyText>
-        <MonoText size={11} muted>
-          {region !== null ? withRegion(region, date) : date}
-        </MonoText>
+        <View style={styles.detail}>
+          {tag ? <LevelTag tag={tag} /> : null}
+          <MonoText size={11} muted style={styles.detailText}>
+            {national ? withRegion(item.departmentCode, date) : date}
+          </MonoText>
+        </View>
       </View>
       <MonoText bold size={13} style={styles.delta}>
         {delta}
@@ -89,6 +93,8 @@ export function RecentIncreasesSection({ state, national = false, onPressInvestm
 }
 
 const styles = StyleSheet.create({
+  detail: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xs + 2 },
+  detailText: { flexShrink: 1 },
   section: { marginTop: space.xl, paddingHorizontal: space.lg },
   title: { marginBottom: 6 },
   row: {

@@ -76,6 +76,24 @@ describe('MOCK_ROWS', () => {
     expect(await repo.countStalledInvestments(4)).toBe(stalled.length);
   });
 
+  it('includes demo national and local projects, one national without department', () => {
+    const levels = MOCK_ROWS.filter((r) => r.government_level !== 'GR');
+    expect(levels.length).toBeGreaterThanOrEqual(4);
+    for (const row of levels) expect(row.name).toMatch(/\(demo\)$/);
+    expect(mock.some((i) => i.governmentLevel === 'GN' && i.departmentCode === null)).toBe(true);
+    const local = MOCK_ROWS.find((r) => r.government_level === 'GL' && r.physical_progress !== null);
+    expect(local).toEqual(
+      expect.objectContaining({ latitude: expect.any(Number), longitude: expect.any(Number), data_source: 'open_data' }),
+    );
+  });
+
+  it('gives the demo entities more than one project, for the entity ranking and its drill-down', async () => {
+    const repo = createInMemoryInvestmentsRepository({ rows: MOCK_ROWS, lastRun: null });
+    const entities = await repo.getEntityComparison({ sort: 'increase-amount', page: 0 });
+    expect(entities.some((e) => e.governmentLevel === 'GN' && e.projectCount >= 2 && e.departmentCode === null)).toBe(true);
+    expect(entities.some((e) => e.governmentLevel === 'GL')).toBe(true);
+  });
+
   it('has unique CUIs', () => {
     expect(new Set(mock.map((i) => i.cui)).size).toBe(mock.length);
   });

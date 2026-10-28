@@ -66,10 +66,10 @@ describe('HomeView', () => {
     await ctx.render();
     expect(screen.getByText('RANKING DE AUMENTOS')).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: '2. Variante de Uchumayo, +S/ 440 M' }),
+      screen.getByRole('button', { name: '2. Variante de Uchumayo, Gobierno regional, +S/ 440 M' }),
     ).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: '3. Vía regional Arequipa – La Joya, +S/ 309 M' }),
+      screen.getByRole('button', { name: '3. Vía regional Arequipa – La Joya, Gobierno regional, +S/ 309 M' }),
     ).toBeOnTheScreen();
     expect(ctx.onPressInvestment).not.toHaveBeenCalled();
   });
@@ -178,7 +178,7 @@ describe('HomeView', () => {
     it('shows the region of every ranked project in a second line', async () => {
       await render(<HomeView {...props} />);
       expect(screen.getByText('RANKING DE AUMENTOS')).toBeOnTheScreen();
-      expect(screen.getByRole('button', { name: '2. Variante de Uchumayo, +S/ 440 M' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: '2. Variante de Uchumayo, Gobierno regional, +S/ 440 M' })).toBeOnTheScreen();
       expect(screen.getByText('Cusco')).toBeOnTheScreen();
       expect(screen.getAllByText('Arequipa')).toHaveLength(props.ranking.length - 1);
     });
@@ -213,6 +213,26 @@ describe('HomeView', () => {
     it('says so when the country has no cost increases', async () => {
       await render(<HomeView {...props} hero={null} ranking={[]} />);
       expect(screen.getByText('No hay proyectos con aumento de costo en el país.')).toBeOnTheScreen();
+    });
+  });
+
+  describe('government levels', () => {
+    const national = { ...majes, cui: '9', name: 'Red vial nacional', governmentLevel: 'GN' as const, departmentCode: null, departmentName: null };
+
+    it('tags the hero and ranking rows with their level', async () => {
+      await render(
+        <HomeView hero={majes} ranking={[{ ...arequipa[1], governmentLevel: 'GL' }]} now={NOW} onPressInvestment={jest.fn()} onPressSeeAll={jest.fn()} />,
+      );
+      expect(screen.getByLabelText('Gobierno regional')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: /^2\. Variante de Uchumayo, Gobierno local,/ })).toBeOnTheScreen();
+    });
+
+    it('says "Varias regiones" for a national project without department nationwide', async () => {
+      await render(
+        <HomeView hero={national} ranking={[national]} national now={NOW} onPressInvestment={jest.fn()} onPressSeeAll={jest.fn()} />,
+      );
+      expect(screen.getByText('VARIAS REGIONES')).toBeOnTheScreen();
+      expect(screen.getByText('Varias regiones')).toBeOnTheScreen();
     });
   });
 });

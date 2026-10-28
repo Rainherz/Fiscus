@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { StalledInvestment } from '@/features/investments/domain/stalled';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
+import { levelTag } from '@/features/government-level/levelPresentation';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
@@ -51,6 +52,7 @@ export function StalledPreviewSection({ state, national = false, onPressInvestme
               rank={index + 1}
               name={item.name}
               detail={stalledRowDetail(item, { national })}
+              tag={levelTag(item.governmentLevel)}
               onPress={() => onPressInvestment(item.cui)}
             />
           ))}

@@ -25,7 +25,7 @@ describe('ShareCard', () => {
     expect(screen.getByText('GASTADO 18 % DEL COSTO')).toBeOnTheScreen();
     expect(screen.getByTestId('hazard-fill')).toHaveStyle({ width: '18%' });
     expect(
-      screen.getByText('CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Datos al 26/10/2026'),
+      screen.getByText('CUI 2088142 · Fuente: MEF – Sistema de Seguimiento de Inversiones · Último cambio en los datos: 26/10/2026'),
     ).toBeOnTheScreen();
   });
 

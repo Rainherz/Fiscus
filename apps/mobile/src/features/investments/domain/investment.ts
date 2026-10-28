@@ -1,3 +1,8 @@
+import type { GovernmentLevel } from './governmentLevel';
+
+/** Which MEF source owns the figures of a row (`investments.data_source`). */
+export type DataSourceKind = 'ssi' | 'open_data';
+
 /** A public investment project (one CUI), as shown in the app. Money is in soles. */
 export interface Investment {
   cui: string;
@@ -36,9 +41,19 @@ export interface Investment {
    * (accrued). Not physical progress; may exceed 1.
    */
   executionProgress: number | null;
-  departmentCode: number;
+  /** Null for national investments spanning several departments (shown only nationwide). */
+  departmentCode: number | null;
   departmentName: string | null;
+  /** When the figures last changed in the MEF source (moves only on real changes). */
   sourceUpdatedAt: string | null;
+  governmentLevel: GovernmentLevel | null;
+  /** Budget execution unit (open data). */
+  executingUnit: string | null;
+  province: string | null;
+  district: string | null;
+  /** Physical progress reported to MEF, 0-100 (open data); null when not reported. */
+  physicalProgress: number | null;
+  dataSource: DataSourceKind;
 }
 
 /** The source publishes an updated cost, but it is not usable (see `updatedCostValid`). */

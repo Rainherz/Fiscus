@@ -30,6 +30,8 @@ const regions = [
 ];
 
 const baseProps = {
+  level: 'GR' as const,
+  onSelectLevel: jest.fn(),
   sort: 'increase-amount' as const,
   regions,
   status: 'success' as const,
@@ -46,13 +48,30 @@ describe('RegionPickerView', () => {
     await render(<RegionPickerView {...baseProps} />);
     expect(screen.getByRole('header', { name: 'Elegir región' })).toBeOnTheScreen();
     expect(screen.getByText('TODO EL PERÚ')).toBeOnTheScreen();
-    expect(screen.getAllByRole('tab')).toHaveLength(4);
     const sorts = within(screen.getByLabelText('Ordenar regiones por'));
+    expect(sorts.getAllByRole('tab')).toHaveLength(4);
     expect(sorts.getByRole('tab', { name: 'Mayor aumento (S/)' })).toBeSelected();
     expect(screen.queryByText('ORDENAR POR')).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
-    expect(screen.getByText('Solo inversiones de gobiernos regionales. Montos en soles corrientes.')).toBeOnTheScreen();
+    expect(screen.getByText('Gobiernos regionales. Montos en soles corrientes.')).toBeOnTheScreen();
     expect(screen.getByText('Suma de los aumentos de costo. No descuenta las reducciones.')).toBeOnTheScreen();
+  });
+
+  it('chooses the government level with a segmented control, without closing', async () => {
+    const onSelectLevel = jest.fn();
+    await render(<RegionPickerView {...baseProps} onSelectLevel={onSelectLevel} />);
+    expect(screen.getByText('NIVEL DE GOBIERNO')).toBeOnTheScreen();
+    const levels = within(screen.getByLabelText('Nivel de gobierno'));
+    expect(levels.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Todos',
+      'Nacional',
+      'Regional',
+      'Local',
+    ]);
+    expect(levels.getByRole('tab', { name: 'Regional' })).toBeSelected();
+    await fireEvent.press(levels.getByRole('tab', { name: 'Local' }));
+    expect(onSelectLevel).toHaveBeenCalledWith('GL');
+    expect(baseProps.onClose).not.toHaveBeenCalled();
   });
 
   it('explains in one line what the list is for', async () => {

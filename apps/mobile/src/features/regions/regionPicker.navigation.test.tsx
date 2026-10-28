@@ -10,7 +10,8 @@ import Region from '@/app/region';
 import { department, NATIONAL, type Scope } from '@/features/department/scope';
 import { ScopeProvider } from '@/features/department/ScopeContext';
 import { ScopeGate } from '@/features/department/ScopeGate';
-import type { ScopeStorage } from '@/features/department/scopeStorage';
+import type { LevelStorage, ScopeStorage } from '@/features/department/scopeStorage';
+import type { LevelFilter } from '@/features/investments/domain/governmentLevel';
 import { createInMemoryInvestmentsRepository } from '@/features/investments/adapters/inMemoryInvestmentsRepository';
 import { MOCK_COST_CHANGES, MOCK_ROWS } from '@/features/investments/adapters/sampleData';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
@@ -25,9 +26,19 @@ const storage: ScopeStorage = {
   },
 };
 
+/** The level is kept in memory per test, so a choice never leaks into the next test. */
+let storedLevel: LevelFilter | null = null;
+const levelStorage: LevelStorage = {
+  load: async () => storedLevel,
+  save: async (level) => {
+    storedLevel = level;
+  },
+};
+
 beforeEach(() => {
   stored = department(4);
   saved = [];
+  storedLevel = null;
 });
 
 /** The real tabs layout, Home, Rankings and region picker inside a root stack with the app's providers. */
@@ -37,7 +48,7 @@ function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoryProvider repository={repository} isDemo>
-        <ScopeProvider storage={storage}>
+        <ScopeProvider storage={storage} levelStorage={levelStorage}>
           <ScopeGate>
             <Stack screenOptions={{ headerShown: false }} />
           </ScopeGate>
@@ -59,9 +70,26 @@ const routes = {
   region: Region,
 };
 
-const headerSelector = (name: string) => screen.findByRole('button', { name: `Cambiar región. Región actual: ${name}` });
+const headerSelector = (name: string) =>
+  screen.findByRole('button', {
+    name: `Cambiar región o nivel de gobierno. Región actual: ${name}. Nivel: Todos los niveles`,
+  });
 
 describe('region picker navigation', () => {
+  it('changes the global level from the picker without closing it, and the header shows it', async () => {
+    const router = await renderRouter(routes, { initialUrl: '/rankings' });
+    await fireEvent.press(await headerSelector('Arequipa'));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Local' }));
+    expect(router.getPathname()).toBe('/region');
+    expect(await screen.findByText('Gobiernos locales. Montos en soles corrientes.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(
+      await screen.findByRole('button', {
+        name: 'Cambiar región o nivel de gobierno. Región actual: Arequipa. Nivel: Gobiernos locales',
+      }),
+    ).toBeOnTheScreen();
+  });
+
   it('opens from the header selector', async () => {
     const router = await renderRouter(routes, { initialUrl: '/rankings' });
     await fireEvent.press(await headerSelector('Arequipa'));

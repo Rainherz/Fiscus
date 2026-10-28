@@ -6,14 +6,15 @@ import { AppHeader } from '@/shared/ui/AppHeader';
 
 import { useScope } from './ScopeContext';
 
-/** Container: app header whose selector opens the region picker screen (`/region`). */
+/** Container: app header whose selector opens the region picker screen (`/region`), where the level is chosen too. */
 export function RegionHeader() {
-  const { label, ready } = useScope();
+  const { label, levelLabel, ready } = useScope();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
     <AppHeader
       scopeLabel={ready ? label : null}
+      levelLabel={ready ? levelLabel : null}
       onPressScope={() => {
         blurActiveElement();
         router.push('/region');
