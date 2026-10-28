@@ -98,7 +98,7 @@ packages/ingest/src/
   cli.ts         SSI entrypoint
   openDataCli.ts open-data entrypoint
 apps/mobile/src/
-  app/           Expo Router routes: (tabs) index, rankings, categories, search; region; investment/[cui]; category/[fn]
+  app/           Expo Router routes: (tabs) index, rankings, categories, search; region; map; investment/[cui]; category/[fn]
   features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
                  department, home, rankings, regions, categories, search, investment-detail (container + view),
                  share-card (share image: presentation, card, capture and share)
@@ -167,6 +167,7 @@ pnpm --filter @fiscus/mobile export:web        # static web build in apps/mobile
 | `EXPO_PUBLIC_SUPABASE_URL` | Project URL (public) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Anon key (public, read-only through RLS). Never use the service role key here. |
 | `EXPO_PUBLIC_USE_MOCK` | `1` uses bundled sample records from Arequipa, so no credentials are needed |
+| `EXPO_PUBLIC_CARTO_BASEMAPS_KEY` | CARTO basemaps key for the map tiles (public, ships in the app). Without it CARTO serves watermarked "API key required" tiles |
 
 To run the app on a phone, install Expo Go, keep the phone on the same network as your computer, and scan
 the QR code that `start` prints. If the network blocks LAN, use `pnpm --filter @fiscus/mobile exec expo start --tunnel`.
@@ -254,6 +255,43 @@ iOS and Android the PNG goes to the system share sheet through `expo-sharing`. O
 DOM with `html2canvas-pro` (its optional web peer, loaded lazily as a separate chunk), then the page uses
 the Web Share API with the file when `navigator.canShare({ files })` allows it, otherwise it downloads
 `fiscus-<cui>.png`. Card logic is in `features/share-card/shareCardPresentation.ts`.
+
+Mapa (`/map`, `/map?cui=…`): the projects with coordinates (open data `latitude`/`longitude`, about 77 %
+of the rows; the screen says so) in the current scope and level. It opens from "Ver en el mapa →" on home
+and, centered on the project with its card open, from "VER EN EL MAPA" on a project's detail (shown only
+when it has coordinates). It is a stack screen rather than a fifth tab, which did not fit at 320 px.
+Nationwide it frames Peru; with a department it frames approximate department bounds
+(`features/map/mapRequest.ts`).
+
+- One map implementation: `features/map/mapHtml.ts` builds a Leaflet 1.9.4 page (from cdnjs with
+  subresource integrity). iOS/Android load it in `react-native-webview` (`source={{ html }}`, included in
+  Expo Go); the web loads it in a sandboxed iframe (`srcDoc`, scripts only). The page only draws and
+  reports; data, labels and states stay in React Native.
+- Bridge (`features/map/mapBridge.ts`): the page sends `ready`, `moved` (bbox + zoom on `moveend`),
+  `pointPressed`, `mapPressed` and `loadFailed`; the app sends `setData` and `highlight`. Every message
+  from the page is parsed and validated (unknown types, bad numbers, inverted boxes and non-digit CUIs are
+  dropped). On the web only messages from the map's own iframe are read.
+- Requests: 300 ms after the map stops moving, the box is clipped to Peru, rounded outward to 0.01° and
+  sent with the integer zoom, scope and level to `getMapPoints`. The previous view stays on screen while
+  the next one loads; a status line over the map says "Cargando…", errors (with "Reintentar"), an empty
+  area, or when only the first 500 projects are shown.
+- Clusters are ink circles with a yellow compact count ("1.2 mil"), sized on a log scale; tapping one zooms
+  in by two levels (up to 13). Points are yellow with an ink outline when the project has a positive valid
+  cost increase, small ink dots otherwise. Tapping a point opens a native card under the map (name, level
+  tag, "+S/ X M · +Y%", "Ver detalle →"); "Ver como lista" goes to Rankings. The map is announced as
+  supplementary.
+- Tiles: CARTO Positron (`{s}.basemaps.cartocdn.com/light_all`), attribution "© OpenStreetMap
+  contributors © CARTO" always visible. The OpenStreetMap tile servers are not used (their policy forbids
+  app traffic). CARTO now requires a basemaps key (free non-commercial and commercial tiers at
+  carto.com/basemaps/apikey), passed as `?key=` from `EXPO_PUBLIC_CARTO_BASEMAPS_KEY`.
+- Clustering runs in Postgres: `map_points(min_lat, min_lon, max_lat, max_lon, zoom, level = 'ALL',
+  department = null)` (`supabase/migrations/20261102000000_map_points.sql`, security invoker, stable,
+  executable by anon/authenticated). From zoom 13, or with at most 500 projects in the box, it returns up to
+  500 projects (largest increase first); otherwise grid cells of a quarter tile (`360 / 2^zoom / 4`
+  degrees) with count, centroid, sum of positive valid increases, largest valid percentage and projects
+  with an increase, at most 400 cells. The bbox filter uses `investments_coordinates_idx`. The in-memory
+  adapter applies the same rules (`domain/mapPoints.ts`); the demo rows carry approximate demo
+  coordinates.
 
 ## Daily ingest
 
