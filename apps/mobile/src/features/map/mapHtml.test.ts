@@ -1,5 +1,5 @@
 import { safeJson } from './mapBridge';
-import { MAP_ATTRIBUTION, buildMapHtml } from './mapHtml';
+import { CARTO_TILES, MAP_ATTRIBUTION, buildMapHtml } from './mapHtml';
 
 describe('buildMapHtml', () => {
   const html = buildMapHtml({ kind: 'bounds', bbox: { minLat: -18.4, minLon: -81.4, maxLat: -0.03, maxLon: -68.6 } });
@@ -36,4 +36,12 @@ describe('buildMapHtml', () => {
     expect(inline).toBeDefined();
     expect(() => new Function(inline!)).not.toThrow();
   });
+
+  it('adds the CARTO basemaps key to the tile URL when configured', () => {
+    const view = { kind: 'bounds' as const, bbox: { minLat: -18, minLon: -81, maxLat: -1, maxLon: -69 } };
+    expect(buildMapHtml(view, { tilesKey: 'k e/y' })).toContain(safeJson(`${CARTO_TILES}?key=k%20e%2Fy`));
+    expect(buildMapHtml(view)).toContain(safeJson(CARTO_TILES));
+    expect(buildMapHtml(view)).not.toContain('?key=');
+  });
 });
+

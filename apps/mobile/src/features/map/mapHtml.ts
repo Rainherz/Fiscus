@@ -13,8 +13,11 @@ const LEAFLET = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4';
 const LEAFLET_JS_SRI = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
 const LEAFLET_CSS_SRI = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
 
-/** CARTO Positron: free basemap for apps with attribution (the OSM tile servers forbid app traffic). */
-const TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+/**
+ * CARTO Positron, with attribution (the OSM tile servers forbid app traffic). CARTO watermarks
+ * tiles requested without a basemaps key ("API key required"); its free tiers need one.
+ */
+export const CARTO_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 export const MAP_ATTRIBUTION =
   '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ' +
   '© <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
@@ -48,11 +51,14 @@ const SCRIPT = `
 
   var map = L.map('map', {
     preferCanvas: true,
+    zoomControl: false,
     minZoom: 4,
     maxZoom: 18,
     maxBounds: [[-26, -92], [7, -58]],
     maxBoundsViscosity: 0.8
   });
+  // Bottom left: the app shows its status line over the top of the map.
+  L.control.zoom({ position: 'bottomleft', zoomInTitle: 'Acercar', zoomOutTitle: 'Alejar' }).addTo(map);
   map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
   L.tileLayer(TILES, { subdomains: 'abcd', maxZoom: 20, attribution: ATTRIBUTION }).addTo(map);
 
@@ -140,10 +146,11 @@ const SCRIPT = `
 })();
 `;
 
-export function buildMapHtml(view: InitialView): string {
+export function buildMapHtml(view: InitialView, options: { tilesKey?: string } = {}): string {
+  const tiles = options.tilesKey ? `${CARTO_TILES}?key=${encodeURIComponent(options.tilesKey)}` : CARTO_TILES;
   const constants = [
     `var VIEW = ${safeJson(view)};`,
-    `var TILES = ${safeJson(TILES)};`,
+    `var TILES = ${safeJson(tiles)};`,
     `var ATTRIBUTION = ${safeJson(MAP_ATTRIBUTION)};`,
     `var CLUSTER_ZOOM_STEP = ${CLUSTER_ZOOM_STEP};`,
     `var POINTS_ZOOM = ${POINTS_ZOOM};`,

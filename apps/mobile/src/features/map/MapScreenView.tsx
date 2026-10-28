@@ -109,8 +109,13 @@ export function MapScreenView({
           {scopeLine.toUpperCase()}
         </MonoText>
       </View>
-      <StatusLine status={status} onRetry={onRetry} />
-      <View style={styles.map}>{map}</View>
+      <View style={styles.map}>
+        {map}
+        {/* Over the map, so its size (and view) does not change when the status does. */}
+        <View style={styles.overlay} pointerEvents="box-none">
+          <StatusLine status={status} onRetry={onRetry} />
+        </View>
+      </View>
       {selected ? (
         <MapPointCard point={selected} onPressDetail={() => onPressDetail(selected.cui)} onClose={onCloseCard} />
       ) : null}
@@ -161,6 +166,7 @@ const styles = StyleSheet.create({
   },
   retryPressed: { backgroundColor: colors.concretePressed },
   map: { flex: 1, minHeight: 200 },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0 },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
