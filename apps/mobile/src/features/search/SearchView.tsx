@@ -4,10 +4,15 @@ import { withRegion } from '@/features/department/scope';
 import { levelTag } from '@/features/government-level/levelPresentation';
 import type { Investment } from '@/features/investments/domain/investment';
 import { formatSoles } from '@/shared/format';
+import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
+import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, fonts, maxContentWidth, rule, space } from '@/shared/theme/tokens';
+import { TableHeader, TableRow } from '@/shared/ui/DataTable';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
+
+import { searchTable } from './searchTable';
 
 interface Props {
   text: string;
@@ -46,6 +51,68 @@ export function SearchView({
   onRetry,
   onPressInvestment,
 }: Props) {
+  const breakpoint = useBreakpoint();
+  const wide = isWide(breakpoint);
+  const header = (
+    <View testID="search-header" style={[styles.header, wide && styles.headerWide]}>
+      <DisplayText weight={900} size={26} accessibilityRole="header">
+        Buscar
+      </DisplayText>
+      <TextInput
+        value={text}
+        onChangeText={onChangeText}
+        accessibilityLabel="Buscar por nombre o CUI"
+        placeholder="Nombre del proyecto o CUI"
+        placeholderTextColor={colors.muted}
+        autoCorrect={false}
+        autoCapitalize="none"
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+        style={styles.input}
+      />
+      <MonoText size={11} muted>
+        {searchHint(departmentName, levelLabel)}
+      </MonoText>
+    </View>
+  );
+  const empty =
+    status === 'pending' ? (
+      <StateMessage kind="loading" message="Buscando…" />
+    ) : status === 'error' ? (
+      <StateMessage kind="error" onRetry={onRetry} />
+    ) : status === 'success' ? (
+      <StateMessage kind="empty" message={`Sin resultados para “${text.trim()}”.`} />
+    ) : undefined;
+
+  if (wide) {
+    const spread = breakpoint === 'desktop';
+    const national = departmentName === null;
+    const table = searchTable(status === 'success' ? results : [], { national, compact: !spread });
+    const layout = { columns: table.columns, spread, national };
+    return (
+      <FlatList
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.content,
+          { maxWidth: LAYOUT_MAX_WIDTH, paddingHorizontal: gutterFor(breakpoint) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        data={table.rows}
+        keyExtractor={(row) => row.key}
+        ListHeaderComponent={
+          <>
+            {header}
+            {table.rows.length > 0 ? <TableHeader {...layout} /> : null}
+          </>
+        }
+        renderItem={({ item: row, index }) => (
+          <TableRow {...layout} rank={index + 1} row={row} onPress={() => onPressInvestment(row.cui)} />
+        )}
+        ListEmptyComponent={empty}
+      />
+    );
+  }
+
   return (
     <FlatList
       style={styles.screen}
@@ -53,28 +120,7 @@ export function SearchView({
       keyboardShouldPersistTaps="handled"
       data={status === 'success' ? results : []}
       keyExtractor={(item) => item.cui}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <DisplayText weight={900} size={26} accessibilityRole="header">
-            Buscar
-          </DisplayText>
-          <TextInput
-            value={text}
-            onChangeText={onChangeText}
-            accessibilityLabel="Buscar por nombre o CUI"
-            placeholder="Nombre del proyecto o CUI"
-            placeholderTextColor={colors.muted}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-            style={styles.input}
-          />
-          <MonoText size={11} muted>
-            {searchHint(departmentName, levelLabel)}
-          </MonoText>
-        </View>
-      }
+      ListHeaderComponent={header}
       renderItem={({ item, index }) => (
         <RankingRow
           rank={index + 1}
@@ -85,15 +131,7 @@ export function SearchView({
           onPress={() => onPressInvestment(item.cui)}
         />
       )}
-      ListEmptyComponent={
-        status === 'pending' ? (
-          <StateMessage kind="loading" message="Buscando…" />
-        ) : status === 'error' ? (
-          <StateMessage kind="error" onRetry={onRetry} />
-        ) : status === 'success' ? (
-          <StateMessage kind="empty" message={`Sin resultados para “${text.trim()}”.`} />
-        ) : undefined
-      }
+      ListEmptyComponent={empty}
     />
   );
 }
@@ -108,6 +146,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: { paddingTop: space.lg, paddingBottom: space.md, gap: space.sm },
+  /** Wide screens: the field keeps a readable width, the results use the full column. */
+  headerWide: { maxWidth: 720 },
   input: {
     minHeight: 48,
     borderWidth: rule,
