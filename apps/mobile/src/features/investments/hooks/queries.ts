@@ -1,7 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { RankingKind } from '../domain/investment';
+import type { MapPointsRequest } from '../domain/mapPoints';
 import {
   PAGE_SIZE,
   buildFunctionQuery,
@@ -74,9 +75,10 @@ export function useSearchInvestments(text: string, read: ReadScope) {
   };
 }
 
-export function useInvestment(cui: string) {
+export function useInvestment(cui: string, options: { enabled?: boolean } = {}) {
   const { repository } = useRepository();
   return useQuery({
+    enabled: options.enabled,
     queryKey: ['investment', cui],
     queryFn: () => repository.findByCui(cui),
   });
@@ -170,5 +172,19 @@ export function useEntityComparison(sort: RegionSort, read: ReadScope, options: 
       }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
+  });
+}
+
+/**
+ * The map view (clusters or points). The previous view stays on screen while the next one loads;
+ * null asks for nothing (the view is outside Peru).
+ */
+export function useMapPoints(request: MapPointsRequest | null) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['map-points', request],
+    queryFn: () => repository.getMapPoints(request!),
+    enabled: request !== null,
+    placeholderData: keepPreviousData,
   });
 }
