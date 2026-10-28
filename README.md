@@ -44,9 +44,8 @@ executing unit. MEF does not refresh it every day.
   balance, executing unit, `open_data_updated_at`). The SSI figures stay untouched, because they are
   refreshed daily and the open-data file can be days older, and the cost history does not log
   back-and-forth changes. Investments only the file has (`open_data`) get every column.
-- `.github/workflows/open-data-ingest.yml` runs it on manual dispatch only (`force` input) for now. The
-  daily schedule (10:00 UTC, 05:00 Lima, after the SSI run) can be enabled once the app version that
-  filters by `government_level` (see "Government levels" below) is deployed.
+- `.github/workflows/open-data-ingest.yml` runs it daily at 10:00 UTC (05:00 Lima, after the SSI run)
+  and on manual dispatch (`force` input re-ingests an unchanged file).
 - Unchanged rows are not rewritten. The `touch_ingested_at` trigger skips an update when no data column
   changed, for both ingests. `ingested_at`, `source_updated_at` and `open_data_updated_at` therefore
   move only when the data changes; whole-source freshness is in `ingest_runs` (SSI) and

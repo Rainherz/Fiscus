@@ -5,13 +5,10 @@ name: Fiscus open-data ingest
 # GitHub-hosted runners. The file is not refreshed daily: the ingest compares Last-Modified and
 # Content-Length with public.source_snapshots and exits without downloading when unchanged.
 #
-# Manual dispatch only for now. The daily schedule is enabled once the app filters its direct reads
-# of investments and investment_cost_changes by government_level; until then GN/GL rows would
-# change the app's rankings, search and "Aumentos recientes". Schedule to restore then
-# (10:00 UTC = 05:00 Lima, after the 04:00 SSI run on the machine in Peru):
-#   schedule:
-#     - cron: "0 10 * * *"
+# Daily at 10:00 UTC = 05:00 Lima, after the 04:00 SSI run on the machine in Peru.
 on:
+  schedule:
+    - cron: "0 10 * * *"
   workflow_dispatch:
     inputs:
       force:
