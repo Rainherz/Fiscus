@@ -98,7 +98,7 @@ packages/ingest/src/
   cli.ts         SSI entrypoint
   openDataCli.ts open-data entrypoint
 apps/mobile/src/
-  app/           Expo Router routes: (tabs) index, rankings, categories, search; region; investment/[cui]; category/[fn]
+  app/           Expo Router routes: (tabs) index, rankings, categories, search; region; map; investment/[cui]; category/[fn]
   features/      investments (domain, query specs, port, Supabase + in-memory adapters, hooks),
                  department, home, rankings, regions, categories, search, investment-detail (container + view),
                  share-card (share image: presentation, card, capture and share)
@@ -254,6 +254,50 @@ iOS and Android the PNG goes to the system share sheet through `expo-sharing`. O
 DOM with `html2canvas-pro` (its optional web peer, loaded lazily as a separate chunk), then the page uses
 the Web Share API with the file when `navigator.canShare({ files })` allows it, otherwise it downloads
 `fiscus-<cui>.png`. Card logic is in `features/share-card/shareCardPresentation.ts`.
+
+Mapa (`/map`, `/map?cui=…`): the projects with coordinates (open data `latitude`/`longitude`, about 77 %
+of the rows; the screen says so) in the current scope and level. It opens from "Ver en el mapa →" on home
+and, centered on the project with its card open, from "VER EN EL MAPA" on a project's detail (shown only
+when it has coordinates). It is a stack screen rather than a fifth tab, which did not fit at 320 px.
+Nationwide it frames Peru; with a department it frames approximate department bounds
+(`features/map/mapRequest.ts`).
+
+- One map implementation: `features/map/mapHtml.ts` builds a MapLibre GL JS 5.24.0 page (from unpkg,
+  pinned, with sha384 subresource integrity; the 5.x single-file build inlines its worker, so the hash
+  covers all the code, while 6.x is ESM-only with separately loaded chunks). iOS/Android load it in `react-native-webview` (`source={{ html }}`, included in
+  Expo Go); the web loads it in a sandboxed iframe (`srcDoc`, scripts only). The page only draws and
+  reports; data, labels and states stay in React Native.
+- Bridge (`features/map/mapBridge.ts`): the page sends `ready`, `moved` (bbox + MapLibre zoom on load and
+  `moveend`), `pointPressed`, `mapPressed` and `loadFailed` (MapLibre not loaded, no WebGL, or the style
+  or first tiles failed; the screen then shows its error and "Ver como lista"); the app sends `setData` and `highlight`. Every message
+  from the page is parsed and validated (unknown types, bad numbers, inverted boxes and non-digit CUIs are
+  dropped). On the web only messages from the map's own iframe are read.
+- Requests: 300 ms after the map stops moving, the box is clipped to Peru, rounded outward to 0.01° and
+  sent with the zoom, scope and level to `getMapPoints`. MapLibre zooms count 512-px tiles and
+  `map_points` sizes cells on 256-px tiles, so the request uses `floor(zoom + 1)` (`toTileZoom`), which
+  keeps a cell at 64 px on screen. The previous view stays on screen while
+  the next one loads; a status line over the map says "Cargando…", errors (with "Reintentar"), an empty
+  area, or when only the first 500 projects are shown.
+- Clusters and points are one GeoJSON source with WebGL circle and symbol layers; the app computes the
+  labels and sizes and passes them as feature properties. Cluster labels use the style's own fonts (Noto
+  Sans Bold, served by OpenFreeMap with the tiles, so they load whenever the basemap does) instead of an
+  HTML marker per cluster. Clusters are ink circles with a yellow compact count ("1.2 mil"), sized on a
+  log scale; tapping one eases in by two levels (up to MapLibre zoom 12, where the server sends projects). Points are yellow with an ink outline when the project has a positive valid
+  cost increase, small ink dots otherwise. Tapping a point opens a native card under the map (name, level
+  tag, "+S/ X M · +Y%", "Ver detalle →"); "Ver como lista" goes to Rankings. The map is announced as
+  supplementary.
+- Basemap: OpenFreeMap Positron vector tiles (`https://tiles.openfreemap.org/styles/positron`): free, no
+  key, no request limits. The attribution OpenFreeMap requires ("OpenFreeMap © OpenMapTiles Data from
+  OpenStreetMap") is always visible through MapLibre's attribution control; its links open in the system
+  browser on iOS/Android. The OpenStreetMap tile servers are not used (their policy forbids app traffic).
+- Clustering runs in Postgres: `map_points(min_lat, min_lon, max_lat, max_lon, zoom, level = 'ALL',
+  department = null)` (`supabase/migrations/20261102000000_map_points.sql`, security invoker, stable,
+  executable by anon/authenticated). From zoom 13, or with at most 500 projects in the box, it returns up to
+  500 projects (largest increase first); otherwise grid cells of a quarter tile (`360 / 2^zoom / 4`
+  degrees) with count, centroid, sum of positive valid increases, largest valid percentage and projects
+  with an increase, at most 400 cells. The bbox filter uses `investments_coordinates_idx`. The in-memory
+  adapter applies the same rules (`domain/mapPoints.ts`); the demo rows carry approximate demo
+  coordinates.
 
 ## Daily ingest
 

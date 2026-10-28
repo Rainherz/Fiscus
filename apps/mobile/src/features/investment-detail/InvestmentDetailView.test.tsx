@@ -178,6 +178,24 @@ describe('InvestmentDetailView', () => {
     });
   });
 
+  describe('map link', () => {
+    const located: Investment = { ...full, coordinates: { latitude: -16.35, longitude: -72.15 } };
+
+    it('opens the map on a project with coordinates', async () => {
+      const onOpenMap = jest.fn();
+      await render(<InvestmentDetailView investment={located} now={NOW} onOpenMap={onOpenMap} />);
+      const link = screen.getByRole('link', { name: 'Ver en el mapa' });
+      expect(link).toHaveStyle({ minHeight: 44 });
+      await fireEvent.press(link);
+      expect(onOpenMap).toHaveBeenCalledTimes(1);
+    });
+
+    it('is absent without coordinates', async () => {
+      await render(<InvestmentDetailView investment={{ ...full, coordinates: null }} now={NOW} onOpenMap={jest.fn()} />);
+      expect(screen.queryByRole('link', { name: 'Ver en el mapa' })).toBeNull();
+    });
+  });
+
   describe('without recent spending', () => {
     const stalled: Investment = { ...full, status: 'ACTIVO', executionProgress: 0.32, lastAccrualMonth: '2025-04-01' };
     const SENTENCE = 'Sin gasto registrado desde abr 2025 (18 meses).';

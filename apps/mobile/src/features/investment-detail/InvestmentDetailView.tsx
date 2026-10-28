@@ -36,6 +36,8 @@ interface Props {
   referenceMonth?: string | null;
   /** Opens the share-as-image preview; the button is hidden when absent. */
   onShare?: () => void;
+  /** Opens the map centered on the project; shown only when it has coordinates. */
+  onOpenMap?: () => void;
 }
 
 const DASH = '—';
@@ -85,6 +87,7 @@ export function InvestmentDetailView({
   costHistory,
   referenceMonth = null,
   onShare,
+  onOpenMap,
 }: Props) {
   const invalidCost = hasInvalidUpdatedCost(inv);
   const stalled = stalledStatus(inv, referenceMonth);
@@ -125,17 +128,30 @@ export function InvestmentDetailView({
         <DisplayText size={30} accessibilityRole="header" style={styles.name}>
           {inv.name ?? 'Sin nombre'}
         </DisplayText>
-        {onShare ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Compartir este proyecto como imagen"
-            onPress={onShare}
-            style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}>
-            <MonoText bold size={13}>
-              COMPARTIR
-            </MonoText>
-          </Pressable>
-        ) : null}
+        <View style={styles.actions}>
+          {onShare ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Compartir este proyecto como imagen"
+              onPress={onShare}
+              style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}>
+              <MonoText bold size={13}>
+                COMPARTIR
+              </MonoText>
+            </Pressable>
+          ) : null}
+          {onOpenMap && inv.coordinates ? (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Ver en el mapa"
+              onPress={onOpenMap}
+              style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}>
+              <MonoText bold size={13}>
+                VER EN EL MAPA
+              </MonoText>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.costs}>
@@ -231,6 +247,7 @@ const styles = StyleSheet.create({
   physicalTrack: { height: 12, borderWidth: rule, borderColor: colors.ink, backgroundColor: colors.concrete },
   physicalFill: { height: '100%', backgroundColor: colors.ink },
   name: { lineHeight: 30 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   shareButton: {
     alignSelf: 'flex-start',
     minHeight: minTouch,

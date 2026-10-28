@@ -2,6 +2,7 @@ import type { CostChange, RecentCostIncrease } from '../domain/costChange';
 import type { EntityComparison } from '../domain/entityComparison';
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { FunctionSummary, IngestRun, Investment } from '../domain/investment';
+import type { MapPoints, MapPointsRequest } from '../domain/mapPoints';
 import type { InvestmentQuery } from '../domain/queries';
 import type { RegionComparison, RegionSort } from '../domain/regionComparison';
 import type { StalledInvestment } from '../domain/stalled';
@@ -46,4 +47,6 @@ export interface InvestmentsRepository {
     page: number;
     pageSize?: number;
   }): Promise<EntityComparison[]>;
+  /** The map view: grid clusters or up to 500 projects with coordinates (see domain/mapPoints). */
+  getMapPoints(request: MapPointsRequest): Promise<MapPoints>;
 }

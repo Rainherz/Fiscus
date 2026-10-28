@@ -107,6 +107,27 @@ describe('HomeView', () => {
     expect(onPressCompare).toHaveBeenCalled();
   });
 
+  it('links to the map, with or without increases', async () => {
+    const onPressMap = jest.fn();
+    const { rerender } = await render(
+      <HomeView
+        hero={majes}
+        ranking={arequipa.slice(1)}
+        now={NOW}
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        onPressMap={onPressMap}
+      />,
+    );
+    expect(screen.getByText('Ver en el mapa →')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('link', { name: 'Ver en el mapa' }));
+    expect(onPressMap).toHaveBeenCalledTimes(1);
+    await rerender(
+      <HomeView hero={null} ranking={[]} now={NOW} onPressInvestment={jest.fn()} onPressSeeAll={jest.fn()} onPressMap={onPressMap} />,
+    );
+    expect(screen.getByRole('link', { name: 'Ver en el mapa' })).toBeOnTheScreen();
+  });
+
   it('says so when the region has no cost increases', async () => {
     await render(
       <HomeView hero={null} ranking={[]} now={NOW} onPressInvestment={() => {}} onPressSeeAll={() => {}} />,

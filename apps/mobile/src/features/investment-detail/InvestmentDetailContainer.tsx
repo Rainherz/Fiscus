@@ -40,6 +40,7 @@ export function InvestmentDetailContainer() {
             referenceMonth={referenceMonth.data ?? null}
             costHistory={<CostHistoryContainer cui={cui} />}
             onShare={() => setSharing(true)}
+            onOpenMap={() => router.push({ pathname: '/map', params: { cui } })}
           />
           {sharing ? (
             <ShareCardContainer

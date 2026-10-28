@@ -325,4 +325,26 @@ describe('in-memory government levels', () => {
     expect(await levels.getEntityComparison({ sort: 'overspent', page: 0 })).toEqual([]);
     expect(await levels.getEntityComparison({ sort: 'increase-amount', page: 1, pageSize: 2 })).toHaveLength(1);
   });
+
+  it('returns the map points of the rows with coordinates in the scope', async () => {
+    const located = createInMemoryInvestmentsRepository({
+      rows: [
+        sampleRow({ cui: '1', viable: 100, updated: 2_000, coordinates: { latitude: -16.4, longitude: -71.5 } }),
+        sampleRow({ cui: '2', level: 'GL', departmentCode: 8, coordinates: { latitude: -13.5, longitude: -72 } }),
+        sampleRow({ cui: '3' }),
+      ],
+      lastRun: null,
+    });
+    const bbox = { minLat: -19, minLon: -82, maxLat: 0, maxLon: -68 };
+
+    const all = await located.getMapPoints({ bbox, zoom: 5, level: 'ALL' });
+    const arequipa = await located.getMapPoints({ bbox, zoom: 5, level: 'ALL', departmentCode: 4 });
+
+    expect(all.kind === 'points' && all.points.map((p) => p.cui)).toEqual(['1', '2']);
+    expect(arequipa).toEqual({
+      kind: 'points',
+      points: [expect.objectContaining({ cui: '1', latitude: -16.4, longitude: -71.5, costIncrease: 1_900 })],
+    });
+  });
 });
+

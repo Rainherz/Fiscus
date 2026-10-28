@@ -1,7 +1,8 @@
 import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChange';
 import type { EntityComparison } from './entityComparison';
 import { isGovernmentLevel } from './governmentLevel';
-import type { FunctionSummary, IngestRun, Investment } from './investment';
+import type { Coordinates, FunctionSummary, IngestRun, Investment } from './investment';
+import type { MapPoints } from './mapPoints';
 import type { RegionComparison } from './regionComparison';
 import type { StalledInvestment } from './stalled';
 
@@ -41,7 +42,7 @@ export interface InvestmentRow {
   province?: Text;
   district?: Text;
   data_source?: Text;
-  /** Stored (open data) but not read by the app; the demo rows carry them. */
+  /** Open data; null when MEF has none or an invalid one. Not in stalled_investments_by_level. */
   latitude?: Numeric;
   longitude?: Numeric;
 }
@@ -53,7 +54,7 @@ const SHARED_COLUMNS =
   'updated_cost_valid,accrued_total,cost_increase,cost_increase_pct,execution_progress,department_code,' +
   'department_name,source_updated_at,spent_anomaly,government_level,physical_progress';
 
-export const INVESTMENT_COLUMNS = `${SHARED_COLUMNS},executing_unit,province,district,data_source`;
+export const INVESTMENT_COLUMNS = `${SHARED_COLUMNS},executing_unit,province,district,data_source,latitude,longitude`;
 
 /** Row shape of the `stalled_investments_by_level` view. */
 export interface StalledInvestmentRow extends InvestmentRow {
@@ -116,6 +117,70 @@ export function mapInvestmentRow(row: InvestmentRow): Investment {
     district: toText(row.district),
     physicalProgress: toNumber(row.physical_progress),
     dataSource: row.data_source === 'open_data' ? 'open_data' : 'ssi',
+    coordinates: toCoordinates(row.latitude, row.longitude),
+  };
+}
+
+function toCoordinates(latitude: Numeric, longitude: Numeric): Coordinates | null {
+  const lat = toNumber(latitude);
+  const lon = toNumber(longitude);
+  return lat === null || lon === null ? null : { latitude: lat, longitude: lon };
+}
+
+/** Row shape of the `map_points` function (see its migration): a project or a grid cluster. */
+export interface MapPointRow {
+  kind: Text;
+  cui: Text;
+  name: Text;
+  latitude: Numeric;
+  longitude: Numeric;
+  point_count: Numeric;
+  government_level: Text;
+  cost_increase: Numeric;
+  cost_increase_pct: Numeric;
+  updated_cost_valid: boolean | null | undefined;
+  total_cost_increase: Numeric;
+  max_cost_increase_pct: Numeric;
+  increased_count: Numeric;
+}
+
+/** Clusters when the function returned clusters (it never mixes kinds); points otherwise. */
+export function mapMapPointRows(rows: MapPointRow[]): MapPoints {
+  const located = rows.flatMap((row) => {
+    const at = toCoordinates(row.latitude, row.longitude);
+    return at ? [{ row, at }] : [];
+  });
+  if (rows.some((row) => row.kind === 'cluster')) {
+    return {
+      kind: 'clusters',
+      clusters: located
+        .filter(({ row }) => row.kind === 'cluster')
+        .map(({ row, at }) => ({
+          ...at,
+          count: toNumber(row.point_count) ?? 0,
+          totalCostIncrease: toNumber(row.total_cost_increase) ?? 0,
+          maxCostIncreasePct: toNumber(row.max_cost_increase_pct),
+          increasedCount: toNumber(row.increased_count) ?? 0,
+        })),
+    };
+  }
+  return {
+    kind: 'points',
+    points: located.flatMap(({ row, at }) =>
+      row.cui
+        ? [
+            {
+              cui: row.cui,
+              name: toText(row.name),
+              ...at,
+              governmentLevel: isGovernmentLevel(row.government_level) ? row.government_level : null,
+              costIncrease: toNumber(row.cost_increase),
+              costIncreasePct: toNumber(row.cost_increase_pct),
+              updatedCostValid: row.updated_cost_valid === true,
+            },
+          ]
+        : [],
+    ),
   };
 }
 

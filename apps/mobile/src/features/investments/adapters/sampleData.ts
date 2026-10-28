@@ -341,13 +341,41 @@ export const LEVELS_DEMO_SAMPLE: InvestmentRow[] = [
   }),
 ];
 
+/**
+ * DEMO ONLY, not MEF data: approximate map positions (city or district level) so the demo mode can
+ * show the map. The SSI records carry no coordinates in the source. Left out on purpose: the
+ * multi-region national project and one unverified record, as projects without coordinates.
+ */
+const DEMO_COORDINATES: Record<string, [latitude: number, longitude: number]> = {
+  '2088142': [-16.35, -72.15],
+  '2178454': [-16.42, -71.63],
+  '2233862': [-16.48, -71.78],
+  '2322531': [-16.36, -71.57],
+  '2331873': [-16.3, -71.6],
+  '2094808': [-13.53, -71.97],
+  '2045951': [-16.45, -71.49],
+  '2057689': [-16.41, -71.52],
+  '9900001': [-16.44, -71.58],
+  '9900002': [-15.84, -72.42],
+  '9900003': [-16.39, -71.54],
+  '9900004': [-16.62, -72.71],
+  '9900102': [-16.4, -71.54],
+  '9900202': [-16.37, -71.54],
+  '9900203': [-13.55, -71.89],
+};
+
+function withDemoCoordinates(row: InvestmentRow): InvestmentRow {
+  const demo = DEMO_COORDINATES[row.cui];
+  return demo && row.latitude === null ? { ...row, latitude: demo[0], longitude: demo[1] } : row;
+}
+
 /** Rows behind the demo mode (EXPO_PUBLIC_USE_MOCK=1). */
 export const MOCK_ROWS: InvestmentRow[] = [
   ...AREQUIPA_SAMPLE,
   ...EDGE_CASE_SAMPLE,
   ...STALLED_DEMO_SAMPLE,
   ...LEVELS_DEMO_SAMPLE,
-];
+].map(withDemoCoordinates);
 
 type Amount = number | string | null | undefined;
 const amount = (value: Amount): number | null => (value === null || value === undefined ? null : Number(value));
