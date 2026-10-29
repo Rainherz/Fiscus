@@ -19,6 +19,7 @@ export class InMemoryOpenDataRepository implements OpenDataRepository {
   readonly investments = new Map<string, OpenDataInvestment>();
   readonly snapshots = new Map<string, SourceSnapshot>();
   readonly upsertBatchSizes: number[] = [];
+  readonly checks: Array<{ source: string; checkedAt: string }> = [];
   failOnCall: number | null = null;
 
   async getSnapshot(source: string): Promise<SourceSnapshot | null> {
@@ -43,6 +44,12 @@ export class InMemoryOpenDataRepository implements OpenDataRepository {
 
   async recordSnapshot(snapshot: SourceSnapshot): Promise<void> {
     this.snapshots.set(snapshot.source, snapshot);
+  }
+
+  async markChecked(source: string, checkedAt: string): Promise<void> {
+    this.checks.push({ source, checkedAt });
+    const snapshot = this.snapshots.get(source);
+    if (snapshot) this.snapshots.set(source, { ...snapshot, checkedAt });
   }
 }
 

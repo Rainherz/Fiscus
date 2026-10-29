@@ -37,8 +37,22 @@ describe("runOpenDataIngest", () => {
       lastModified: FILE.lastModified,
       contentLength: FILE.contentLength,
       ingestedAt: NOW.toISOString(),
+      checkedAt: NOW.toISOString(),
       rowsUpserted: 2,
     });
+  });
+
+  it("records the end of the run as the check time", async () => {
+    const { source, repository } = setup([row("1")]);
+    const times = [new Date("2026-10-26T10:00:00.000Z"), new Date("2026-10-26T10:07:00.000Z")];
+
+    const summary = await runOpenDataIngest({ source, repository, now: () => times.shift() ?? NOW, log: silent });
+
+    expect(repository.snapshots.get(OPEN_DATA_SOURCE)).toMatchObject({
+      ingestedAt: "2026-10-26T10:00:00.000Z",
+      checkedAt: "2026-10-26T10:07:00.000Z",
+    });
+    expect(summary.checkedAt).toBe("2026-10-26T10:07:00.000Z");
   });
 
   describe("unchanged rows", () => {
@@ -88,6 +102,7 @@ describe("runOpenDataIngest", () => {
         lastModified: "2026-10-25T18:31:25+00:00",
         contentLength: FILE.contentLength,
         ingestedAt: "2026-10-25T20:00:00Z",
+        checkedAt: "2026-10-25T20:00:00Z",
         rowsUpserted: 9,
       });
 
@@ -99,9 +114,29 @@ describe("runOpenDataIngest", () => {
       expect(repository.snapshots.get(OPEN_DATA_SOURCE)?.rowsUpserted).toBe(9);
     });
 
+    it("marks the unchanged file as checked, keeping the last ingest time", async () => {
+      const { source, repository } = setup([row("1")]);
+      await repository.recordSnapshot({
+        source: OPEN_DATA_SOURCE,
+        ...FILE,
+        ingestedAt: "2026-10-25T20:00:00.000Z",
+        checkedAt: "2026-10-25T20:00:00.000Z",
+        rowsUpserted: 9,
+      });
+
+      const summary = await runOpenDataIngest({ source, repository, now: () => NOW, log: silent });
+
+      expect(summary).toMatchObject({ skipped: true, checkedAt: NOW.toISOString() });
+      expect(repository.checks).toEqual([{ source: OPEN_DATA_SOURCE, checkedAt: NOW.toISOString() }]);
+      expect(repository.snapshots.get(OPEN_DATA_SOURCE)).toMatchObject({
+        ingestedAt: "2026-10-25T20:00:00.000Z",
+        checkedAt: NOW.toISOString(),
+      });
+    });
+
     it("ingests when forced even if unchanged", async () => {
       const { source, repository } = setup([row("1")]);
-      await repository.recordSnapshot({ source: OPEN_DATA_SOURCE, ...FILE, ingestedAt: "x", rowsUpserted: 9 });
+      await repository.recordSnapshot({ source: OPEN_DATA_SOURCE, ...FILE, ingestedAt: "x", checkedAt: "x", rowsUpserted: 9 });
 
       const summary = await runOpenDataIngest({ source, repository, force: true, now: () => NOW, log: silent });
 
@@ -116,6 +151,7 @@ describe("runOpenDataIngest", () => {
         lastModified: "2026-10-20T00:00:00.000Z",
         contentLength: FILE.contentLength,
         ingestedAt: "x",
+        checkedAt: "x",
         rowsUpserted: 9,
       });
 
@@ -124,7 +160,7 @@ describe("runOpenDataIngest", () => {
 
     it("ingests when Content-Length changed", async () => {
       const { source, repository } = setup([row("1")]);
-      await repository.recordSnapshot({ source: OPEN_DATA_SOURCE, ...FILE, contentLength: 1, ingestedAt: "x", rowsUpserted: 9 });
+      await repository.recordSnapshot({ source: OPEN_DATA_SOURCE, ...FILE, contentLength: 1, ingestedAt: "x", checkedAt: "x", rowsUpserted: 9 });
 
       expect((await runOpenDataIngest({ source, repository, now: () => NOW, log: silent })).skipped).toBe(false);
     });
@@ -132,7 +168,7 @@ describe("runOpenDataIngest", () => {
     it("never skips when the server sends no Last-Modified", async () => {
       const file: OpenDataFileInfo = { lastModified: null, contentLength: FILE.contentLength };
       const { source, repository } = setup([row("1")], file);
-      await repository.recordSnapshot({ source: OPEN_DATA_SOURCE, ...file, ingestedAt: "x", rowsUpserted: 9 });
+      await repository.recordSnapshot({ source: OPEN_DATA_SOURCE, ...file, ingestedAt: "x", checkedAt: "x", rowsUpserted: 9 });
 
       expect((await runOpenDataIngest({ source, repository, now: () => NOW, log: silent })).skipped).toBe(false);
     });
@@ -198,6 +234,7 @@ describe("runOpenDataIngest", () => {
       expect(summary).toMatchObject({ rowsRead: 4, rowsUpserted: 4, snapshotRecorded: false });
       expect(source.recordsYielded).toBe(4);
       expect(repository.snapshots.size).toBe(0);
+      expect(repository.checks).toEqual([]);
     });
   });
 
@@ -210,6 +247,7 @@ describe("runOpenDataIngest", () => {
       runOpenDataIngest({ source, repository, chunkSize: 2, now: () => NOW, log: silent }),
     ).rejects.toThrow("db unavailable");
     expect(repository.snapshots.size).toBe(0);
+    expect(repository.checks).toEqual([]);
   });
 
   it("reports counts by level, coordinates, department and physical progress over distinct CUIs", async () => {

@@ -95,6 +95,8 @@ class FakeClient implements OpenDataClient {
   readonly rpcCalls: Array<{ fn: string; rows: unknown[] }> = [];
   readonly upserts: Array<{ table: string; rows: unknown[]; options?: unknown }> = [];
   readonly selects: Array<{ table: string; column: string; value: string }> = [];
+  readonly updates: Array<{ table: string; values: object; column: string; value: string }> = [];
+  updateError: string | null = null;
   snapshotRow: Record<string, unknown> | null = null;
   rpcError: string | null = null;
 
@@ -121,6 +123,12 @@ class FakeClient implements OpenDataClient {
         this.upserts.push({ table, rows, options });
         return { error: null };
       },
+      update: (values: object) => ({
+        eq: async (column: string, value: string) => {
+          this.updates.push({ table, values, column, value });
+          return { error: this.updateError ? { message: this.updateError } : null };
+        },
+      }),
     };
   }
 }
@@ -166,6 +174,7 @@ describe("SupabaseOpenDataRepository", () => {
       last_modified: "2026-10-25T18:31:25+00:00",
       content_length: 247423895,
       ingested_at: "2026-10-26T10:00:00+00:00",
+      checked_at: "2026-10-28T10:00:00+00:00",
       rows_upserted: 150290,
     };
 
@@ -174,6 +183,7 @@ describe("SupabaseOpenDataRepository", () => {
       lastModified: "2026-10-25T18:31:25+00:00",
       contentLength: 247423895,
       ingestedAt: "2026-10-26T10:00:00+00:00",
+      checkedAt: "2026-10-28T10:00:00+00:00",
       rowsUpserted: 150290,
     });
     expect(client.selects).toEqual([{ table: "source_snapshots", column: "source", value: "mef_detalle_inversiones" }]);
@@ -190,6 +200,7 @@ describe("SupabaseOpenDataRepository", () => {
       lastModified: "2026-10-25T18:31:25.000Z",
       contentLength: 247423895,
       ingestedAt: "2026-10-26T10:00:00.000Z",
+      checkedAt: "2026-10-26T10:07:00.000Z",
       rowsUpserted: 150290,
     });
 
@@ -202,6 +213,7 @@ describe("SupabaseOpenDataRepository", () => {
             last_modified: "2026-10-25T18:31:25.000Z",
             content_length: 247423895,
             ingested_at: "2026-10-26T10:00:00.000Z",
+            checked_at: "2026-10-26T10:07:00.000Z",
             rows_upserted: 150290,
           },
         ],
@@ -211,12 +223,48 @@ describe("SupabaseOpenDataRepository", () => {
   });
 });
 
+describe("SupabaseOpenDataRepository.markChecked", () => {
+  it("updates only checked_at of the source's snapshot", async () => {
+    const client = new FakeClient();
+    await new SupabaseOpenDataRepository(client).markChecked("mef_detalle_inversiones", "2026-10-28T10:00:00.000Z");
+
+    expect(client.updates).toEqual([
+      {
+        table: "source_snapshots",
+        values: { checked_at: "2026-10-28T10:00:00.000Z" },
+        column: "source",
+        value: "mef_detalle_inversiones",
+      },
+    ]);
+  });
+
+  it("throws with the database message when the update fails", async () => {
+    const client = new FakeClient();
+    client.updateError = "permission denied";
+    await expect(new SupabaseOpenDataRepository(client).markChecked("x", "t")).rejects.toThrow(/permission denied/);
+  });
+
+  it("falls back to the ingest time when an older row has no check time", async () => {
+    const client = new FakeClient();
+    client.snapshotRow = { source: "x", last_modified: null, content_length: null, ingested_at: "t", rows_upserted: 1 };
+    await expect(new SupabaseOpenDataRepository(client).getSnapshot("x")).resolves.toMatchObject({ checkedAt: "t" });
+  });
+});
+
 describe("DryRunOpenDataRepository", () => {
   it("never reports a snapshot and counts rows without writing anywhere", async () => {
     const repository = new DryRunOpenDataRepository();
     await expect(repository.getSnapshot("x")).resolves.toBeNull();
     await expect(repository.upsertOpenDataInvestments([investment("1")])).resolves.toBe(1);
-    await repository.recordSnapshot({ source: "x", lastModified: null, contentLength: null, ingestedAt: "t", rowsUpserted: 1 });
+    await repository.recordSnapshot({
+      source: "x",
+      lastModified: null,
+      contentLength: null,
+      ingestedAt: "t",
+      checkedAt: "t",
+      rowsUpserted: 1,
+    });
+    await repository.markChecked("x", "t");
   });
 
   it("appends the exact rows it would send as NDJSON when given a file", async () => {

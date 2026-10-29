@@ -27,4 +27,6 @@ export class DryRunOpenDataRepository implements OpenDataRepository {
   }
 
   async recordSnapshot(_snapshot: SourceSnapshot): Promise<void> {}
+
+  async markChecked(_source: string, _checkedAt: string): Promise<void> {}
 }
