@@ -9,17 +9,27 @@ import type { OpenDataFileInfo, OpenDataSource } from "../ports/OpenDataSource.j
 export const MEF_OPEN_DATA_URL =
   "https://fs.datosabiertos.mef.gob.pe/datastorefiles/DETALLE_INVERSIONES.csv";
 
-/** Free-text column with about 37% of the file's bytes; never needed, so never kept. */
-const DROPPED_COLUMNS = new Set(["ALTERNATIVA"]);
+/** Every closed investment (GN, GR, GL), ~120 MB; same host and format as the active file. */
+export const MEF_CLOSED_DATA_URL =
+  "https://fs.datosabiertos.mef.gob.pe/datastorefiles/CIERRE_INVERSIONES.csv";
+
+/** Free-text column with about 37% of the active file's bytes; never needed, so never kept. */
+const OPEN_DATA_DROPPED_COLUMNS: ReadonlySet<string> = new Set(["ALTERNATIVA"]);
+
+/** RESPONSABLE_UEI is a person's name: it never leaves the parser. */
+export const CLOSED_DATA_DROPPED_COLUMNS: ReadonlySet<string> = new Set(["RESPONSABLE_UEI"]);
 
 /**
  * Streams a MEF open-data CSV (UTF-8 with BOM, every field quoted, header row) as records keyed
  * by header. Dropped columns are discarded by the parser itself.
  */
-export function parseOpenDataCsv(input: Readable): AsyncIterable<OpenDataCsvRecord> {
+export function parseOpenDataCsv(
+  input: Readable,
+  dropped: ReadonlySet<string> = OPEN_DATA_DROPPED_COLUMNS,
+): AsyncIterable<OpenDataCsvRecord> {
   const parser = parse({
     bom: true,
-    columns: (header: string[]) => header.map((name) => (DROPPED_COLUMNS.has(name) ? false : name)),
+    columns: (header: string[]) => header.map((name) => (dropped.has(name) ? false : name)),
     skip_empty_lines: true,
   });
   input.on("error", (error) => parser.destroy(error));
@@ -32,6 +42,8 @@ export interface OpenDataCsvSourceOptions {
   fetch?: typeof fetch;
   /** Cap for the whole download. The file is ~250 MB; GitHub runners fetch it in ~15 s. */
   downloadTimeoutMs?: number;
+  /** Columns the parser discards. Defaults to the active file's (ALTERNATIVA). */
+  droppedColumns?: ReadonlySet<string>;
 }
 
 function isHttp(location: string): boolean {
@@ -53,11 +65,13 @@ export class OpenDataCsvSource implements OpenDataSource {
   private readonly location: string;
   private readonly fetchImpl: typeof fetch;
   private readonly downloadTimeoutMs: number;
+  private readonly droppedColumns: ReadonlySet<string>;
 
   constructor(options: OpenDataCsvSourceOptions = {}) {
     this.location = options.location ?? MEF_OPEN_DATA_URL;
     this.fetchImpl = options.fetch ?? globalThis.fetch;
     this.downloadTimeoutMs = options.downloadTimeoutMs ?? 15 * 60_000;
+    this.droppedColumns = options.droppedColumns ?? OPEN_DATA_DROPPED_COLUMNS;
   }
 
   async describe(): Promise<OpenDataFileInfo> {
@@ -77,7 +91,7 @@ export class OpenDataCsvSource implements OpenDataSource {
   }
 
   async *records(): AsyncIterable<OpenDataCsvRecord> {
-    yield* parseOpenDataCsv(await this.open());
+    yield* parseOpenDataCsv(await this.open(), this.droppedColumns);
   }
 
   private async open(): Promise<Readable> {
@@ -91,4 +105,13 @@ export class OpenDataCsvSource implements OpenDataSource {
     }
     return Readable.fromWeb(response.body as unknown as WebReadableStream<Uint8Array>);
   }
+}
+
+/** The closed-investments file: its URL by default, and RESPONSABLE_UEI dropped while parsing. */
+export function closedDataSource(options: Omit<OpenDataCsvSourceOptions, "droppedColumns"> = {}): OpenDataCsvSource {
+  return new OpenDataCsvSource({
+    ...options,
+    location: options.location ?? MEF_CLOSED_DATA_URL,
+    droppedColumns: CLOSED_DATA_DROPPED_COLUMNS,
+  });
 }

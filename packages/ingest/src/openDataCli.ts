@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
 import { DryRunOpenDataRepository } from "./adapters/DryRunOpenDataRepository.js";
-import { OpenDataCsvSource } from "./adapters/OpenDataCsvSource.js";
+import { OpenDataCsvSource, closedDataSource } from "./adapters/OpenDataCsvSource.js";
 import { SupabaseOpenDataRepository } from "./adapters/SupabaseOpenDataRepository.js";
+import { runClosedDataIngest } from "./application/runClosedDataIngest.js";
 import { runOpenDataIngest } from "./application/runOpenDataIngest.js";
 import { parseOpenDataCliConfig } from "./openDataCliConfig.js";
 import type { OpenDataRepository } from "./ports/OpenDataRepository.js";
@@ -16,22 +17,30 @@ async function main(): Promise<number> {
       : SupabaseOpenDataRepository.fromCredentials(config.supabaseUrl, config.serviceRoleKey);
 
   console.log(
-    `open-data ingest start: mode=${config.mode} source=${config.source}` +
+    `open-data ingest start: dataset=${config.dataset} mode=${config.mode} source=${config.source}` +
       (config.force ? " force" : "") +
       (config.limit !== undefined ? ` limit=${config.limit}` : "") +
       (outputFile ? ` out=${outputFile}` : ""),
   );
 
   const started = Date.now();
-  const summary = await runOpenDataIngest({
-    source: new OpenDataCsvSource({ location: config.source }),
-    repository,
-    force: config.force,
-    limit: config.limit,
-  });
+  const input = { repository, force: config.force, limit: config.limit };
+  const summary =
+    config.dataset === "closed"
+      ? await runClosedDataIngest({ ...input, source: closedDataSource({ location: config.source }) })
+      : await runOpenDataIngest({ ...input, source: new OpenDataCsvSource({ location: config.source }) });
 
   console.log(
-    JSON.stringify({ ...summary, seconds: Math.round((Date.now() - started) / 100) / 10 }, null, 2),
+    JSON.stringify(
+      {
+        dataset: config.dataset,
+        ...summary,
+        seconds: Math.round((Date.now() - started) / 100) / 10,
+        peakRssMb: Math.round(process.resourceUsage().maxRSS / 1024),
+      },
+      null,
+      2,
+    ),
   );
   return 0;
 }

@@ -6,13 +6,18 @@ import { describe, expect, it } from "vitest";
 import { DryRunOpenDataRepository } from "../../src/adapters/DryRunOpenDataRepository.js";
 import {
   SupabaseOpenDataRepository,
+  toClosedDataRow,
   toOpenDataRow,
   type OpenDataClient,
 } from "../../src/adapters/SupabaseOpenDataRepository.js";
+import { mapClosedDataRecord, type ClosedInvestment } from "../../src/domain/closedData.js";
 import { mapOpenDataRecord, type OpenDataInvestment } from "../../src/domain/openData.js";
 
 const MIGRATION = fileURLToPath(
   new URL("../../../../supabase/migrations/20261031000000_open_data_investments.sql", import.meta.url),
+);
+const CLOSED_MIGRATION = fileURLToPath(
+  new URL("../../../../supabase/migrations/20261106000000_closed_investments.sql", import.meta.url),
 );
 
 function investment(cui: string): OpenDataInvestment {
@@ -37,9 +42,37 @@ function investment(cui: string): OpenDataInvestment {
   return mapped;
 }
 
-/** Column list of jsonb_to_recordset(...) as r (...) in the migration: the database whitelist. */
-async function functionColumns(): Promise<string[]> {
-  const sql = await readFile(MIGRATION, "utf8");
+function closedInvestment(cui: string): ClosedInvestment {
+  const mapped = mapClosedDataRecord(
+    {
+      CODIGO_UNICO: cui,
+      NIVEL: "GN",
+      ESTADO: "CERRADO",
+      RESPONSABLE_UEI: "JUAN PEREZ",
+      MONTO_VIABLE: "1000.0",
+      COSTO_ACTUALIZADO: "2000.0",
+      DEVEN_ACUMULADO: "1500.5",
+      UBIGEO: "150101",
+      FEC_CIERRE: "2024-05-02 10:00:00",
+      DES_CIERRE: "Sí, con liquidación",
+      TOTAL_LIQUIDACION: "1900.0",
+      CULMINADA: "SÍ",
+    },
+    { sourceUpdatedAt: "2026-10-27T18:12:19.000Z", runAt: "2026-10-28T10:05:00.000Z" },
+  );
+  if (!mapped) throw new Error("fixture must have a CUI");
+  return mapped;
+}
+
+/**
+ * Column list of jsonb_to_recordset(...) as r (...) of a function in a migration: the database
+ * whitelist. The first definition after `create [or replace] function public.<name>`.
+ */
+async function functionColumns(file = MIGRATION, name = "upsert_open_data_investments"): Promise<string[]> {
+  const all = await readFile(file, "utf8");
+  const start = all.search(new RegExp(String.raw`create (or replace )?function public\.${name}\(`));
+  if (start < 0) throw new Error(`${name} not found in the migration`);
+  const sql = all.slice(start);
   const match = /jsonb_to_recordset\(rows\) as r \(([\s\S]*?)\n  \)/.exec(sql);
   if (!match) throw new Error("recordset definition not found in the migration");
   return match[1]!
@@ -59,6 +92,12 @@ const GENERATED_COLUMNS = [
 describe("toOpenDataRow", () => {
   it("sends exactly the columns upsert_open_data_investments accepts", async () => {
     expect(Object.keys(toOpenDataRow(investment("1"))).sort()).toEqual((await functionColumns()).sort());
+  });
+
+  it("matches the latest definition of the function too", async () => {
+    expect(Object.keys(toOpenDataRow(investment("1"))).sort()).toEqual(
+      (await functionColumns(CLOSED_MIGRATION, "upsert_open_data_investments")).sort(),
+    );
   });
 
   it("never sends generated columns, data_source or ALTERNATIVA", () => {
@@ -87,6 +126,49 @@ describe("toOpenDataRow", () => {
       longitude: -71.9,
       source_updated_at: "2026-10-25T18:31:25.000Z",
       open_data_updated_at: "2026-10-26T10:00:00.000Z",
+    });
+  });
+});
+
+describe("toClosedDataRow", () => {
+  it("sends exactly the columns upsert_closed_investments accepts", async () => {
+    expect(Object.keys(toClosedDataRow(closedInvestment("1"))).sort()).toEqual(
+      (await functionColumns(CLOSED_MIGRATION, "upsert_closed_investments")).sort(),
+    );
+  });
+
+  it("never sends RESPONSABLE_UEI, generated columns, data_source or columns the file lacks", () => {
+    const row = toClosedDataRow(closedInvestment("1"));
+    for (const column of [
+      ...GENERATED_COLUMNS,
+      "data_source",
+      "responsable_uei",
+      "pim",
+      "pim_year",
+      "accrued_year",
+      "physical_progress",
+      "pending_balance",
+    ]) {
+      expect(row).not.toHaveProperty(column);
+    }
+    expect(JSON.stringify(row)).not.toContain("JUAN PEREZ");
+  });
+
+  it("maps to snake_case values", () => {
+    expect(toClosedDataRow(closedInvestment("1"))).toMatchObject({
+      cui: "1",
+      government_level: "GN",
+      status: "CERRADO",
+      viable_amount: 1000,
+      updated_cost: 2000,
+      accrued_total: 1500.5,
+      department_code: 15,
+      closed_at: "2024-05-02",
+      closure_description: "Sí, con liquidación",
+      liquidation_amount: 1900,
+      culminated: true,
+      source_updated_at: "2026-10-27T18:12:19.000Z",
+      open_data_updated_at: "2026-10-28T10:05:00.000Z",
     });
   });
 });
@@ -143,6 +225,21 @@ describe("SupabaseOpenDataRepository", () => {
     expect(client.rpcCalls).toHaveLength(1);
     expect(client.rpcCalls[0]!.fn).toBe("upsert_open_data_investments");
     expect(client.rpcCalls[0]!.rows).toEqual([toOpenDataRow(investment("1")), toOpenDataRow(investment("2"))]);
+  });
+
+  it("calls upsert_closed_investments with whitelisted closed rows", async () => {
+    const client = new FakeClient();
+    client.rpcWritten = 1;
+
+    await expect(new SupabaseOpenDataRepository(client).upsertClosedInvestments([closedInvestment("7")])).resolves.toBe(1);
+
+    expect(client.rpcCalls).toEqual([{ fn: "upsert_closed_investments", rows: [toClosedDataRow(closedInvestment("7"))] }]);
+  });
+
+  it("does not call the database for an empty closed batch", async () => {
+    const client = new FakeClient();
+    await expect(new SupabaseOpenDataRepository(client).upsertClosedInvestments([])).resolves.toBe(0);
+    expect(client.rpcCalls).toHaveLength(0);
   });
 
   it("returns the number of rows the function actually wrote", async () => {
@@ -276,5 +373,15 @@ describe("DryRunOpenDataRepository", () => {
 
     const lines = (await readFile(file, "utf8")).trim().split("\n");
     expect(lines.map((line) => JSON.parse(line))).toEqual([toOpenDataRow(investment("1")), toOpenDataRow(investment("2"))]);
+  });
+
+  it("writes closed rows in the closed function's shape", async () => {
+    const file = join(await mkdtemp(join(tmpdir(), "fiscus-od-")), "closed.ndjson");
+    const repository = new DryRunOpenDataRepository(file);
+
+    await expect(repository.upsertClosedInvestments([closedInvestment("3")])).resolves.toBe(1);
+
+    const lines = (await readFile(file, "utf8")).trim().split("\n");
+    expect(lines.map((line) => JSON.parse(line))).toEqual([toClosedDataRow(closedInvestment("3"))]);
   });
 });

@@ -4,13 +4,16 @@ import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import {
+  MEF_CLOSED_DATA_URL,
   MEF_OPEN_DATA_URL,
   OpenDataCsvSource,
+  closedDataSource,
   parseOpenDataCsv,
 } from "../../src/adapters/OpenDataCsvSource.js";
 import type { OpenDataCsvRecord } from "../../src/domain/openData.js";
 
 const FIXTURE = fileURLToPath(new URL("../fixtures/open-data-sample.csv", import.meta.url));
+const CLOSED_FIXTURE = fileURLToPath(new URL("../fixtures/closed-data-sample.csv", import.meta.url));
 
 async function collect(records: AsyncIterable<OpenDataCsvRecord>): Promise<OpenDataCsvRecord[]> {
   const all: OpenDataCsvRecord[] = [];
@@ -128,5 +131,37 @@ describe("OpenDataCsvSource over a local file", () => {
   it("streams the file", async () => {
     const records = await collect(new OpenDataCsvSource({ location: FIXTURE }).records());
     expect(records).toHaveLength(30);
+  });
+});
+
+describe("closed investments file (CIERRE_INVERSIONES.csv)", () => {
+  it("has its own MEF URL on the same host", () => {
+    expect(MEF_CLOSED_DATA_URL).toBe("https://fs.datosabiertos.mef.gob.pe/datastorefiles/CIERRE_INVERSIONES.csv");
+  });
+
+  it("closedDataSource defaults to that URL and drops RESPONSABLE_UEI", async () => {
+    const { impl, calls } = fakeFetch(
+      () =>
+        new Response("﻿\"NIVEL\",\"CODIGO_UNICO\",\"RESPONSABLE_UEI\"\r\n\"GL\",\"5\",\"JUAN PEREZ\"\r\n", { status: 200 }),
+    );
+    const records = await collect(closedDataSource({ fetch: impl }).records());
+
+    expect(records).toEqual([{ NIVEL: "GL", CODIGO_UNICO: "5" }]);
+    expect(calls).toEqual([{ url: MEF_CLOSED_DATA_URL, method: "GET" }]);
+  });
+
+  it("streams the committed fixture without RESPONSABLE_UEI", async () => {
+    const records = await collect(closedDataSource({ location: CLOSED_FIXTURE }).records());
+
+    expect(records).toHaveLength(29);
+    expect(records.every((r) => !("RESPONSABLE_UEI" in r))).toBe(true);
+    expect(JSON.stringify(records)).not.toContain("PERSONA DE PRUEBA");
+    expect(records[0]).toMatchObject({ NIVEL: "GL", CODIGO_UNICO: "2100997", ESTADO: "CERRADO", CULMINADA: "SÍ" });
+  });
+
+  it("drops only the columns it is told to", async () => {
+    const csv = "﻿\"A\",\"B\",\"C\"\r\n\"1\",\"2\",\"3\"\r\n";
+    const records = await collect(parseOpenDataCsv(Readable.from([csv]), new Set(["B"])));
+    expect(records).toEqual([{ A: "1", C: "3" }]);
   });
 });

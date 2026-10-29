@@ -1,3 +1,4 @@
+import type { ClosedInvestment } from "../domain/closedData.js";
 import type { OpenDataInvestment } from "../domain/openData.js";
 
 /** The last successful ingest of an external file. */
@@ -20,6 +21,11 @@ export interface OpenDataRepository {
    * (rows whose data is unchanged are not rewritten).
    */
   upsertOpenDataInvestments(rows: readonly OpenDataInvestment[]): Promise<number>;
+  /**
+   * Same contract for the closed-investments file (CIERRE_INVERSIONES.csv): its rows become
+   * 'open_data_closed' unless the SSI owns them.
+   */
+  upsertClosedInvestments(rows: readonly ClosedInvestment[]): Promise<number>;
   recordSnapshot(snapshot: SourceSnapshot): Promise<void>;
   /** Records a successful run that found the file unchanged: only the check time moves. */
   markChecked(source: string, checkedAt: string): Promise<void>;
