@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { FUNCTION_CROSSWALK, type CrosswalkRule } from '@/features/investments/domain/functionCrosswalk';
 import { gutterFor } from '@/shared/layout/breakpoints';
 import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, rule, space } from '@/shared/theme/tokens';
@@ -50,6 +51,23 @@ function TermEntry({ term }: { term: GlossaryTerm }) {
 
 const sources = termById('fuentes');
 
+/**
+ * One line per crosswalk rule: "FUNCTION / DIVISION → CANONICAL"; a function's wildcard rule reads
+ * "otras divisiones" when the function also has rules for specific divisions.
+ */
+export function crosswalkRuleLines(rules: readonly CrosswalkRule[] = FUNCTION_CROSSWALK): string[] {
+  return rules.map((rule) => {
+    const hasSpecific = rules.some((r) => r.sourceFunction === rule.sourceFunction && r.sourceDivision !== null);
+    const source =
+      rule.sourceDivision !== null
+        ? `${rule.sourceFunction} / ${rule.sourceDivision}`
+        : hasSpecific
+          ? `${rule.sourceFunction} / otras divisiones`
+          : rule.sourceFunction;
+    return `${source} → ${rule.canonicalFunction}`;
+  });
+}
+
 /** "CÓMO LEER ESTOS DATOS": the sections of the guide, in order. */
 export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: ReactNode }[] = [
   {
@@ -92,6 +110,24 @@ export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: Re
           'El historial del costo muestra los cambios que Fiscus registró desde el 27/10/2026.',
         ]}
       />
+    ),
+  },
+  {
+    title: 'Clasificación por función',
+    testID: 'guide-functions',
+    body: (
+      <>
+        <Paragraph>
+          El MEF usa una clasificación funcional vigente desde 2009, pero muchos proyectos declarados viables antes,
+          y algunos hasta 2018, conservan la anterior, como EDUCACION Y CULTURA o SALUD Y SANEAMIENTO.
+        </Paragraph>
+        <Paragraph>
+          Para no partir una misma categoría en dos, Fiscus agrupa cada función anterior en la vigente según su
+          división funcional, no por el parecido del nombre. El detalle de cada proyecto muestra también la
+          clasificación original del MEF. Las demás funciones se muestran tal como las publica el MEF.
+        </Paragraph>
+        <Bullets items={crosswalkRuleLines()} />
+      </>
     ),
   },
   {

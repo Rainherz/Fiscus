@@ -206,6 +206,21 @@ physical progress and coordinates.
 The "Categorías" screen reads `department_function_summary_by_level` for a department and
 `function_summary_by_level` for all of Peru.
 
+Function crosswalk (`supabase/migrations/20261105000000_function_crosswalk.sql`): `investments.function`
+mixes the old MEF functional classification (projects declared viable roughly 2002–2018, e.g. "EDUCACION Y
+CULTURA", "SALUD Y SANEAMIENTO") with the current one (since 2009, e.g. "EDUCACIÓN", "SALUD",
+"SANEAMIENTO"). `public.function_crosswalk` maps old labels by (function, functional division), because
+some old functions split into several new ones: exact (function, division) row first, then the function's
+wildcard row (null division), else the function maps to itself; labels are compared exactly as MEF publishes
+them, after trimming. A `BEFORE INSERT OR UPDATE` trigger (`set_function_canonical`) stores the result in
+`investments.function_canonical`; it fires before `touch_ingested_at` (same-event BEFORE triggers run in
+name order), so an identical re-upsert stays a no-op (no new row version, no history row). The function
+summary views group by `function_canonical` but keep the column name `function`; Categorías and its
+drill-down use it, and the detail shows the canonical function plus "Clasificación original del MEF: …"
+when it differs. `apps/mobile/src/features/investments/domain/functionCrosswalk.ts` mirrors the seed (a test
+compares them) for the demo mode and the guide's "Clasificación por función" section. Changing the
+crosswalk needs a migration that also re-backfills `function_canonical`.
+
 Cost history: MEF only publishes the current cost, so Fiscus records its own history in
 `investment_cost_changes` from 27/10/2026 onwards
 (`supabase/migrations/20261027200000_create_investment_cost_changes.sql`). Every investment starts with a

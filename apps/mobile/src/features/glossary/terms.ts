@@ -119,7 +119,7 @@ export const TERMS: Record<TermId, GlossaryTerm> = {
     id: 'funcion',
     term: 'Función / división / grupo funcional',
     definition: 'Clasificación del gasto público por su finalidad, de lo general a lo particular.',
-    extra: 'Por ejemplo: Transporte, Transporte terrestre, Vías vecinales.',
+    extra: 'Fiscus agrupa la clasificación anterior del MEF en la vigente; ver la guía.',
     kind: 'mef',
   },
   estado: {

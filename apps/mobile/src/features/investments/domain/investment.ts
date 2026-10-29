@@ -15,7 +15,10 @@ export interface Investment {
   entity: string | null;
   status: string | null;
   situation: string | null;
+  /** Function label as the MEF published it (old or current classification). */
   function: string | null;
+  /** `function` in the current MEF classification (functionCrosswalk.ts); function groups and filters use it. */
+  functionCanonical: string | null;
   functionalDivision: string | null;
   functionalGroup: string | null;
   beneficiaries: number | null;
@@ -76,7 +79,7 @@ export function spentOverUpdatedCost(investment: Investment): number | null {
   return over > 0 ? over : null;
 }
 
-/** Aggregates of one MEF function label within a department. Labels are shown as-is. */
+/** Aggregates of one canonical function (current MEF classification) within a department. */
 export interface FunctionSummary {
   function: string | null;
   investmentCount: number;

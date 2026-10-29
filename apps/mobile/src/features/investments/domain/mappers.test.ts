@@ -21,8 +21,9 @@ const row = {
   entity: 'GOBIERNO REGIONAL AREQUIPA',
   status: 'ACTIVO',
   situation: 'VIABLE',
-  function: 'AGROPECUARIA',
+  function: 'AGRARIA',
   functional_division: 'RIEGO',
+  function_canonical: 'AGROPECUARIA',
   functional_group: 'INFRAESTRUCTURA DE RIEGO',
   beneficiaries: 38500,
   registered_at: '2007-11-20',
@@ -50,7 +51,8 @@ describe('mapInvestmentRow', () => {
       entity: 'GOBIERNO REGIONAL AREQUIPA',
       status: 'ACTIVO',
       situation: 'VIABLE',
-      function: 'AGROPECUARIA',
+      function: 'AGRARIA',
+      functionCanonical: 'AGROPECUARIA',
       functionalDivision: 'RIEGO',
       functionalGroup: 'INFRAESTRUCTURA DE RIEGO',
       beneficiaries: 38500,
@@ -116,6 +118,17 @@ describe('mapInvestmentRow cost validity', () => {
 
   it('selects the validity flag from the database', () => {
     expect(INVESTMENT_COLUMNS.split(',')).toContain('updated_cost_valid');
+  });
+});
+
+describe('mapInvestmentRow canonical function', () => {
+  it('selects the canonical function from investments and stalled projects', () => {
+    expect(INVESTMENT_COLUMNS.split(',')).toContain('function_canonical');
+    expect(STALLED_INVESTMENT_COLUMNS.split(',')).toContain('function_canonical');
+  });
+
+  it('keeps a missing canonical function missing', () => {
+    expect(mapInvestmentRow({ ...row, function: null, function_canonical: null }).functionCanonical).toBeNull();
   });
 });
 
