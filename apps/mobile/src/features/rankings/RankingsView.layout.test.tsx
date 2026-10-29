@@ -30,7 +30,8 @@ const hidden = { includeHiddenElements: true };
 const headerText = () =>
   within(screen.getByTestId('table-header', hidden))
     .getAllByText(/./, hidden)
-    .map((node) => node.props.children as string);
+    .map((node) => node.props.children as string)
+    .filter((text) => text !== '?');
 
 describe('RankingsView layout', () => {
   it('keeps the phone rows below 768 px', async () => {
@@ -49,6 +50,21 @@ describe('RankingsView layout', () => {
     });
     await fireEvent.press(row);
     expect(baseProps.onPressInvestment).toHaveBeenCalledWith('2088142');
+  });
+
+  it('explains the figure columns with term hints on desktop', async () => {
+    windowWidth(1440);
+    await render(<RankingsView {...baseProps} list={{ kind: 'cost', items: arequipa }} />);
+    const header = screen.getByTestId('table-header', hidden);
+    for (const term of ['Monto viable (aprobado)', 'Costo actualizado', 'Gastado % del costo', 'Aumento de costo']) {
+      expect(within(header).getByRole('button', { name: `Qué significa ${term}` })).toBeOnTheScreen();
+    }
+  });
+
+  it('keeps the compact tablet header without hints', async () => {
+    windowWidth(1024);
+    await render(<RankingsView {...baseProps} list={{ kind: 'cost', items: arequipa }} />);
+    expect(screen.queryByRole('button', { name: /^Qué significa/ })).toBeNull();
   });
 
   it('leaves the region column out within one region', async () => {

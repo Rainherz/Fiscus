@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { TermHint } from '@/features/glossary/TermHint';
 import type { Investment } from '@/features/investments/domain/investment';
 import { formatSignedPercent, formatSignedSoles } from '@/shared/format';
 import { gutterFor, isWide } from '@/shared/layout/breakpoints';
@@ -213,13 +214,17 @@ function MetricTable({
 
 function MetricLine({ row, nameA, nameB }: { row: MetricRow; nameA: string; nameB: string }) {
   return (
+    // With a hint the line cannot be one accessible element (the hint button would be unreachable).
     <View
-      accessible
+      accessible={!row.term}
       accessibilityLabel={`${row.label}: ${nameA} ${row.a.text}; ${nameB} ${row.b.text}`}
       style={styles.metric}>
-      <MonoText bold size={12} style={styles.metricLabel}>
-        {row.label}
-      </MonoText>
+      <View style={styles.metricHead}>
+        <MonoText bold size={12} style={styles.metricLabel}>
+          {row.label}
+        </MonoText>
+        {row.term ? <TermHint term={row.term} /> : null}
+      </View>
       <View style={styles.values}>
         <MonoText bold size={15}>
           {row.a.text}
@@ -355,7 +360,8 @@ const styles = StyleSheet.create({
   section: { marginTop: space.xl, paddingHorizontal: space.lg },
   sectionNote: { marginTop: 2 },
   metric: { paddingTop: space.sm, paddingBottom: 2, borderBottomWidth: 1, borderBottomColor: colors.muted, gap: 2 },
-  metricLabel: { textAlign: 'center' },
+  metricHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
+  metricLabel: { textAlign: 'center', flexShrink: 1 },
   values: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   card: {

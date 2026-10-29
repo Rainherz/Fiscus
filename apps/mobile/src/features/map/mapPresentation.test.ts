@@ -6,6 +6,8 @@ import {
   mapListCountText,
   mapListRow,
   pointCardFacts,
+  pointCardFactTerms,
+  pointCardFigureTerm,
   pointCardFigure,
   toMapFeatures,
   withSelected,
@@ -165,5 +167,21 @@ describe('pointCardFacts', () => {
 
   it('leaves out the cost figures when the cost is not valid', () => {
     expect(pointCardFacts({ ...item, updatedCostValid: false, physicalProgress: 5 })).toEqual(['AVANCE FÍSICO 5 %']);
+  });
+});
+
+describe('pointCardFactTerms', () => {
+  it('pairs every fact line with its glossary term', () => {
+    expect(
+      pointCardFactTerms({ ...item, physicalProgress: 42, stalled: true, lastAccrualMonth: '2025-02-01' }),
+    ).toEqual(['costo-actualizado', 'gastado', 'avance-fisico', 'sin-gasto-reciente']);
+    expect(pointCardFactTerms({ ...item, updatedCostValid: false, physicalProgress: 5 })).toEqual(['avance-fisico']);
+  });
+});
+
+describe('pointCardFigureTerm', () => {
+  it('explains the increase, or the invalid cost', () => {
+    expect(pointCardFigureTerm(point)).toBe('aumento');
+    expect(pointCardFigureTerm({ ...point, updatedCostValid: false })).toBe('costo-no-valido');
   });
 });

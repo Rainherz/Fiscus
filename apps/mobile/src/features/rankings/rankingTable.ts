@@ -1,4 +1,5 @@
 import { regionLabel } from '@/features/department/departments';
+import type { TermId } from '@/features/glossary/terms';
 import { levelTag } from '@/features/government-level/levelPresentation';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import type { Investment, RankingKind } from '@/features/investments/domain/investment';
@@ -41,6 +42,8 @@ interface Options {
 interface ColumnSpec<T> {
   key: string;
   label: string;
+  /** Glossary term explained by a hint in the desktop header. */
+  term?: TermId;
   compact: boolean;
   value: (item: T) => string;
 }
@@ -53,7 +56,12 @@ function build<T>(
   options: Options,
 ): RankingTable {
   const kept = options.compact ? specs.filter((spec) => spec.compact || spec.key === sortedKey) : specs;
-  const columns = kept.map((spec) => ({ key: spec.key, label: spec.label, sorted: spec.key === sortedKey }));
+  const columns = kept.map((spec) => ({
+    key: spec.key,
+    label: spec.label,
+    sorted: spec.key === sortedKey,
+    ...(spec.term ? { term: spec.term } : {}),
+  }));
   const rows = items.map((item, index) => {
     const base = row(item, index);
     const cells = kept.map((spec) => spec.value(item));
@@ -67,18 +75,21 @@ function build<T>(
 const APPROVED: ColumnSpec<Investment> = {
   key: 'approved',
   label: 'Aprobado',
+  term: 'monto-viable',
   compact: false,
   value: (item) => formatSoles(item.viableAmount),
 };
 const CURRENT: ColumnSpec<Investment> = {
   key: 'current',
   label: 'Costo actual',
+  term: 'costo-actualizado',
   compact: true,
   value: (item) => formatSoles(item.updatedCost),
 };
 const INCREASE: ColumnSpec<Investment> = {
   key: 'increase',
   label: 'Aumento S/',
+  term: 'aumento',
   compact: true,
   value: (item) => formatSignedSoles(item.costIncrease),
 };
@@ -91,6 +102,7 @@ const PCT: ColumnSpec<Investment> = {
 const SPENT: ColumnSpec<Investment> = {
   key: 'spent',
   label: 'Gastado',
+  term: 'gastado',
   compact: false,
   value: (item) => formatProgress(item.executionProgress),
 };
@@ -117,18 +129,18 @@ function projectSpecs(kind: RankingKind, now: Date): { specs: ColumnSpec<Investm
 }
 
 const STALLED_SPECS: ColumnSpec<StalledInvestment>[] = [
-  { key: 'since', label: 'Sin gasto desde', compact: true, value: (item) => formatMonthShort(item.lastAccrualMonth) },
-  { key: 'spent', label: 'Gastado', compact: true, value: (item) => formatProgress(item.executionProgress) },
+  { key: 'since', label: 'Sin gasto desde', term: 'sin-gasto-reciente', compact: true, value: (item) => formatMonthShort(item.lastAccrualMonth) },
+  { key: 'spent', label: 'Gastado', term: 'gastado', compact: true, value: (item) => formatProgress(item.executionProgress) },
   { key: 'pending', label: 'Por ejecutar', compact: true, value: (item) => formatSoles(item.pendingAmount) },
-  { key: 'current', label: 'Costo actual', compact: false, value: (item) => formatSoles(item.updatedCost) },
+  { key: 'current', label: 'Costo actual', term: 'costo-actualizado', compact: false, value: (item) => formatSoles(item.updatedCost) },
 ];
 
 const ENTITY_SPECS: ColumnSpec<EntityComparison>[] = [
   { key: 'projects', label: 'Proyectos', compact: true, value: (item) => formatInteger(item.projectCount) },
   { key: 'with-increase', label: 'Con aumento', compact: false, value: (item) => formatInteger(item.projectsWithIncrease) },
-  { key: 'increase-amount', label: 'Aumento S/', compact: true, value: (item) => formatSignedSoles(item.totalCostIncrease) },
+  { key: 'increase-amount', label: 'Aumento S/', term: 'aumento', compact: true, value: (item) => formatSignedSoles(item.totalCostIncrease) },
   { key: 'increase-pct', label: '%', compact: false, value: (item) => formatSignedPercent(item.costIncreasePct) },
-  { key: 'stalled', label: 'Sin gasto', compact: false, value: (item) => formatInteger(item.stalledCount) },
+  { key: 'stalled', label: 'Sin gasto', term: 'sin-gasto-reciente', compact: false, value: (item) => formatInteger(item.stalledCount) },
   { key: 'overspent', label: 'Gasto sobre costo', compact: false, value: (item) => formatInteger(item.overspentCount) },
 ];
 

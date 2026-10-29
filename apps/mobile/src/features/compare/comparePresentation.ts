@@ -1,3 +1,4 @@
+import type { TermId } from '@/features/glossary/terms';
 import { formatInteger, formatSignedPercent, formatSignedSoles, formatSoles } from '@/shared/format';
 
 import type { RegionComparison } from '../investments/domain/regionComparison';
@@ -13,6 +14,8 @@ export interface MetricValue {
 export interface MetricRow {
   key: string;
   label: string;
+  /** Glossary term explained by a hint next to the label. */
+  term?: TermId;
   a: MetricValue;
   b: MetricValue;
 }
@@ -38,6 +41,7 @@ function formatShare(value: number | null): string {
 interface MetricSpec {
   key: string;
   label: string;
+  term?: TermId;
   pick: (region: RegionComparison) => number | null;
   format: (value: number | null) => string;
 }
@@ -47,15 +51,15 @@ const SECTIONS: { title: string; note?: string; metrics: MetricSpec[] }[] = [
     title: 'TAMAÑO',
     metrics: [
       { key: 'projects', label: 'Proyectos', pick: (r) => r.projectCount, format: formatInteger },
-      { key: 'active', label: 'Proyectos activos', pick: (r) => r.activeCount, format: formatInteger },
-      { key: 'updated-cost', label: 'Costo actualizado total', pick: (r) => r.totalUpdatedCost, format: formatSoles },
+      { key: 'active', label: 'Proyectos activos', term: 'estado', pick: (r) => r.activeCount, format: formatInteger },
+      { key: 'updated-cost', label: 'Costo actualizado total', term: 'costo-actualizado', pick: (r) => r.totalUpdatedCost, format: formatSoles },
     ],
   },
   {
     title: 'AUMENTOS',
     note: 'Los porcentajes de proyectos se calculan sobre los que tienen un costo actualizado válido.',
     metrics: [
-      { key: 'increase', label: 'Aumento total (S/)', pick: (r) => r.totalCostIncrease, format: formatSignedSoles },
+      { key: 'increase', label: 'Aumento total (S/)', term: 'aumento', pick: (r) => r.totalCostIncrease, format: formatSignedSoles },
       {
         key: 'increase-pct',
         label: 'Aumento sobre lo aprobado (%)',
@@ -74,14 +78,14 @@ const SECTIONS: { title: string; note?: string; metrics: MetricSpec[] }[] = [
   {
     title: 'EJECUCIÓN',
     metrics: [
-      { key: 'overspent', label: 'Gastaron más que su costo', pick: (r) => r.overspentCount, format: formatInteger },
+      { key: 'overspent', label: 'Gastaron más que su costo', term: 'gastado', pick: (r) => r.overspentCount, format: formatInteger },
       {
         key: 'overspent-share',
         label: '% que gastó más que su costo',
         pick: (r) => shareOf(r.overspentCount, r.validCostCount),
         format: formatShare,
       },
-      { key: 'stalled', label: 'Sin gasto reciente', pick: (r) => r.stalledCount, format: formatInteger },
+      { key: 'stalled', label: 'Sin gasto reciente', term: 'sin-gasto-reciente', pick: (r) => r.stalledCount, format: formatInteger },
       {
         key: 'stalled-pending',
         label: 'S/ por ejecutar en obras sin gasto reciente',
@@ -103,7 +107,13 @@ export function compareSections(a: RegionComparison | null, b: RegionComparison 
   return SECTIONS.map(({ title, note, metrics }) => ({
     title,
     ...(note ? { note } : {}),
-    rows: metrics.map((spec) => ({ key: spec.key, label: spec.label, a: valueOf(spec, a), b: valueOf(spec, b) })),
+    rows: metrics.map((spec) => ({
+      key: spec.key,
+      label: spec.label,
+      ...(spec.term ? { term: spec.term } : {}),
+      a: valueOf(spec, a),
+      b: valueOf(spec, b),
+    })),
   }));
 }
 

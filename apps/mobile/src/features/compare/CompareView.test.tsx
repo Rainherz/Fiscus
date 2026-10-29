@@ -55,6 +55,13 @@ describe('CompareView', () => {
     expect(screen.getByText('819')).toBeOnTheScreen();
   });
 
+  it('explains the metric labels with term hints', async () => {
+    await render(<CompareView {...baseProps} />);
+    for (const term of ['Estado y situación', 'Costo actualizado', 'Aumento de costo', 'Gastado % del costo', 'Sin gasto reciente']) {
+      expect(screen.getByRole('button', { name: `Qué significa ${term}` })).toBeOnTheScreen();
+    }
+  });
+
   it('draws mirrored bars proportional to the larger value', async () => {
     await render(<CompareView {...baseProps} />);
     const row = screen.getByLabelText('Proyectos: Arequipa 1,638; Cusco 819');

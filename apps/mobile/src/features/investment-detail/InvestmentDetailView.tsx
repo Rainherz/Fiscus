@@ -7,6 +7,8 @@ import {
   type Investment,
 } from '@/features/investments/domain/investment';
 import { stalledStatus } from '@/features/investments/domain/stalled';
+import { TermHint } from '@/features/glossary/TermHint';
+import type { TermId } from '@/features/glossary/terms';
 import { regionLabel } from '@/features/department/departments';
 import { levelName, levelTag } from '@/features/government-level/levelPresentation';
 import { stalledSinceSentence } from '@/features/stalled/stalledPresentation';
@@ -45,12 +47,37 @@ interface Props {
 const DASH = '—';
 const INVALID_COST_NOTICE = 'Costo actualizado no válido en la fuente MEF';
 
-function Fact({ label, value, grid }: { label: string; value: string; grid: boolean }) {
+/** Facts whose label has a glossary entry (one hint per group: Función covers its division and group). */
+const FACT_TERMS: Partial<Record<string, TermId>> = {
+  'Nivel de gobierno': 'nivel',
+  Entidad: 'entidad',
+  'Unidad ejecutora': 'unidad-ejecutora',
+  Función: 'funcion',
+  Estado: 'estado',
+  'Devengado acumulado': 'devengado',
+};
+
+/** A small label followed by its term hint. */
+function HintedLabel({ term, children }: { term: TermId; children: ReactNode }) {
   return (
-    <View accessible accessibilityLabel={`${label}: ${value}`} style={[styles.fact, grid && styles.factGrid]}>
-      <MonoText size={11} muted style={styles.factLabel}>
-        {label.toUpperCase()}
-      </MonoText>
+    <View style={styles.hinted}>
+      {children}
+      <TermHint term={term} />
+    </View>
+  );
+}
+
+function Fact({ label, value, grid }: { label: string; value: string; grid: boolean }) {
+  const term = FACT_TERMS[label];
+  const labelText = (
+    <MonoText size={11} muted style={styles.factLabel}>
+      {label.toUpperCase()}
+    </MonoText>
+  );
+  // With a hint the fact cannot be one accessible element (the hint button would be unreachable).
+  return (
+    <View accessible={!term} accessibilityLabel={`${label}: ${value}`} style={[styles.fact, grid && styles.factGrid]}>
+      {term ? <HintedLabel term={term}>{labelText}</HintedLabel> : labelText}
       <BodyText weight={600} size={15}>
         {value}
       </BodyText>
@@ -67,7 +94,9 @@ function PhysicalProgress({ percent }: { percent: number }) {
   const fill = Math.min(Math.max(percent, 0), 100);
   return (
     <View style={styles.physical}>
-      <MonoText bold size={12}>{`AVANCE FÍSICO ${shown}`}</MonoText>
+      <HintedLabel term="avance-fisico">
+        <MonoText bold size={12}>{`AVANCE FÍSICO ${shown}`}</MonoText>
+      </HintedLabel>
       <View
         accessible
         accessibilityRole="progressbar"
@@ -139,7 +168,9 @@ export function InvestmentDetailView({
       <View style={styles.head}>
         <View style={styles.identity}>
           {tag ? <LevelTag tag={tag} /> : null}
-          <MonoText bold size={11} muted>{`CUI ${inv.cui}`}</MonoText>
+          <HintedLabel term="cui">
+            <MonoText bold size={11} muted>{`CUI ${inv.cui}`}</MonoText>
+          </HintedLabel>
         </View>
         <DisplayText size={columns ? 40 : 30} accessibilityRole="header" style={columns ? styles.nameWide : styles.name}>
           {inv.name ?? 'Sin nombre'}
@@ -172,9 +203,11 @@ export function InvestmentDetailView({
 
       <View style={styles.costs}>
         <View style={styles.costRow}>
-          <MonoText size={11} muted>
-            APROBADO (MONTO VIABLE)
-          </MonoText>
+          <HintedLabel term="monto-viable">
+            <MonoText size={11} muted>
+              APROBADO (MONTO VIABLE)
+            </MonoText>
+          </HintedLabel>
           <MonoText
             testID="viable-amount"
             accessibilityLabel={`Monto viable: ${viable}`}
@@ -184,14 +217,18 @@ export function InvestmentDetailView({
           </MonoText>
         </View>
         <View style={styles.costRow}>
-          <MonoText size={11} muted>
-            CUESTA HOY (COSTO ACTUALIZADO)
-          </MonoText>
+          <HintedLabel term="costo-actualizado">
+            <MonoText size={11} muted>
+              CUESTA HOY (COSTO ACTUALIZADO)
+            </MonoText>
+          </HintedLabel>
           {invalidCost ? (
             <View style={styles.notice}>
-              <MonoText bold size={14}>
-                {INVALID_COST_NOTICE}
-              </MonoText>
+              <HintedLabel term="costo-no-valido">
+                <MonoText bold size={14} style={styles.shrink}>
+                  {INVALID_COST_NOTICE}
+                </MonoText>
+              </HintedLabel>
               <MonoText size={11} muted>
                 {`El MEF publica ${updated} como costo actualizado. No se calculan el aumento ni el porcentaje gastado.`}
               </MonoText>
@@ -209,9 +246,11 @@ export function InvestmentDetailView({
         </View>
         {invalidCost ? null : (
           <View style={[styles.increase, increased && styles.increaseUp]}>
-            <MonoText size={11} style={styles.increaseLabel}>
-              AUMENTO
-            </MonoText>
+            <HintedLabel term="aumento">
+              <MonoText size={11} style={styles.increaseLabel}>
+                AUMENTO
+              </MonoText>
+            </HintedLabel>
             <MonoText bold size={15}>
               {`${formatSignedSoles(inv.costIncrease)} · ${formatSignedPercent(inv.costIncreasePct)}`}
             </MonoText>
@@ -221,16 +260,28 @@ export function InvestmentDetailView({
 
       {invalidCost ? null : (
         <View style={styles.progress}>
-          <MonoText bold size={12}>{`GASTADO ${formatProgress(inv.executionProgress)} DEL COSTO`}</MonoText>
+          <HintedLabel term="gastado">
+            <MonoText bold size={12}>{`GASTADO ${formatProgress(inv.executionProgress)} DEL COSTO`}</MonoText>
+          </HintedLabel>
           <HazardProgressBar
             ratio={inv.executionProgress}
             overspend={spentOverUpdatedCost(inv)}
             anomaly={inv.spentAnomaly}
           />
+          {inv.spentAnomaly ? (
+            <HintedLabel term="dato-inusual">
+              <MonoText size={11} muted>
+                Qué es un dato inusual
+              </MonoText>
+            </HintedLabel>
+          ) : null}
           {stalled ? (
-            <MonoText bold size={12} style={styles.stalled}>
-              {stalledSinceSentence(stalled)}
-            </MonoText>
+            <View style={[styles.hinted, styles.stalled]}>
+              <MonoText bold size={12} style={styles.shrink}>
+                {stalledSinceSentence(stalled)}
+              </MonoText>
+              <TermHint term="sin-gasto-reciente" />
+            </View>
           ) : null}
         </View>
       )}
@@ -288,6 +339,8 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: maxContentWidth, alignSelf: 'center', paddingBottom: space.xl },
   head: { paddingHorizontal: space.lg, paddingTop: space.lg, gap: 6 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  hinted: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  shrink: { flexShrink: 1 },
   physical: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },
   physicalTrack: { height: 12, borderWidth: rule, borderColor: colors.ink, backgroundColor: colors.concrete },
   physicalFill: { height: '100%', backgroundColor: colors.ink },
