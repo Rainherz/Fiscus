@@ -1,3 +1,4 @@
+import { canonicalFunction } from '../domain/functionCrosswalk';
 import type { GovernmentLevel } from '../domain/governmentLevel';
 import type { CostChangeRow, InvestmentRow } from '../domain/mappers';
 
@@ -5,6 +6,8 @@ interface SampleInput {
   cui: string;
   name?: string | null;
   function?: string | null;
+  /** Functional division; with `function` it derives `function_canonical` like the database trigger. */
+  division?: string | null;
   viable?: number | null;
   updated?: number | null;
   /** Spent ratio (accrued / updated cost); derives the accrued total. */
@@ -62,9 +65,10 @@ export function sampleRow(input: SampleInput): InvestmentRow {
     entity: input.entity ?? null,
     status: input.status === undefined ? 'ACTIVO' : input.status,
     situation: null,
-    function: input.function === undefined ? null : input.function,
-    functional_division: null,
+    function: input.function ?? null,
+    functional_division: input.division ?? null,
     functional_group: null,
+    function_canonical: canonicalFunction(input.function, input.division),
     beneficiaries: null,
     registered_at: null,
     viability_at: input.viabilityAt ?? null,
@@ -199,14 +203,17 @@ const DEMO_REGIONAL_ENTITY = 'GOBIERNO REGIONAL AREQUIPA (demo)';
 /**
  * DEMO ONLY, not MEF data: invented projects and figures so the demo mode can show "Sin gasto
  * reciente". Three meet the rule; the fourth has a recent accrual and sets the reference month
- * (the latest accrual month of the dataset) to October 2026.
+ * (the latest accrual month of the dataset) to October 2026. Two carry labels of the old MEF
+ * functional classification, so the demo shows the function crosswalk.
  */
 export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
   sampleRow({
     cui: '9900001',
     name: 'Planta de tratamiento de aguas residuales (demo)',
     entity: DEMO_REGIONAL_ENTITY,
-    function: 'SANEAMIENTO',
+    // Old MEF classification: grouped under SANEAMIENTO by the function crosswalk.
+    function: 'SALUD Y SANEAMIENTO',
+    division: 'SANEAMIENTO',
     viable: 184_500_000,
     updated: 184_500_000,
     progress: 0.41,
@@ -226,7 +233,9 @@ export const STALLED_DEMO_SAMPLE: InvestmentRow[] = [
     cui: '9900003',
     name: 'Institución educativa secundaria (demo)',
     entity: DEMO_REGIONAL_ENTITY,
-    function: 'EDUCACION',
+    // Old MEF classification: grouped under EDUCACIÓN by the function crosswalk.
+    function: 'EDUCACION Y CULTURA',
+    division: 'INFRAESTRUCTURA EDUCATIVA',
     viable: 18_750_000,
     updated: 18_750_000,
     progress: 0.77,

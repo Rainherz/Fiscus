@@ -13,7 +13,7 @@ const windowWidth = (width: number) =>
 
 const summaries = [
   { function: 'TRANSPORTE', investmentCount: 120, totalUpdatedCost: 3_000_000_000, totalCostIncrease: 900_000_000 },
-  { function: 'EDUCACION Y CULTURA', investmentCount: 1, totalUpdatedCost: 2_000_000, totalCostIncrease: null },
+  { function: 'EDUCACIÓN', investmentCount: 1, totalUpdatedCost: 2_000_000, totalCostIncrease: null },
   { function: 'SALUD', investmentCount: 4, totalUpdatedCost: 9_000_000, totalCostIncrease: null },
   { function: null, investmentCount: 3, totalUpdatedCost: null, totalCostIncrease: null },
 ];

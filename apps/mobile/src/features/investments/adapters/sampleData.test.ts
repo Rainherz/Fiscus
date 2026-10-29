@@ -32,6 +32,15 @@ describe('sampleRow', () => {
     expect(sampleRow({ cui: '3', viable: 1_000_000, updated: 1_000_000, accrued: null }).spent_anomaly).toBe(false);
   });
 
+  it('derives the canonical function from the function and division, like the database trigger', () => {
+    const row = sampleRow({ cui: '1', function: 'SALUD Y SANEAMIENTO', division: 'SANEAMIENTO' });
+    expect(row.function).toBe('SALUD Y SANEAMIENTO');
+    expect(row.functional_division).toBe('SANEAMIENTO');
+    expect(row.function_canonical).toBe('SANEAMIENTO');
+    expect(sampleRow({ cui: '2', function: 'TRANSPORTE' }).function_canonical).toBe('TRANSPORTE');
+    expect(sampleRow({ cui: '3' }).function_canonical).toBeNull();
+  });
+
   it('keeps an explicit null name, status and department name', () => {
     const row = sampleRow({ cui: '1', name: null, status: null, departmentName: null });
     expect(row.status).toBeNull();
@@ -41,6 +50,16 @@ describe('sampleRow', () => {
 });
 
 describe('MOCK_ROWS', () => {
+  it('includes projects of the old functional classification', () => {
+    const old = mock.filter((i) => i.function !== i.functionCanonical);
+    expect(old.map((i) => [i.function, i.functionalDivision, i.functionCanonical])).toEqual(
+      expect.arrayContaining([
+        ['EDUCACION Y CULTURA', 'INFRAESTRUCTURA EDUCATIVA', 'EDUCACIÓN'],
+        ['SALUD Y SANEAMIENTO', 'SANEAMIENTO', 'SANEAMIENTO'],
+      ]),
+    );
+  });
+
   it('includes a project that spent more than its updated cost', () => {
     const lorena = mock.find((i) => i.cui === '2094808');
     expect(lorena?.updatedCostValid).toBe(true);

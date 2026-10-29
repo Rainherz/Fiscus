@@ -71,7 +71,7 @@ describe('supabase investments repository', () => {
     expect(calls).toContainEqual(['gte', 'viable_amount', 1_000_000]);
     expect(calls).toContainEqual(['gt', 'cost_increase_pct', 0]);
     expect(calls).toContainEqual(['ilike', 'name', '%obra%']);
-    expect(calls).toContainEqual(['is', 'function', null]);
+    expect(calls).toContainEqual(['is', 'function_canonical', null]);
   });
 
   it('throws when Supabase returns an error', async () => {

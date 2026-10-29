@@ -166,7 +166,7 @@ export function createInMemoryInvestmentsRepository(seed: {
       const groups = new Map<string | null, InvestmentRow[]>();
       for (const row of rows.filter(atLevel(level))) {
         if (departmentCode !== undefined && row.department_code !== departmentCode) continue;
-        const key = row.function ?? null;
+        const key = row.function_canonical ?? null;
         groups.set(key, [...(groups.get(key) ?? []), row]);
       }
       const summaries: FunctionSummary[] = [...groups].map(([fn, group]) => ({

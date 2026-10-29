@@ -4,12 +4,12 @@ import { CategoriesView } from './CategoriesView';
 
 const summaries = [
   { function: 'TRANSPORTE', investmentCount: 120, totalUpdatedCost: 3_000_000_000, totalCostIncrease: 900_000_000 },
-  { function: 'EDUCACION Y CULTURA', investmentCount: 1, totalUpdatedCost: 2_000_000, totalCostIncrease: null },
+  { function: 'EDUCACIÓN', investmentCount: 1, totalUpdatedCost: 2_000_000, totalCostIncrease: null },
   { function: null, investmentCount: 3, totalUpdatedCost: null, totalCostIncrease: null },
 ];
 
 describe('CategoriesView', () => {
-  it('lists function labels as published, with counts and totals', async () => {
+  it('lists canonical functions, with counts and totals', async () => {
     await render(
       <CategoriesView summaries={summaries} status="success" onRetry={() => {}} onPressCategory={() => {}} />,
     );
@@ -17,7 +17,7 @@ describe('CategoriesView', () => {
     expect(screen.getByText('120 proyectos')).toBeOnTheScreen();
     expect(screen.getByText('S/ 3,000 M')).toBeOnTheScreen();
     expect(screen.getByText('+S/ 900 M de aumento')).toBeOnTheScreen();
-    expect(screen.getByText('EDUCACION Y CULTURA')).toBeOnTheScreen();
+    expect(screen.getByText('EDUCACIÓN')).toBeOnTheScreen();
     expect(screen.getByText('1 proyecto')).toBeOnTheScreen();
     expect(screen.getByText('Sin función registrada')).toBeOnTheScreen();
   });
@@ -56,7 +56,7 @@ describe('CategoriesView', () => {
       />,
     );
     expect(
-      screen.getByText('Funciones tal como las publica el MEF. Costo actual total por función. Gobiernos locales.'),
+      screen.getByText('Funciones según la clasificación vigente del MEF. Costo actual total por función. Gobiernos locales.'),
     ).toBeOnTheScreen();
   });
 });

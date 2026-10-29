@@ -119,7 +119,7 @@ export function CategoriesView({ summaries, status, national = false, levelNote,
         Categorías
       </DisplayText>
       <MonoText size={11} muted>
-        {['Funciones tal como las publica el MEF. Costo actual total por función.', levelNote]
+        {['Funciones según la clasificación vigente del MEF. Costo actual total por función.', levelNote]
           .filter(Boolean)
           .join(' ')}
       </MonoText>

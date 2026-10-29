@@ -75,6 +75,26 @@ describe('in-memory investments repository', () => {
     expect(cuis(await repo.findMany(buildFunctionQuery({ departmentCode: 4, fn: null, page: 0 })))).toEqual(['5']);
   });
 
+  it('groups and filters by the canonical function, merging the old classification', async () => {
+    const crosswalk = createInMemoryInvestmentsRepository({
+      rows: [
+        sampleRow({ cui: 'old', function: 'SALUD Y SANEAMIENTO', division: 'SANEAMIENTO', updated: 3_000_000 }),
+        sampleRow({ cui: 'new', function: 'SANEAMIENTO', division: 'SANEAMIENTO', updated: 2_000_000 }),
+        sampleRow({ cui: 'health', function: 'SALUD Y SANEAMIENTO', division: 'SALUD INDIVIDUAL', updated: 1_000_000 }),
+      ],
+      lastRun: null,
+    });
+    expect((await crosswalk.functionSummaries(4)).map((s) => [s.function, s.investmentCount])).toEqual([
+      ['SANEAMIENTO', 2],
+      ['SALUD', 1],
+    ]);
+    expect(cuis(await crosswalk.findMany(buildFunctionQuery({ departmentCode: 4, fn: 'SANEAMIENTO', page: 0 })))).toEqual([
+      'old',
+      'new',
+    ]);
+    expect((await crosswalk.findByCui('old'))?.function).toBe('SALUD Y SANEAMIENTO');
+  });
+
   it('finds by CUI', async () => {
     expect((await repo.findByCui('4'))?.name).toBe('Puente Lima');
     expect(await repo.findByCui('999')).toBeNull();

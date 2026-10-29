@@ -150,7 +150,7 @@ describe('buildFunctionQuery', () => {
     expect(buildFunctionQuery({ departmentCode: 4, fn: 'TRANSPORTE', page: 1 })).toEqual({
       filters: [
         { column: 'department_code', op: 'eq', value: 4 },
-        { column: 'function', op: 'eq', value: 'TRANSPORTE' },
+        { column: 'function_canonical', op: 'eq', value: 'TRANSPORTE' },
       ],
       order: [
         { column: 'updated_cost', ascending: false },
@@ -162,14 +162,14 @@ describe('buildFunctionQuery', () => {
 
   it('matches projects without a function', () => {
     const query = buildFunctionQuery({ departmentCode: 4, fn: null, page: 0 });
-    expect(query.filters[1]).toEqual({ column: 'function', op: 'isNull' });
+    expect(query.filters[1]).toEqual({ column: 'function_canonical', op: 'isNull' });
   });
 });
 
 describe('national function and stalled queries', () => {
   it('lists a function in all of Peru, paged', () => {
     expect(buildFunctionQuery({ fn: 'SALUD', page: 0 })).toEqual({
-      filters: [{ column: 'function', op: 'eq', value: 'SALUD' }],
+      filters: [{ column: 'function_canonical', op: 'eq', value: 'SALUD' }],
       order: [
         { column: 'updated_cost', ascending: false },
         { column: 'cui', ascending: true },

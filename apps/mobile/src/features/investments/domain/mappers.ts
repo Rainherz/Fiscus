@@ -19,6 +19,8 @@ export interface InvestmentRow {
   function: Text;
   functional_division: Text;
   functional_group: Text;
+  /** Set by the database trigger from function and functional_division (function crosswalk). */
+  function_canonical: Text;
   beneficiaries: Numeric;
   registered_at: Text;
   viability_at: Text;
@@ -52,7 +54,7 @@ const SHARED_COLUMNS =
   'cui,name,entity,status,situation,function,functional_division,functional_group,beneficiaries,' +
   'registered_at,viability_at,first_accrual_month,last_accrual_month,viable_amount,updated_cost,' +
   'updated_cost_valid,accrued_total,cost_increase,cost_increase_pct,execution_progress,department_code,' +
-  'department_name,source_updated_at,spent_anomaly,government_level,physical_progress';
+  'department_name,source_updated_at,spent_anomaly,government_level,physical_progress,function_canonical';
 
 export const INVESTMENT_COLUMNS = `${SHARED_COLUMNS},executing_unit,province,district,data_source,latitude,longitude`;
 
@@ -93,6 +95,7 @@ export function mapInvestmentRow(row: InvestmentRow): Investment {
     status: toText(row.status),
     situation: toText(row.situation),
     function: toText(row.function),
+    functionCanonical: toText(row.function_canonical),
     functionalDivision: toText(row.functional_division),
     functionalGroup: toText(row.functional_group),
     beneficiaries: toNumber(row.beneficiaries),

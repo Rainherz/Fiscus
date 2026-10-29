@@ -11,7 +11,7 @@ export type InvestmentColumn =
   | 'cui'
   | 'name'
   | 'status'
-  | 'function'
+  | 'function_canonical'
   | 'department_code'
   | 'government_level'
   | 'entity'
@@ -183,8 +183,8 @@ export function buildFunctionQuery(params: {
 }): InvestmentQuery {
   const byFunction: Filter =
     params.fn === null
-      ? { column: 'function', op: 'isNull' }
-      : { column: 'function', op: 'eq', value: params.fn };
+      ? { column: 'function_canonical', op: 'isNull' }
+      : { column: 'function_canonical', op: 'eq', value: params.fn };
   return {
     filters: [...inReadScope(params), byFunction],
     order: [{ column: 'updated_cost', ascending: false }, tieBreak],
