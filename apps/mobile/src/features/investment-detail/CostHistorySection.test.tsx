@@ -10,6 +10,11 @@ const majesHistory: CostChange[] = MOCK_COST_CHANGES.map(mapCostChangeRow).filte
 const NOTE = 'Fiscus registra cambios desde el 27/10/2026. El MEF no publica el historial anterior.';
 
 describe('CostHistorySection', () => {
+  it('explains the history with a term hint next to the title', async () => {
+    await render(<CostHistorySection state={{ status: 'success', changes: [] }} />);
+    expect(screen.getByRole('button', { name: 'Qué significa Historial del costo' })).toBeOnTheScreen();
+  });
+
   it('shows the baseline and each change with its date, new cost and signed delta', async () => {
     await render(<CostHistorySection state={{ status: 'success', changes: majesHistory }} />);
     expect(screen.getByRole('header', { name: 'HISTORIAL DEL COSTO' })).toBeOnTheScreen();

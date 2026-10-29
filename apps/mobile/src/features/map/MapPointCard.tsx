@@ -1,12 +1,13 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { TermHint } from '@/features/glossary/TermHint';
 import { levelTag } from '@/features/government-level/levelPresentation';
 import { hasValidIncrease, type MapListItem, type MapPoint } from '@/features/investments/domain/mapPoints';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { LevelTag } from '@/shared/ui/LevelTag';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
-import { pointCardFacts, pointCardFigure } from './mapPresentation';
+import { pointCardFactTerms, pointCardFacts, pointCardFigure, pointCardFigureTerm } from './mapPresentation';
 
 interface Props {
   point: MapPoint;
@@ -47,16 +48,25 @@ export function MapPointCard({ point, details, detailsStatus, onPressDetail, onC
           {details.entity}
         </MonoText>
       ) : null}
-      <MonoText bold size={14} style={hasValidIncrease(point) ? styles.increase : undefined}>
-        {pointCardFigure(point)}
-      </MonoText>
+      <View style={styles.line}>
+        <MonoText bold size={14} style={hasValidIncrease(point) ? styles.increase : undefined}>
+          {pointCardFigure(point)}
+        </MonoText>
+        <TermHint term={pointCardFigureTerm(point)} />
+      </View>
       {details ? (
         <View style={styles.facts}>
-          {pointCardFacts(details).map((fact) => (
-            <MonoText key={fact} bold size={12} style={fact.startsWith('Sin gasto') ? styles.stalled : undefined}>
-              {fact}
-            </MonoText>
-          ))}
+          {pointCardFacts(details).map((fact, index) => {
+            const term = pointCardFactTerms(details)[index];
+            return (
+              <View key={fact} style={styles.line}>
+                <MonoText bold size={12} style={fact.startsWith('Sin gasto') ? styles.stalled : undefined}>
+                  {fact}
+                </MonoText>
+                {term ? <TermHint term={term} /> : null}
+              </View>
+            );
+          })}
         </View>
       ) : detailsStatus === 'loading' ? (
         <MonoText size={11} muted>
@@ -91,7 +101,8 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.6 },
   name: { lineHeight: 21 },
   increase: { alignSelf: 'flex-start', backgroundColor: colors.signal, paddingHorizontal: space.xs },
-  facts: { gap: 2 },
+  facts: { gap: space.xs },
+  line: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   stalled: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.ink, paddingHorizontal: space.xs },
   detail: {
     minHeight: minTouch,
