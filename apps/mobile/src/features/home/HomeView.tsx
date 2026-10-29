@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 
 import { regionLabel } from '@/features/department/departments';
 import { levelTag } from '@/features/government-level/levelPresentation';
+import { TermHint } from '@/features/glossary/TermHint';
 import { spentOverUpdatedCost, type Investment } from '@/features/investments/domain/investment';
 import {
   formatProgress,
@@ -46,6 +47,8 @@ interface Props {
   /** "Sin gasto reciente": after the recent increases (region) or the regions block (national). */
   stalled?: ReactNode;
   footer?: ReactNode;
+  /** Opens the guide; phones show the link on Inicio (wide screens have it in the header and footer). */
+  onPressGuide?: () => void;
 }
 
 export function HomeView({
@@ -61,6 +64,7 @@ export function HomeView({
   recentIncreases,
   stalled,
   footer,
+  onPressGuide,
 }: Props) {
   const breakpoint = useBreakpoint();
   const { width: windowWidth } = useWindowDimensions();
@@ -91,6 +95,19 @@ export function HomeView({
       </DisplayText>
     </Pressable>
   ) : null;
+
+  const guideLink =
+    !wide && onPressGuide ? (
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Cómo leer estos datos"
+        onPress={onPressGuide}
+        style={({ pressed }) => [styles.compare, pressed && styles.comparePressed]}>
+        <DisplayText weight={900} size={20}>
+          Cómo leer estos datos →
+        </DisplayText>
+      </Pressable>
+    ) : null;
 
   const blockList = (national ? [regions, stalled, recentIncreases] : [recentIncreases, stalled]).filter(
     (block): block is NonNullable<ReactNode> => block !== undefined && block !== null && block !== false,
@@ -145,6 +162,7 @@ export function HomeView({
         {empty}
         {mapLink}
         {compare}
+        {guideLink}
         {blocks}
         {footer}
       </ScrollView>
@@ -190,21 +208,31 @@ export function HomeView({
             estimatedWidth={wide ? heroFigureWidth(windowWidth) : undefined}
           />
         </View>
-        <View style={styles.amounts}>
+      </Pressable>
+      {/* Outside the hero button, so the term hints are not nested in it. */}
+      <View style={styles.amounts}>
+        <View style={styles.labelRow}>
           <Text>
             <MonoText>{formatSoles(hero.viableAmount)}</MonoText>
             <MonoText muted>{approvedYear}</MonoText>
           </Text>
+          <TermHint term="monto-viable" />
+        </View>
+        <View style={styles.labelRow}>
           <Text>
             <MonoText bold>{formatSoles(hero.updatedCost)}</MonoText>
             <MonoText muted>{' cuesta hoy'}</MonoText>
           </Text>
+          <TermHint term="costo-actualizado" />
         </View>
-      </Pressable>
+      </View>
 
       <View style={styles.progress}>
         <View style={styles.progressLabels}>
-          <MonoText bold size={12}>{`GASTADO ${formatProgress(hero.executionProgress)} DEL COSTO`}</MonoText>
+          <View style={styles.labelRow}>
+            <MonoText bold size={12}>{`GASTADO ${formatProgress(hero.executionProgress)} DEL COSTO`}</MonoText>
+            <TermHint term="gastado" />
+          </View>
           {years !== null ? (
             <MonoText bold size={12}>{`${formatYears(years).toUpperCase()} EN CURSO`}</MonoText>
           ) : null}
@@ -274,6 +302,8 @@ export function HomeView({
 
       {compare}
 
+      {guideLink}
+
       {blocks}
 
       {footer}
@@ -292,7 +322,8 @@ const styles = StyleSheet.create({
   heroName: { lineHeight: 32 },
   heroPlace: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   figure: { marginTop: space.sm, marginHorizontal: -8 },
-  amounts: { gap: space.xs, paddingTop: 2 },
+  amounts: { gap: space.xs, paddingTop: 2, paddingHorizontal: space.lg },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexShrink: 1 },
   progress: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },
   progressLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
   ranking: {

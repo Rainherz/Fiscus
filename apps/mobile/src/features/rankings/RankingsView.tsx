@@ -5,6 +5,8 @@ import type { EntityComparison } from '@/features/investments/domain/entityCompa
 import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
 import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, space } from '@/shared/theme/tokens';
+import { TermHint } from '@/features/glossary/TermHint';
+import type { TermId } from '@/features/glossary/terms';
 import { TableHeader, TableRow } from '@/shared/ui/DataTable';
 import type { Tag } from '@/shared/ui/LevelTag';
 import { RankingRow } from '@/shared/ui/RankingRow';
@@ -181,7 +183,14 @@ export function RankingsView({
           data={table.rows}
           keyExtractor={(row) => row.key}
           stickyHeaderIndices={table.rows.length > 0 ? [0] : undefined}
-          ListHeaderComponent={table.rows.length > 0 ? <TableHeader {...layout} /> : undefined}
+          ListHeaderComponent={
+            table.rows.length > 0 ? (
+              <TableHeader
+                {...layout}
+                renderHint={spread ? (term, onInk) => <TermHint term={term as TermId} onInk={onInk} /> : undefined}
+              />
+            ) : undefined
+          }
           renderItem={({ item: row, index }) => (
             <TableRow
               {...layout}

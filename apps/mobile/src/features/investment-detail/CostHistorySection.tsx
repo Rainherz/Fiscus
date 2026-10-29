@@ -7,6 +7,7 @@ import {
 } from '@/features/investments/domain/costChange';
 import { formatDate, formatSignedSolesCompact, formatSoles } from '@/shared/format';
 import { colors, rule, space } from '@/shared/theme/tokens';
+import { TermHint } from '@/features/glossary/TermHint';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
@@ -89,9 +90,12 @@ function HistoryRow({ change }: { change: CostChange }) {
 export function CostHistorySection({ state }: Props) {
   return (
     <View style={styles.section}>
-      <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.title}>
-        HISTORIAL DEL COSTO
-      </DisplayText>
+      <View style={styles.titleRow}>
+        <DisplayText weight={900} size={22} accessibilityRole="header" style={styles.title}>
+          HISTORIAL DEL COSTO
+        </DisplayText>
+        <TermHint term="historial" />
+      </View>
       {state.status === 'pending' ? (
         <StateMessage kind="loading" message="Cargando historial…" />
       ) : state.status === 'error' ? (
@@ -112,7 +116,8 @@ export function CostHistorySection({ state }: Props) {
 
 const styles = StyleSheet.create({
   section: { marginTop: space.xl, marginHorizontal: space.lg },
-  title: { marginBottom: 6 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: 6 },
+  title: { flexShrink: 1 },
   row: {
     borderTopWidth: rule,
     borderTopColor: colors.ink,

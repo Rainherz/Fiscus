@@ -1,3 +1,4 @@
+import type { TermId } from '@/features/glossary/terms';
 import { hasValidIncrease, type MapListItem, type MapPoint, type MapPoints } from '@/features/investments/domain/mapPoints';
 import {
   formatInteger,
@@ -82,6 +83,20 @@ export function pointCardFacts(item: MapListItem): string[] {
   if (item.physicalProgress !== null) facts.push(`AVANCE FÍSICO ${formatProgress(item.physicalProgress / 100)}`);
   if (item.stalled) facts.push(`Sin gasto desde ${formatMonthShort(item.lastAccrualMonth)}`);
   return facts;
+}
+
+/** The glossary term of the card's figure: the increase, or why there is none. */
+export function pointCardFigureTerm(point: MapPoint): TermId {
+  return point.updatedCostValid ? 'aumento' : 'costo-no-valido';
+}
+
+/** The glossary term of each line of pointCardFacts, in the same order. */
+export function pointCardFactTerms(item: MapListItem): TermId[] {
+  const terms: TermId[] = [];
+  if (item.updatedCostValid) terms.push('costo-actualizado', 'gastado');
+  if (item.physicalProgress !== null) terms.push('avance-fisico');
+  if (item.stalled) terms.push('sin-gasto-reciente');
+  return terms;
 }
 
 /** "128 proyectos en esta zona": the head of the list and of the collapsed sheet. */

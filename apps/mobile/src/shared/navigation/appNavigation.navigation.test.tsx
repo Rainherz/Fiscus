@@ -74,6 +74,7 @@ const routes = {
   '(tabs)/search': placeholder('Pantalla de búsqueda'),
   'investment/[cui]': Detail,
   region: Region,
+  guia: placeholder('Pantalla de la guía'),
 };
 
 const TAB_LABELS = ['Inicio', 'Rankings', 'Categorías', 'Buscar'];
@@ -107,6 +108,23 @@ describe('main navigation placement', () => {
     expect(router.getPathname()).toBe('/categories');
     expect(await screen.findByText('Pantalla de categorías')).toBeOnTheScreen();
     expect(screen.getByRole('link', { name: 'Categorías' })).toBeSelected();
+  });
+});
+
+describe('guide in the header', () => {
+  it('is a fifth header item on desktop that opens the guide', async () => {
+    windowWidth(1440);
+    const router = await renderRouter(routes, { initialUrl: '/' });
+    await fireEvent.press(await screen.findByRole('link', { name: 'Guía' }));
+    expect(router.getPathname()).toBe('/guia');
+    expect(await screen.findByText('Pantalla de la guía')).toBeOnTheScreen();
+  });
+
+  it.each([390, 1024])('is not in the header at %i px, where it does not fit', async (width) => {
+    windowWidth(width);
+    await renderRouter(routes, { initialUrl: '/' });
+    await screen.findByRole('link', { name: 'Fiscus, ir al inicio' });
+    expect(screen.queryByRole('link', { name: 'Guía' })).toBeNull();
   });
 });
 

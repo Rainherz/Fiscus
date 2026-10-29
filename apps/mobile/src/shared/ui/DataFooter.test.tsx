@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { DataFooter } from './DataFooter';
@@ -64,5 +64,13 @@ describe('DataFooter', () => {
     expect(screen.getByText('Datos actualizados el 26/10/2026')).toBeOnTheScreen();
     expect(screen.getByText('Modo demostración: datos de ejemplo.')).toBeOnTheScreen();
     expect(screen.getByText('Datos abiertos revisados el 28/10/2026')).toBeOnTheScreen();
+  });
+
+  it.each([390, 1440])('links to the guide at %i px', async (width) => {
+    windowWidth(width);
+    const onPressGuide = jest.fn();
+    await render(<DataFooter finishedAt={null} isDemo={false} onPressGuide={onPressGuide} />);
+    await fireEvent.press(screen.getByRole('link', { name: 'Cómo leer estos datos' }));
+    expect(onPressGuide).toHaveBeenCalledTimes(1);
   });
 });

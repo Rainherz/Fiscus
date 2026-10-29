@@ -218,6 +218,38 @@ describe('InvestmentDetailView', () => {
   });
 
   describe('levels, location and physical progress', () => {
+    it('explains every figure and identity label with a term hint', async () => {
+      await render(
+        <InvestmentDetailView
+          investment={{ ...full, governmentLevel: 'GL', executingUnit: 'MUNICIPALIDAD DISTRITAL DE CAYMA', physicalProgress: 42 }}
+          now={NOW}
+        />,
+      );
+      for (const term of [
+        'CUI (Código Único de Inversiones)',
+        'Monto viable (aprobado)',
+        'Costo actualizado',
+        'Aumento de costo',
+        'Gastado % del costo',
+        'Avance físico',
+        'Nivel de gobierno (GN/GR/GL)',
+        'Entidad',
+        'Unidad ejecutora',
+        'Función / división / grupo funcional',
+        'Estado y situación',
+        'Devengado (gastado)',
+      ]) {
+        expect(screen.getByRole('button', { name: `Qué significa ${term}` })).toBeOnTheScreen();
+      }
+      // Facts with a hint keep their accessible name for the value.
+      expect(screen.getByLabelText('Entidad: GOBIERNO REGIONAL AREQUIPA')).toBeOnTheScreen();
+    });
+
+    it('explains an invalid updated cost', async () => {
+      await render(<InvestmentDetailView investment={{ ...full, updatedCost: 5, updatedCostValid: false, costIncrease: null }} now={NOW} />);
+      expect(screen.getByRole('button', { name: 'Qué significa Costo actualizado no válido' })).toBeOnTheScreen();
+    });
+
     const local: Investment = {
       ...full,
       governmentLevel: 'GL',

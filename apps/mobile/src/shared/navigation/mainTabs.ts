@@ -7,3 +7,6 @@ export const MAIN_TABS = [
 ] as const;
 
 export type MainTab = (typeof MAIN_TABS)[number]['name'];
+
+/** The guide (`/guia`), a stack screen shown as a fifth header item on desktop. */
+export const GUIDE_NAV_ITEM = { name: 'guia', title: 'Guía' } as const;

@@ -171,6 +171,13 @@ describe('MapPointCard', () => {
     expect(screen.getByRole('button', { name: 'Ver detalle: Majes Siguas II etapa' })).toBeOnTheScreen();
   });
 
+  it('explains the increase and every figure line with term hints', async () => {
+    await card(item('2088142', { physicalProgress: 42, stalled: true, lastAccrualMonth: '2025-02-01' }));
+    for (const term of ['Aumento de costo', 'Costo actualizado', 'Gastado % del costo', 'Avance físico', 'Sin gasto reciente']) {
+      expect(screen.getByRole('button', { name: `Qué significa ${term}` })).toBeOnTheScreen();
+    }
+  });
+
   it('says when the cost is not valid in the source', async () => {
     await render(
       <MapPointCard
@@ -182,6 +189,7 @@ describe('MapPointCard', () => {
       />,
     );
     expect(screen.getByText('Costo actualizado no válido en la fuente MEF')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Qué significa Costo actualizado no válido' })).toBeOnTheScreen();
     expect(screen.queryByText(/^GASTADO/)).toBeNull();
   });
 

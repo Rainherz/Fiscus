@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { colors, minTouch, rule, space } from '../theme/tokens';
@@ -10,6 +11,8 @@ export interface TableColumn {
   label: string;
   /** The figure the list is ranked by: highlighted header, bold values. */
   sorted: boolean;
+  /** Glossary term of the column, explained by `renderHint` in the header. */
+  term?: string;
 }
 
 export interface TableRowData {
@@ -33,35 +36,47 @@ interface Layout {
   national: boolean;
 }
 
-/** Column header row; hidden from screen readers, every row announces its figures with their names. */
-export function TableHeader({ columns, spread, national }: Layout) {
+/** Hidden from screen readers: every row announces its figures with their names. */
+const hiddenFromReaders = { accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const;
+
+/**
+ * Column header row. The labels are hidden from screen readers (every row announces its figures
+ * with their names); the term hints, when given, stay reachable.
+ */
+export function TableHeader({
+  columns,
+  spread,
+  national,
+  renderHint,
+}: Layout & { renderHint?: (term: string, onInk: boolean) => ReactNode }) {
   return (
-    <View
-      testID="table-header"
-      style={styles.header}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants">
-      <MonoText bold size={11} muted style={styles.rank}>
+    <View testID="table-header" style={styles.header}>
+      <MonoText bold size={11} muted style={styles.rank} {...hiddenFromReaders}>
         #
       </MonoText>
-      <MonoText bold size={11} muted style={styles.name}>
+      <MonoText bold size={11} muted style={styles.name} {...hiddenFromReaders}>
         NOMBRE
       </MonoText>
       {spread ? (
-        <MonoText bold size={11} muted style={styles.level}>
+        <MonoText bold size={11} muted style={styles.level} {...hiddenFromReaders}>
           NIVEL
         </MonoText>
       ) : null}
       {spread && national ? (
-        <MonoText bold size={11} muted style={styles.region}>
+        <MonoText bold size={11} muted style={styles.region} {...hiddenFromReaders}>
           REGIÓN
         </MonoText>
       ) : null}
       {columns.map((column) => (
-        <View key={column.key} style={[styles.figure, column.sorted && styles.sortedHead]}>
-          <MonoText bold size={11} style={[styles.figureText, column.sorted ? styles.sortedHeadText : styles.headText]}>
+        <View key={column.key} style={[styles.figure, styles.figureHead, column.sorted && styles.sortedHead]}>
+          <MonoText
+            bold
+            size={11}
+            style={[styles.figureText, column.sorted ? styles.sortedHeadText : styles.headText]}
+            {...hiddenFromReaders}>
             {column.label.toUpperCase()}
           </MonoText>
+          {column.term && renderHint ? renderHint(column.term, column.sorted) : null}
         </View>
       ))}
     </View>
@@ -154,6 +169,7 @@ const styles = StyleSheet.create({
   region: { flex: 1.1, alignSelf: 'center' },
   figure: { flex: 1, minWidth: 84, justifyContent: 'center', paddingHorizontal: space.xs },
   figureText: { textAlign: 'right' },
+  figureHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.xs },
   headText: { color: colors.muted },
   sortedHead: { backgroundColor: colors.ink, paddingVertical: space.sm },
   sortedHeadText: { color: colors.signal },

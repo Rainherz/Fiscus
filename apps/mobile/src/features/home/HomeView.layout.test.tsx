@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
 import { NOW, arequipa, majes } from '@/test/fixtures';
@@ -75,5 +75,41 @@ describe('HomeView layout', () => {
     windowWidth(1880);
     await renderHome();
     expect(flat('home-column')).toMatchObject({ maxWidth: 1280 });
+  });
+});
+
+describe('glossary on Inicio', () => {
+  const renderWithGuide = (onPressGuide = jest.fn()) =>
+    render(
+      <HomeView
+        hero={majes}
+        ranking={arequipa.slice(1)}
+        now={NOW}
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        onPressGuide={onPressGuide}
+      />,
+    );
+
+  it.each([390, 1440])('explains the hero labels at %i px', async (width) => {
+    windowWidth(width);
+    await renderWithGuide();
+    for (const term of ['Monto viable (aprobado)', 'Costo actualizado', 'Gastado % del costo']) {
+      expect(screen.getByRole('button', { name: `Qué significa ${term}` })).toBeOnTheScreen();
+    }
+  });
+
+  it('links to the guide on phones', async () => {
+    windowWidth(390);
+    const onPressGuide = jest.fn();
+    await renderWithGuide(onPressGuide);
+    await fireEvent.press(screen.getByRole('link', { name: 'Cómo leer estos datos' }));
+    expect(onPressGuide).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the guide link to the header and the footer on wide screens', async () => {
+    windowWidth(1440);
+    await renderWithGuide();
+    expect(screen.queryByRole('link', { name: 'Cómo leer estos datos' })).toBeNull();
   });
 });
