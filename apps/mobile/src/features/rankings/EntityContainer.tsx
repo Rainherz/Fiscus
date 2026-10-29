@@ -45,10 +45,10 @@ export function EntityContainer() {
 function EntityProjects({ params }: { params: EntityParams }) {
   const router = useRouter();
   const { label: scopeName } = useScope();
-  const { departmentCode } = useReadScope();
+  const { departmentCode, status } = useReadScope();
   const read: ReadScope = useMemo(
-    () => ({ departmentCode, level: params.level, entity: params.entity }),
-    [departmentCode, params.level, params.entity],
+    () => ({ departmentCode, level: params.level, status, entity: params.entity }),
+    [departmentCode, params.level, status, params.entity],
   );
   const ranking = useRankingList(params.tab, read);
   const where = params.level === 'ALL' ? scopeName : `${levelName(params.level)} · ${scopeName}`;

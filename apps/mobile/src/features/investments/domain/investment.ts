@@ -5,8 +5,29 @@ export interface Coordinates {
   longitude: number;
 }
 
-/** Which MEF source owns the figures of a row (`investments.data_source`). */
-export type DataSourceKind = 'ssi' | 'open_data';
+/**
+ * Which MEF source owns the figures of a row (`investments.data_source`): the SSI report, the
+ * open-data file of active investments, or the open-data file of closed investments.
+ */
+export type DataSourceKind = 'ssi' | 'open_data' | 'open_data_closed';
+
+/**
+ * What MEF publishes about the closure of a project (open data CIERRE_INVERSIONES.csv). Dates are
+ * ISO yyyy-mm-dd; every field may be missing.
+ */
+export interface InvestmentClosure {
+  closedAt: string | null;
+  /** The closure type as MEF publishes it, e.g. "Sí, con liquidación" or "No culminada". */
+  description: string | null;
+  /** Final settled cost (TOTAL_LIQUIDACION), as published: 0 happens. */
+  liquidationAmount: number | null;
+  liquidatedAt: string | null;
+  /** Whether the works were completed (CULMINADA). */
+  culminated: boolean | null;
+  physicalStartAt: string | null;
+  physicalEndAt: string | null;
+  operationStartAt: string | null;
+}
 
 /** A public investment project (one CUI), as shown in the app. Money is in soles. */
 export interface Investment {
@@ -64,6 +85,8 @@ export interface Investment {
   dataSource: DataSourceKind;
   /** Open data location; null when MEF has none or an invalid one (about 23% of projects). */
   coordinates: Coordinates | null;
+  /** Closure facts; null (or absent) when MEF publishes none, as for active projects. */
+  closure?: InvestmentClosure | null;
 }
 
 /** The source publishes an updated cost, but it is not usable (see `updatedCostValid`). */

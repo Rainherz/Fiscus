@@ -41,6 +41,7 @@ const toPointFeature = (p: MapPoint): MapFeature => ({
   latitude: p.latitude,
   longitude: p.longitude,
   increased: hasValidIncrease(p),
+  closed: p.closed === true,
 });
 
 export function toMapFeatures(result: MapPoints): MapFeature[] {

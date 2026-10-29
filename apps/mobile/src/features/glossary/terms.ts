@@ -19,6 +19,8 @@ export const TERM_IDS = [
   'unidad-ejecutora',
   'funcion',
   'estado',
+  'cierre',
+  'liquidacion',
   'sin-gasto-reciente',
   'costo-no-valido',
   'dato-inusual',
@@ -128,6 +130,20 @@ export const TERMS: Record<TermId, GlossaryTerm> = {
     definition: 'El estado indica si la inversión está activa, desactivada o cerrada en el Banco de Inversiones; la situación, la etapa en que se encuentra, como viable o aprobada.',
     kind: 'mef',
   },
+  cierre: {
+    id: 'cierre',
+    term: 'Cierre de la inversión',
+    definition: 'Registro con el que la unidad ejecutora da por terminada una inversión en el Banco de Inversiones, con el formato de cierre, tras su ejecución y liquidación o cuando ya no se va a culminar.',
+    extra: 'Un proyecto cerrado ya no debería registrar gasto; «culminada» indica si la obra llegó a terminarse.',
+    kind: 'mef',
+  },
+  liquidacion: {
+    id: 'liquidacion',
+    term: 'Liquidación',
+    definition: 'Cálculo final del costo total de una inversión cuando termina su ejecución, aprobado por la entidad.',
+    extra: 'Puede ser distinto del costo actualizado; Fiscus lo muestra tal como lo publica el MEF.',
+    kind: 'mef',
+  },
   'sin-gasto-reciente': {
     id: 'sin-gasto-reciente',
     term: 'Sin gasto reciente',
@@ -159,7 +175,7 @@ export const TERMS: Record<TermId, GlossaryTerm> = {
   fuentes: {
     id: 'fuentes',
     term: 'Fuentes (SSI y Datos Abiertos del MEF)',
-    definition: 'Fiscus usa el reporte del Sistema de Seguimiento de Inversiones (SSI), con proyectos de gobiernos regionales actualizados a diario, y el archivo «Detalle de inversiones» de Datos Abiertos, con inversiones activas de los tres niveles.',
+    definition: 'Fiscus usa el reporte del Sistema de Seguimiento de Inversiones (SSI), con proyectos de gobiernos regionales actualizados a diario, y dos archivos de Datos Abiertos: «Detalle de inversiones», con las inversiones activas de los tres niveles, y «Cierre de inversiones», con las cerradas.',
     extra: 'Si un proyecto está en ambas fuentes, sus cifras vienen del SSI.',
     kind: 'mef',
   },

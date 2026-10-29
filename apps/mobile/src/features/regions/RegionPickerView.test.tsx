@@ -32,6 +32,8 @@ const regions = [
 const baseProps = {
   level: 'GR' as const,
   onSelectLevel: jest.fn(),
+  projectStatus: 'ACTIVE' as const,
+  onSelectProjectStatus: jest.fn(),
   sort: 'increase-amount' as const,
   regions,
   status: 'success' as const,
@@ -53,7 +55,7 @@ describe('RegionPickerView', () => {
     expect(sorts.getByRole('tab', { name: 'Mayor aumento (S/)' })).toBeSelected();
     expect(screen.queryByText('ORDENAR POR')).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
-    expect(screen.getByText('Gobiernos regionales. Montos en soles corrientes.')).toBeOnTheScreen();
+    expect(screen.getByText('Gobiernos regionales. Solo proyectos activos. Montos en soles corrientes.')).toBeOnTheScreen();
     expect(screen.getByText('Suma de los aumentos de costo. No descuenta las reducciones.')).toBeOnTheScreen();
   });
 
@@ -72,6 +74,24 @@ describe('RegionPickerView', () => {
     await fireEvent.press(levels.getByRole('tab', { name: 'Local' }));
     expect(onSelectLevel).toHaveBeenCalledWith('GL');
     expect(baseProps.onClose).not.toHaveBeenCalled();
+  });
+
+  it('chooses the project status next to the level, without closing', async () => {
+    const onSelectProjectStatus = jest.fn();
+    await render(<RegionPickerView {...baseProps} onSelectProjectStatus={onSelectProjectStatus} />);
+    expect(screen.getByText('ESTADO DEL PROYECTO')).toBeOnTheScreen();
+    const statuses = within(screen.getByLabelText('Estado del proyecto'));
+    expect(statuses.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual(['Activos', 'Cerrados', 'Todos']);
+    expect(statuses.getByRole('tab', { name: 'Activos' })).toBeSelected();
+    await fireEvent.press(statuses.getByRole('tab', { name: 'Cerrados' }));
+    expect(onSelectProjectStatus).toHaveBeenCalledWith('CLOSED');
+    expect(baseProps.onClose).not.toHaveBeenCalled();
+  });
+
+  it('says the stalled sort only applies to active projects when only closed ones are shown', async () => {
+    await render(<RegionPickerView {...baseProps} projectStatus="CLOSED" sort="stalled" />);
+    expect(screen.getByText(/se aplica solo a proyectos activos/)).toBeOnTheScreen();
+    expect(screen.getByText('Gobiernos regionales. Solo proyectos cerrados. Montos en soles corrientes.')).toBeOnTheScreen();
   });
 
   it('explains in one line what the list is for', async () => {

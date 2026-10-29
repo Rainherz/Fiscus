@@ -49,6 +49,8 @@ describe('glossary terms', () => {
       'Unidad ejecutora',
       'Función / división / grupo funcional',
       'Estado y situación',
+      'Cierre de la inversión',
+      'Liquidación',
       'Sin gasto reciente',
       'Costo actualizado no válido',
       'Dato inusual',

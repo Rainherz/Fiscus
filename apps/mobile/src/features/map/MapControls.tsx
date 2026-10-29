@@ -17,6 +17,8 @@ interface Props {
   scopeLabel: string;
   level: LevelFilter;
   filters: readonly MapFilter[];
+  /** Chips left out ("Sin gasto reciente" while only closed projects are shown). */
+  hiddenFilters?: readonly MapFilter[];
   onPressScope: () => void;
   onSelectLevel: (level: LevelFilter) => void;
   onToggleFilter: (filter: MapFilter) => void;
@@ -26,9 +28,17 @@ interface Props {
  * Above the map: the scope (opens the region picker), the level of government (the app's level,
  * the same state as the picker) and the filter chips (several at once, combined with AND).
  */
-export function MapControls({ scopeLabel, level, filters, onPressScope, onSelectLevel, onToggleFilter }: Props) {
+export function MapControls({
+  scopeLabel,
+  level,
+  filters,
+  hiddenFilters = [],
+  onPressScope,
+  onSelectLevel,
+  onToggleFilter,
+}: Props) {
   const wide = useWindowDimensions().width >= MAP_WIDE_MIN_WIDTH;
-  const chips = MAP_FILTER_OPTIONS.map((option) => {
+  const chips = MAP_FILTER_OPTIONS.filter((option) => !hiddenFilters.includes(option.key)).map((option) => {
     const checked = filters.includes(option.key);
     return (
       <Pressable

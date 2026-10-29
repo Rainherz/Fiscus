@@ -1,6 +1,7 @@
 import { isCostIncrease, type CostChange } from '../domain/costChange';
 import { computeEntityComparison, type EntityComparison } from '../domain/entityComparison';
 import type { LevelFilter } from '../domain/governmentLevel';
+import { matchesStatus, type StatusFilter } from '../domain/investmentStatus';
 import type { DataFreshness } from '../domain/freshness';
 import type { FunctionSummary, IngestRun } from '../domain/investment';
 import { computeMapList, computeMapPoints } from '../domain/mapPoints';
@@ -119,6 +120,9 @@ const sumOrNull = (values: (number | null)[]): number | null => {
 const atLevel = (level: LevelFilter | undefined) => (row: InvestmentRow) =>
   level === undefined || level === 'ALL' || row.government_level === level;
 
+/** Like the status groups of the *_by_status views: other statuses only under 'ALL'. */
+const withStatus = (status: StatusFilter | undefined) => (row: InvestmentRow) => matchesStatus(row.status ?? null, status);
+
 /** A computed entity as a row of the `entity_comparison` view, so its query spec applies as-is. */
 function toEntityRow(entity: EntityComparison, scope: number): EntityComparisonRow {
   return {
@@ -162,9 +166,9 @@ export function createInMemoryInvestmentsRepository(seed: {
       const row = rows.find((r) => r.cui === cui);
       return row ? mapInvestmentRow(row) : null;
     },
-    async functionSummaries(departmentCode, level) {
+    async functionSummaries(departmentCode, level, status) {
       const groups = new Map<string | null, InvestmentRow[]>();
-      for (const row of rows.filter(atLevel(level))) {
+      for (const row of rows.filter(atLevel(level)).filter(withStatus(status))) {
         if (departmentCode !== undefined && row.department_code !== departmentCode) continue;
         const key = row.function_canonical ?? null;
         groups.set(key, [...(groups.get(key) ?? []), row]);
@@ -191,8 +195,13 @@ export function createInMemoryInvestmentsRepository(seed: {
     async getCostHistory(cui) {
       return changes.filter((change) => change.cui === cui).sort(byObservation);
     },
-    async getRecentCostIncreases({ departmentCode, level, limit }) {
-      const investments = new Map(rows.filter(atLevel(level)).map((row) => [row.cui, row]));
+    async getRecentCostIncreases({ departmentCode, level, status, limit }) {
+      const investments = new Map(
+        rows
+          .filter(atLevel(level))
+          .filter(withStatus(status))
+          .map((row) => [row.cui, row]),
+      );
       return changes
         .filter(isCostIncrease)
         .flatMap((change) => {
@@ -214,32 +223,36 @@ export function createInMemoryInvestmentsRepository(seed: {
     async getStalledInvestments(params) {
       return runQuery(stalledRows(rows), buildStalledQuery(params)).map(mapStalledInvestmentRow);
     },
-    async countStalledInvestments(departmentCode, level) {
+    async countStalledInvestments(departmentCode, level, status) {
       return stalledRows(rows)
         .filter(atLevel(level))
+        .filter(withStatus(status))
         .filter((row) => departmentCode === undefined || row.department_code === departmentCode).length;
     },
     async getAccrualReferenceMonth() {
       return referenceMonth(rows);
     },
-    async getRegionComparison(level) {
-      // Like region_comparison_by_level: only the 25 departments.
-      const inDepartment = (row: InvestmentRow) => row.department_code !== null && atLevel(level)(row);
+    async getRegionComparison(level, status) {
+      // Like region_comparison_by_level (and _by_status): only the 25 departments.
+      const inDepartment = (row: InvestmentRow) =>
+        row.department_code !== null && atLevel(level)(row) && withStatus(status)(row);
       return computeRegionComparison(
         rows.filter(inDepartment).map(mapInvestmentRow),
         stalledRows(rows).filter(inDepartment).map(mapStalledInvestmentRow),
       );
     },
     async getEntityComparison(params) {
+      const inStatus = withStatus(params.status);
       const entities = computeEntityComparison(
-        rows.map(mapInvestmentRow),
-        stalledRows(rows).map(mapStalledInvestmentRow),
+        rows.filter(inStatus).map(mapInvestmentRow),
+        stalledRows(rows).filter(inStatus).map(mapStalledInvestmentRow),
         params.departmentCode,
       );
       const scope = params.departmentCode ?? NATIONAL_SCOPE_CODE;
+      // The status is already applied: the computed rows carry no status_group to filter on.
       return runQuery(
         entities.map((entity) => toEntityRow(entity, scope)),
-        buildEntityQuery(params),
+        buildEntityQuery({ ...params, status: undefined }),
       ).map(mapEntityComparisonRow);
     },
     async getMapPoints(request) {

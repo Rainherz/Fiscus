@@ -17,6 +17,8 @@ const windowWidth = (width: number) =>
 const props = {
   level: 'ALL' as const,
   onSelectLevel: jest.fn(),
+  projectStatus: 'ACTIVE' as const,
+  onSelectProjectStatus: jest.fn(),
   sort: 'increase-amount' as const,
   regions: [regionRow(4, { totalCostIncrease: 3_809_492_486 }), regionRow(8, { totalCostIncrease: 1_200_000_000 })],
   status: 'success' as const,

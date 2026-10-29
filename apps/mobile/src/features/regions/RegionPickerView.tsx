@@ -12,7 +12,9 @@ import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 import type { Department } from '../department/departments';
 import { LEVEL_OPTIONS, regionsNote } from '../government-level/levelPresentation';
+import { ACTIVE_ONLY_NOTE, STATUS_OPTIONS, isActiveOnlyHidden } from '../investment-status/statusPresentation';
 import type { LevelFilter } from '../investments/domain/governmentLevel';
+import type { StatusFilter } from '../investments/domain/investmentStatus';
 import { NATIONAL, NATIONAL_LABEL, department, isSameScope, type Scope } from '../department/scope';
 import type { RegionComparison, RegionSort } from '../investments/domain/regionComparison';
 import {
@@ -31,6 +33,9 @@ interface Props {
   /** The global government level: it filters the comparison and every screen. */
   level: LevelFilter;
   onSelectLevel: (level: LevelFilter) => void;
+  /** The global project status filter (Activos, Cerrados, Todos): like the level, it filters every screen. */
+  projectStatus: StatusFilter;
+  onSelectProjectStatus: (status: StatusFilter) => void;
   sort: RegionSort;
   /** Already ranked by `sort`. */
   regions: RegionComparison[];
@@ -67,6 +72,8 @@ function toItems(regions: RegionComparison[], status: Props['status']): Item[] {
 export function RegionPickerView({
   level,
   onSelectLevel,
+  projectStatus,
+  onSelectProjectStatus,
   sort,
   regions,
   status,
@@ -101,6 +108,17 @@ export function RegionPickerView({
             accessibilityLabel="Nivel de gobierno"
           />
         </View>
+        <MonoText bold size={11}>
+          ESTADO DEL PROYECTO
+        </MonoText>
+        <View style={styles.sorts}>
+          <SegmentedTabs
+            options={STATUS_OPTIONS}
+            selected={projectStatus}
+            onSelect={onSelectProjectStatus}
+            accessibilityLabel="Estado del proyecto"
+          />
+        </View>
       </View>
       <View style={styles.national}>
         <OptionRow
@@ -111,7 +129,7 @@ export function RegionPickerView({
         />
       </View>
       <MonoText size={11} muted>
-        {regionsNote(level)}
+        {regionsNote(level, projectStatus)}
       </MonoText>
       {ranked ? (
         <>
@@ -124,7 +142,7 @@ export function RegionPickerView({
             />
           </View>
           <MonoText size={11} muted>
-            {regionNote(sort)}
+            {sort === 'stalled' && isActiveOnlyHidden(projectStatus) ? ACTIVE_ONLY_NOTE : regionNote(sort)}
           </MonoText>
         </>
       ) : status === 'pending' ? (
@@ -272,7 +290,7 @@ const styles = StyleSheet.create({
   bodyTablet: { gap: space.xl },
   panelTablet: { width: 320 },
   listContentWide: { paddingTop: space.lg },
-  /** The level applies to every screen, so it sits above the region options, apart from the sorts. */
+  /** The level and status apply to every screen, so they sit above the region options, apart from the sorts. */
   levels: { gap: space.sm, marginBottom: space.sm },
   /** All of Peru sits apart from the comparison, closed by a rule like the list rows. */
   national: { marginBottom: space.sm, borderBottomWidth: rule, borderBottomColor: colors.ink },

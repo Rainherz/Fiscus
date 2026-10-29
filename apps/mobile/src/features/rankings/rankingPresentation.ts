@@ -12,6 +12,9 @@ import { withRegion } from '../department/scope';
 import type { EntityComparison } from '../investments/domain/entityComparison';
 import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 import type { Investment, RankingKind } from '../investments/domain/investment';
+import type { StatusFilter } from '../investments/domain/investmentStatus';
+import { isActiveOnlyHidden } from '../investment-status/statusPresentation';
+import type { RegionSort } from '../investments/domain/regionComparison';
 import type { StalledInvestment } from '../investments/domain/stalled';
 
 /**
@@ -97,4 +100,14 @@ export function rankingNote(kind: RankingTab): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * Tabs that only apply to active projects ("Sin gasto reciente", "Más tiempo en curso", and
+ * entities ranked by stalled projects): with only closed projects shown they keep their place but
+ * show ACTIVE_ONLY_NOTE instead of an empty list, and fetch nothing.
+ */
+export function isActiveOnlyTab(tab: RankingTab, status: StatusFilter, entitySort?: RegionSort): boolean {
+  if (!isActiveOnlyHidden(status)) return false;
+  return tab === 'stalled' || tab === 'duration' || (tab === 'entities' && entitySort === 'stalled');
 }

@@ -1,5 +1,7 @@
 import type { LevelFilter } from '../investments/domain/governmentLevel';
+import type { StatusFilter } from '../investments/domain/investmentStatus';
 import { parseLevel, serializeLevel } from '../government-level/level';
+import { parseStatus, serializeStatus } from '../investment-status/status';
 import { parseScope, serializeScope, type Scope } from './scope';
 
 /** The subset of AsyncStorage the scope needs (on web it is backed by localStorage). */
@@ -57,6 +59,33 @@ export function createLevelStorage(store: KeyValueStore): LevelStorage {
         await store.setItem(LEVEL_STORAGE_KEY, serializeLevel(level));
       } catch {
         // Like the scope: the level keeps working in memory.
+      }
+    },
+  };
+}
+
+/** Last chosen status filter (Activos, Cerrados, Todos) on the device. Never throws, like the scope. */
+export interface StatusStorage {
+  load(): Promise<StatusFilter | null>;
+  save(status: StatusFilter): Promise<void>;
+}
+
+export const STATUS_STORAGE_KEY = 'fiscus.status';
+
+export function createStatusStorage(store: KeyValueStore): StatusStorage {
+  return {
+    async load() {
+      try {
+        return parseStatus(await store.getItem(STATUS_STORAGE_KEY));
+      } catch {
+        return null;
+      }
+    },
+    async save(status) {
+      try {
+        await store.setItem(STATUS_STORAGE_KEY, serializeStatus(status));
+      } catch {
+        // Like the scope: the status keeps working in memory.
       }
     },
   };

@@ -1,7 +1,7 @@
 import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 
 import { withRegion } from '@/features/department/scope';
-import { levelTag } from '@/features/government-level/levelPresentation';
+import { projectTag } from '@/features/government-level/levelPresentation';
 import type { Investment } from '@/features/investments/domain/investment';
 import { formatSoles } from '@/shared/format';
 import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
@@ -127,7 +127,7 @@ export function SearchView({
           name={item.name}
           value={formatSoles(item.updatedCost)}
           detail={departmentName === null ? withRegion(item.departmentCode, `CUI ${item.cui}`) : `CUI ${item.cui}`}
-          tag={levelTag(item.governmentLevel)}
+          tag={projectTag(item)}
           onPress={() => onPressInvestment(item.cui)}
         />
       )}

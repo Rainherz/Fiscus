@@ -14,7 +14,8 @@ import { SegmentedTabs } from '@/shared/ui/SegmentedTabs';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { MonoText } from '@/shared/ui/typography';
 
-import { levelTag } from '../government-level/levelPresentation';
+import { levelTag, projectTag } from '../government-level/levelPresentation';
+import { ACTIVE_ONLY_NOTE } from '../investment-status/statusPresentation';
 import { STALLED_EMPTY, stalledRowDetail } from '../stalled/stalledPresentation';
 import {
   ENTITIES_EMPTY,
@@ -69,7 +70,7 @@ function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySor
         key: item.cui,
         name: item.name,
         detail: stalledRowDetail(item, { national }),
-        tag: levelTag(item.governmentLevel),
+        tag: projectTag(item),
         onPress: () => actions.onPressInvestment(item.cui),
       }));
     default: {
@@ -79,7 +80,7 @@ function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySor
         name: item.name,
         value: rankingValue(kind, item, now),
         detail: rankingDetail(kind, item, { national }),
-        tag: levelTag(item.governmentLevel),
+        tag: projectTag(item),
         onPress: () => actions.onPressInvestment(item.cui),
       }));
     }
@@ -111,6 +112,11 @@ interface Props {
   onPressEntity?: (entity: EntityComparison) => void;
   /** Shown above the tabs (the entity drill-down names the entity). */
   header?: ReactNode;
+  /**
+   * The selected tab only applies to active projects and only closed ones are shown
+   * (isActiveOnlyTab): the list is replaced by a note.
+   */
+  activeOnlyHidden?: boolean;
 }
 
 export function RankingsView({
@@ -128,9 +134,14 @@ export function RankingsView({
   onSelectEntitySort = () => {},
   onPressEntity = () => {},
   header,
+  activeOnlyHidden = false,
 }: Props) {
   const { kind } = list;
-  const note = kind === 'entities' ? entityNote(entitySort, { national }) : rankingNote(kind);
+  const note = activeOnlyHidden
+    ? null
+    : kind === 'entities'
+      ? entityNote(entitySort, { national })
+      : rankingNote(kind);
   const rows = toRows(list, now, national, entitySort, { onPressInvestment, onPressEntity });
   const tabs: readonly { key: RankingTab; label: string }[] =
     options === 'screen' ? RANKINGS_SCREEN_OPTIONS : RANKING_OPTIONS;
@@ -139,8 +150,9 @@ export function RankingsView({
   const column = wide ? { maxWidth: LAYOUT_MAX_WIDTH } : null;
   const gutter = wide ? { paddingHorizontal: gutterFor(breakpoint) } : null;
 
-  const empty =
-    status === 'pending' ? (
+  const empty = activeOnlyHidden ? (
+    <StateMessage kind="empty" message={ACTIVE_ONLY_NOTE} />
+  ) : status === 'pending' ? (
       <StateMessage kind="loading" />
     ) : status === 'error' ? (
       <StateMessage kind="error" onRetry={onRetry} />
@@ -249,18 +261,8 @@ export function RankingsView({
         )}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          status === 'pending' ? (
-            <StateMessage kind="loading" />
-          ) : status === 'error' ? (
-            <StateMessage kind="error" onRetry={onRetry} />
-          ) : (
-            <StateMessage kind="empty" message={emptyMessage(kind, national)} />
-          )
-        }
-        ListFooterComponent={
-          isFetchingMore ? <ActivityIndicator color={colors.ink} style={styles.more} /> : undefined
-        }
+        ListEmptyComponent={empty}
+        ListFooterComponent={more}
       />
     </View>
   );

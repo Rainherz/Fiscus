@@ -1,5 +1,13 @@
 import { department, NATIONAL } from './scope';
-import { LEVEL_STORAGE_KEY, SCOPE_STORAGE_KEY, createLevelStorage, createScopeStorage, type KeyValueStore } from './scopeStorage';
+import {
+  LEVEL_STORAGE_KEY,
+  SCOPE_STORAGE_KEY,
+  STATUS_STORAGE_KEY,
+  createLevelStorage,
+  createScopeStorage,
+  createStatusStorage,
+  type KeyValueStore,
+} from './scopeStorage';
 
 function memoryStore(initial: Record<string, string> = {}): KeyValueStore & { data: Record<string, string> } {
   const data = { ...initial };
@@ -72,5 +80,22 @@ describe('level storage', () => {
     expect(await createLevelStorage(memoryStore({ [LEVEL_STORAGE_KEY]: 'XX' })).load()).toBeNull();
     await expect(createLevelStorage(failing).load()).resolves.toBeNull();
     await expect(createLevelStorage(failing).save('GN')).resolves.toBeUndefined();
+  });
+});
+
+describe('status storage', () => {
+  it('saves and loads the last chosen status filter under its own key', async () => {
+    const store = memoryStore();
+    const storage = createStatusStorage(store);
+    await storage.save('CLOSED');
+    expect(STATUS_STORAGE_KEY).toBe('fiscus.status');
+    expect(store.data[STATUS_STORAGE_KEY]).toBe('CLOSED');
+    expect(await storage.load()).toBe('CLOSED');
+  });
+
+  it('loads nothing for unusable values and never throws', async () => {
+    expect(await createStatusStorage(memoryStore({ [STATUS_STORAGE_KEY]: 'CERRADO' })).load()).toBeNull();
+    await expect(createStatusStorage(failing).load()).resolves.toBeNull();
+    await expect(createStatusStorage(failing).save('ALL')).resolves.toBeUndefined();
   });
 });

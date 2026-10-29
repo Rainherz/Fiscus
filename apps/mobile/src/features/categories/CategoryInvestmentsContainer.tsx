@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReadScope, useScope } from '@/features/department/ScopeContext';
-import { levelFilterLabel, levelTag } from '@/features/government-level/levelPresentation';
+import { levelFilterLabel, projectTag } from '@/features/government-level/levelPresentation';
 import { useFunctionInvestments } from '@/features/investments/hooks/queries';
 import { formatSoles } from '@/shared/format';
 import { COMPACT_MAX_WIDTH, isWide } from '@/shared/layout/breakpoints';
@@ -56,7 +56,7 @@ export function CategoryInvestmentsContainer() {
             name={item.name}
             value={formatSoles(item.updatedCost)}
             detail={categoryRowDetail(item, { national })}
-            tag={levelTag(item.governmentLevel)}
+            tag={projectTag(item)}
             onPress={() => router.push({ pathname: '/investment/[cui]', params: { cui: item.cui } })}
           />
         )}

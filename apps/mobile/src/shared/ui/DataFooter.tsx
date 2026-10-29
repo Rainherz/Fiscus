@@ -19,10 +19,14 @@ interface Props {
 export const SOURCE_NAME = 'MEF – Sistema de Seguimiento de Inversiones';
 /** Investments of every level that only the open-data file has (DETALLE_INVERSIONES.csv). */
 export const OPEN_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Detalle de inversiones';
+/** Closed investments of every level that only the closed-investments file has (CIERRE_INVERSIONES.csv). */
+export const CLOSED_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Cierre de inversiones';
 
 /** The source a project's figures come from (`investments.data_source`). */
-export function sourceNameOf(dataSource: 'ssi' | 'open_data'): string {
-  return dataSource === 'open_data' ? OPEN_DATA_SOURCE_NAME : SOURCE_NAME;
+export function sourceNameOf(dataSource: 'ssi' | 'open_data' | 'open_data_closed'): string {
+  if (dataSource === 'open_data') return OPEN_DATA_SOURCE_NAME;
+  if (dataSource === 'open_data_closed') return CLOSED_DATA_SOURCE_NAME;
+  return SOURCE_NAME;
 }
 
 /**
@@ -53,7 +57,7 @@ export function DataFooter({ finishedAt, openDataCheckedAt = null, isDemo, onPre
       </MonoText>
     </Pressable>
   ) : null;
-  const sources = <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}`}</MonoText>;
+  const sources = <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}; ${CLOSED_DATA_SOURCE_NAME}`}</MonoText>;
 
   if (isWide(breakpoint)) {
     return (

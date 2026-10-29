@@ -10,6 +10,7 @@ import {
   rankingDetail,
   rankingNote,
   rankingValue,
+  isActiveOnlyTab,
 } from './rankingPresentation';
 
 const majes = mapInvestmentRow(
@@ -77,5 +78,17 @@ describe('ranking presentation', () => {
     expect(rankingNote('increase-pct')).toBe('Solo proyectos aprobados por más de S/ 1 M.');
     expect(rankingNote('duration')).toBe('Proyectos activos, contados desde su fecha de viabilidad.');
     expect(rankingNote('increase-amount')).toBeNull();
+  });
+});
+
+describe('isActiveOnlyTab', () => {
+  it('is the stalled and duration rankings, and entities sorted by stalled projects, only for closed projects', () => {
+    expect(isActiveOnlyTab('stalled', 'CLOSED')).toBe(true);
+    expect(isActiveOnlyTab('duration', 'CLOSED')).toBe(true);
+    expect(isActiveOnlyTab('entities', 'CLOSED', 'stalled')).toBe(true);
+    expect(isActiveOnlyTab('entities', 'CLOSED', 'increase-amount')).toBe(false);
+    expect(isActiveOnlyTab('cost', 'CLOSED')).toBe(false);
+    expect(isActiveOnlyTab('stalled', 'ALL')).toBe(false);
+    expect(isActiveOnlyTab('duration', 'ACTIVE')).toBe(false);
   });
 });

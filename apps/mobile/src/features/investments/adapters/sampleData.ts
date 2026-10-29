@@ -1,5 +1,6 @@
 import { canonicalFunction } from '../domain/functionCrosswalk';
 import type { GovernmentLevel } from '../domain/governmentLevel';
+import type { InvestmentClosure } from '../domain/investment';
 import type { CostChangeRow, InvestmentRow } from '../domain/mappers';
 
 interface SampleInput {
@@ -30,7 +31,9 @@ interface SampleInput {
   physicalProgress?: number | null;
   coordinates?: { latitude: number; longitude: number };
   /** Defaults to the SSI. */
-  dataSource?: 'ssi' | 'open_data';
+  dataSource?: 'ssi' | 'open_data' | 'open_data_closed';
+  /** Closure facts (closed-investments file); every field defaults to null. */
+  closure?: Partial<InvestmentClosure>;
 }
 
 /** Mirror the database rule for MEF placeholder and truncated updated costs. */
@@ -93,6 +96,14 @@ export function sampleRow(input: SampleInput): InvestmentRow {
     data_source: input.dataSource ?? 'ssi',
     latitude: input.coordinates?.latitude ?? null,
     longitude: input.coordinates?.longitude ?? null,
+    closed_at: input.closure?.closedAt ?? null,
+    closure_description: input.closure?.description ?? null,
+    liquidation_amount: input.closure?.liquidationAmount ?? null,
+    liquidated_at: input.closure?.liquidatedAt ?? null,
+    culminated: input.closure?.culminated ?? null,
+    physical_start_at: input.closure?.physicalStartAt ?? null,
+    physical_end_at: input.closure?.physicalEndAt ?? null,
+    operation_start_at: input.closure?.operationStartAt ?? null,
   };
 }
 
@@ -351,6 +362,81 @@ export const LEVELS_DEMO_SAMPLE: InvestmentRow[] = [
 ];
 
 /**
+ * DEMO ONLY, not MEF data: invented closed projects (status CERRADO) for the status filter, the
+ * CERRADO tag, the closure facts on the detail screen and the hollow map markers. One is owned by
+ * the SSI (closed regional projects come from both sources), one was not completed and would be
+ * "sin gasto reciente" if it were active (closed projects never are).
+ */
+export const CLOSED_DEMO_SAMPLE: InvestmentRow[] = [
+  sampleRow({
+    cui: '9900301',
+    name: 'Puente peatonal Chilina (demo)',
+    status: 'CERRADO',
+    level: 'GL',
+    entity: 'MUNICIPALIDAD PROVINCIAL DE AREQUIPA (demo)',
+    executingUnit: 'MUNICIPALIDAD PROVINCIAL DE AREQUIPA (demo)',
+    function: 'TRANSPORTE',
+    viable: 6_200_000,
+    updated: 7_450_000,
+    progress: 0.99,
+    viabilityAt: '2019-05-10',
+    lastAccrualMonth: '2024-05-01',
+    province: 'AREQUIPA',
+    district: 'AREQUIPA',
+    coordinates: { latitude: -16.385, longitude: -71.535 },
+    dataSource: 'open_data_closed',
+    closure: {
+      closedAt: '2024-08-15',
+      description: 'Sí, con liquidación',
+      liquidationAmount: 7_380_000,
+      liquidatedAt: '2024-06-30',
+      culminated: true,
+      physicalStartAt: '2021-03-01',
+      physicalEndAt: '2023-11-30',
+      operationStartAt: '2024-01-15',
+    },
+  }),
+  sampleRow({
+    cui: '9900302',
+    name: 'Instalación del sistema de riego en Chiguata (demo)',
+    status: 'CERRADO',
+    level: 'GL',
+    entity: 'MUNICIPALIDAD DISTRITAL DE CHIGUATA (demo)',
+    function: 'AGROPECUARIA',
+    viable: 3_100_000,
+    updated: 3_100_000,
+    progress: 0.42,
+    viabilityAt: '2017-09-04',
+    lastAccrualMonth: '2022-02-01',
+    province: 'AREQUIPA',
+    district: 'CHIGUATA',
+    coordinates: { latitude: -16.4, longitude: -71.4 },
+    dataSource: 'open_data_closed',
+    closure: { closedAt: '2023-05-20', description: 'No culminada', culminated: false },
+  }),
+  sampleRow({
+    cui: '9900303',
+    name: 'Hospital de apoyo de Camaná (demo)',
+    status: 'CERRADO',
+    entity: 'GOBIERNO REGIONAL AREQUIPA',
+    function: 'SALUD',
+    viable: 95_000_000,
+    updated: 132_000_000,
+    progress: 1.02,
+    viabilityAt: '2012-02-20',
+    lastAccrualMonth: '2022-10-01',
+    coordinates: { latitude: -16.63, longitude: -72.7 },
+    closure: {
+      closedAt: '2022-12-01',
+      description: 'Sí, con liquidación',
+      liquidationAmount: 131_500_000,
+      liquidatedAt: '2022-11-10',
+      culminated: true,
+    },
+  }),
+];
+
+/**
  * DEMO ONLY, not MEF data: approximate map positions (city or district level) so the demo mode can
  * show the map. The SSI records carry no coordinates in the source. Left out on purpose: the
  * multi-region national project and one unverified record, as projects without coordinates.
@@ -384,6 +470,7 @@ export const MOCK_ROWS: InvestmentRow[] = [
   ...EDGE_CASE_SAMPLE,
   ...STALLED_DEMO_SAMPLE,
   ...LEVELS_DEMO_SAMPLE,
+  ...CLOSED_DEMO_SAMPLE,
 ].map(withDemoCoordinates);
 
 type Amount = number | string | null | undefined;

@@ -13,6 +13,8 @@ interface Props {
   scopeLabel: string | null;
   /** "Todos los niveles" or one level; null while the last choice is being read. */
   levelLabel: string | null;
+  /** "Proyectos activos", "Proyectos cerrados"...: shown after the level when given. */
+  statusLabel?: string | null;
   onPressScope: () => void;
   /** Safe-area top inset, supplied by the container. */
   topInset?: number;
@@ -22,11 +24,12 @@ interface Props {
 
 /**
  * Black bar: brand in signal yellow (a link to Inicio) and the scope selector trigger, which shows
- * the region and, on a second line, the government level. Both are chosen in the region picker.
+ * the region and, on a second line, the government level and the project status. All three are
+ * chosen in the region picker.
  * On tablet and desktop the bar spans the window, its content follows the page column and the
  * main sections sit next to the brand. The header accessory (stale-data banner) follows the bar.
  */
-export function AppHeader({ scopeLabel, levelLabel, onPressScope, topInset = 0, nav }: Props) {
+export function AppHeader({ scopeLabel, levelLabel, statusLabel = null, onPressScope, topInset = 0, nav }: Props) {
   const breakpoint = useBreakpoint();
   const wide = isWide(breakpoint);
   const selector =
@@ -37,7 +40,10 @@ export function AppHeader({ scopeLabel, levelLabel, onPressScope, topInset = 0, 
     ) : (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Cambiar región o nivel de gobierno. Región actual: ${scopeLabel}. Nivel: ${levelLabel}`}
+        accessibilityLabel={
+          `Cambiar región o nivel de gobierno. Región actual: ${scopeLabel}. Nivel: ${levelLabel}` +
+          (statusLabel ? `. Estado: ${statusLabel}` : '')
+        }
         hitSlop={8}
         onPress={onPressScope}
         style={({ pressed }) => [styles.selector, pressed && styles.pressed]}>
@@ -45,7 +51,7 @@ export function AppHeader({ scopeLabel, levelLabel, onPressScope, topInset = 0, 
           {`${scopeLabel.toUpperCase()} ▾`}
         </MonoText>
         <MonoText size={10} style={styles.levelText}>
-          {levelLabel.toUpperCase()}
+          {(statusLabel ? `${levelLabel} · ${statusLabel}` : levelLabel).toUpperCase()}
         </MonoText>
       </Pressable>
     );

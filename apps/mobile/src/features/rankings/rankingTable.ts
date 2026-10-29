@@ -1,6 +1,6 @@
 import { regionLabel } from '@/features/department/departments';
 import type { TermId } from '@/features/glossary/terms';
-import { levelTag } from '@/features/government-level/levelPresentation';
+import { levelTag, projectTag } from '@/features/government-level/levelPresentation';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import type { Investment, RankingKind } from '@/features/investments/domain/investment';
 import type { StalledInvestment } from '@/features/investments/domain/stalled';
@@ -148,7 +148,7 @@ const projectRow = (item: Investment): Omit<TableRow, 'cells' | 'summary'> => ({
   key: item.cui,
   name: item.name ?? 'Sin nombre',
   sub: item.entity,
-  tag: levelTag(item.governmentLevel),
+  tag: projectTag(item),
   region: regionLabel(item.departmentCode),
   target: { kind: 'investment', cui: item.cui },
 });

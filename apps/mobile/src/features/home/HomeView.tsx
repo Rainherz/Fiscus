@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { regionLabel } from '@/features/department/departments';
-import { levelTag } from '@/features/government-level/levelPresentation';
+import { projectTag } from '@/features/government-level/levelPresentation';
 import { TermHint } from '@/features/glossary/TermHint';
 import { spentOverUpdatedCost, type Investment } from '@/features/investments/domain/investment';
 import {
@@ -172,7 +172,7 @@ export function HomeView({
   const years = yearsSince(hero.viabilityAt, now);
   const approvedYear = hero.viabilityAt ? ` aprobado en ${formatYear(hero.viabilityAt)}` : ' aprobado';
   const name = hero.name ?? 'Sin nombre';
-  const heroTag = levelTag(hero.governmentLevel);
+  const heroTag = projectTag(hero);
 
   const heroBlock = (
     <>
@@ -260,7 +260,7 @@ export function HomeView({
             name={investment.name}
             value={formatSignedSoles(investment.costIncrease)}
             detail={national ? regionLabel(investment.departmentCode) : undefined}
-            tag={levelTag(investment.governmentLevel)}
+            tag={projectTag(investment)}
             onPress={() => onPressInvestment(investment.cui)}
           />
         ))}
