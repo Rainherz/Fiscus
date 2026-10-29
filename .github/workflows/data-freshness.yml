@@ -1,0 +1,43 @@
+name: Fiscus data freshness
+
+# Daily at 15:00 UTC = 10:00 Lima, after the SSI run (04:00 Lima, machine in Peru) and the open-data
+# run (10:00 UTC). Reads public.data_freshness with the public anon key (read-only through RLS) and
+# opens, updates or closes the "Datos desactualizados" issue (label data-stale) when the last SSI
+# success or the last open-data check is older than 36 h. Logic: packages/ingest/src/freshness/.
+on:
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fiscus-data-freshness
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check data freshness
+        working-directory: packages/ingest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: pnpm freshness
