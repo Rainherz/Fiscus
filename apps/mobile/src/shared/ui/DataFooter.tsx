@@ -7,7 +7,10 @@ import { colors, rule, space } from '../theme/tokens';
 import { MonoText } from './typography';
 
 interface Props {
+  /** Last successful SSI update. */
   finishedAt: string | null;
+  /** Last open-data check (the file itself changes rarely). */
+  openDataCheckedAt?: string | null;
   isDemo: boolean;
 }
 
@@ -21,10 +24,10 @@ export function sourceNameOf(dataSource: 'ssi' | 'open_data'): string {
 }
 
 /**
- * Demo notice, last update and sources. Phones show it as the last block of the screen; tablet
+ * Demo notice, last SSI update, last open-data check and sources. Phones show it as the last block of the screen; tablet
  * and desktop as a page footer: a full-width rule, sources on the left and the date on the right.
  */
-export function DataFooter({ finishedAt, isDemo }: Props) {
+export function DataFooter({ finishedAt, openDataCheckedAt = null, isDemo }: Props) {
   const breakpoint = useBreakpoint();
   const demo = isDemo ? (
     <MonoText bold size={11}>
@@ -33,6 +36,9 @@ export function DataFooter({ finishedAt, isDemo }: Props) {
   ) : null;
   const updated = finishedAt ? (
     <MonoText size={11} muted>{`Datos actualizados el ${formatDate(finishedAt)}`}</MonoText>
+  ) : null;
+  const openData = openDataCheckedAt ? (
+    <MonoText size={11} muted>{`Datos abiertos revisados el ${formatDate(openDataCheckedAt)}`}</MonoText>
   ) : null;
   const sources = <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}`}</MonoText>;
 
@@ -44,6 +50,7 @@ export function DataFooter({ finishedAt, isDemo }: Props) {
           <View style={styles.status}>
             {demo}
             {updated}
+            {openData}
           </View>
         </View>
       </View>
@@ -54,6 +61,7 @@ export function DataFooter({ finishedAt, isDemo }: Props) {
     <View style={styles.footer}>
       {demo}
       {updated}
+      {openData}
       {sources}
     </View>
   );

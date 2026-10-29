@@ -1,5 +1,6 @@
 import type { CostChange, RecentCostIncrease } from '../domain/costChange';
 import type { EntityComparison } from '../domain/entityComparison';
+import type { DataFreshness } from '../domain/freshness';
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { FunctionSummary, IngestRun, Investment } from '../domain/investment';
 import type { MapListPage, MapListRequest, MapPoints, MapPointsRequest } from '../domain/mapPoints';
@@ -18,6 +19,8 @@ export interface InvestmentsRepository {
   /** Function aggregates for one department or all of Peru, largest current cost first. */
   functionSummaries(departmentCode?: number, level?: LevelFilter): Promise<FunctionSummary[]>;
   lastIngestRun(): Promise<IngestRun | null>;
+  /** Last successful SSI update and last open-data check (`data_freshness`). */
+  getDataFreshness(): Promise<DataFreshness>;
   /** Recorded cost values of one investment, oldest first. */
   getCostHistory(cui: string): Promise<CostChange[]>;
   /** Recorded increases of the updated cost, newest first. */

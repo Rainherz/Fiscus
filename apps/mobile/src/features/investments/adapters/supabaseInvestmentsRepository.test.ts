@@ -147,6 +147,24 @@ describe('supabase investments repository', () => {
     expect(calls).toContainEqual(['order', 'finished_at', { ascending: false }]);
     expect(calls).toContainEqual(['limit', 1]);
   });
+
+  it('reads data_freshness', async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        { source: 'ssi', last_success_at: '2026-10-28T09:30:00+00:00', last_checked_at: '2026-10-28T09:30:00+00:00' },
+        { source: 'mef_detalle_inversiones', last_success_at: 'x', last_checked_at: '2026-10-28T10:05:00+00:00' },
+      ],
+      error: null,
+    });
+    const repo = createSupabaseInvestmentsRepository(client);
+
+    expect(await repo.getDataFreshness()).toEqual({
+      ssiLastSuccessAt: '2026-10-28T09:30:00+00:00',
+      openDataCheckedAt: '2026-10-28T10:05:00+00:00',
+    });
+    expect(calls).toContainEqual(['from', 'data_freshness']);
+    expect(calls).toContainEqual(['select', 'source, last_success_at, last_checked_at']);
+  });
 });
 
 describe('supabase cost history', () => {

@@ -27,6 +27,7 @@ import {
   type RegionComparisonRow,
   type StalledInvestmentRow,
 } from '../domain/mappers';
+import { mapDataFreshnessRows, type DataFreshnessRow } from '../domain/freshness';
 import type { LevelFilter } from '../domain/governmentLevel';
 import { MAP_LIST_PAGE_SIZE, type MapFilter } from '../domain/mapPoints';
 import { buildEntityQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
@@ -141,6 +142,14 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
           .maybeSingle<IngestRunRow>(),
       );
       return row ? mapIngestRunRow(row) : null;
+    },
+    async getDataFreshness() {
+      const rows = unwrap(
+        (await (client.from('data_freshness').select('source, last_success_at, last_checked_at') as unknown as FilterBuilder)) as Result<
+          DataFreshnessRow[]
+        >,
+      );
+      return mapDataFreshnessRows(rows ?? []);
     },
     async getCostHistory(cui) {
       const rows = unwrap(

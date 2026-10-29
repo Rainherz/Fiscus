@@ -1,5 +1,6 @@
 import {
   formatDate,
+  formatDateTime,
   formatInteger,
   formatMonth,
   formatMonthShort,
@@ -126,6 +127,19 @@ describe('formatDate', () => {
   it('returns a dash when unknown or invalid', () => {
     expect(formatDate(null)).toBe('—');
     expect(formatDate('garbage')).toBe('—');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('formats timestamps as dd/mm/yyyy hh:mm in Lima time', () => {
+    expect(formatDateTime('2026-10-26T05:30:00Z')).toBe('26/10/2026 00:30');
+    expect(formatDateTime('2026-10-26T04:05:00Z')).toBe('25/10/2026 23:05');
+    expect(formatDateTime('2026-10-28T14:00:00-05:00')).toBe('28/10/2026 14:00');
+  });
+
+  it('returns a dash when unknown or invalid', () => {
+    expect(formatDateTime(null)).toBe('—');
+    expect(formatDateTime('garbage')).toBe('—');
   });
 });
 

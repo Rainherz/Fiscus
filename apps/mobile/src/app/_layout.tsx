@@ -18,6 +18,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ScopeProvider } from '@/features/department/ScopeContext';
 import { ScopeGate } from '@/features/department/ScopeGate';
+import { FreshnessBannerProvider } from '@/features/freshness/FreshnessBannerProvider';
 import { createRepository } from '@/features/investments/createRepository';
 import { dataSourceFromEnv } from '@/features/investments/dataSource';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
@@ -67,18 +68,20 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <RepositoryProvider repository={repository} isDemo={dataSource.kind === 'mock'}>
         <ScopeProvider>
-          <StatusBar style="light" />
-          <ScopeGate>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.concrete },
-              }}>
-              {/* The region picker covers the whole screen and slides up over the screen it was opened from. */}
-              <Stack.Screen name="region" options={{ animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="compare" />
-            </Stack>
-          </ScopeGate>
+          <FreshnessBannerProvider>
+            <StatusBar style="light" />
+            <ScopeGate>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.concrete },
+                }}>
+                {/* The region picker covers the whole screen and slides up over the screen it was opened from. */}
+                <Stack.Screen name="region" options={{ animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="compare" />
+              </Stack>
+            </ScopeGate>
+          </FreshnessBannerProvider>
         </ScopeProvider>
       </RepositoryProvider>
     </QueryClientProvider>
