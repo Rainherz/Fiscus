@@ -1,6 +1,8 @@
 import { render, screen, within } from '@testing-library/react-native';
 
 import { GuideView, GUIDE_SECTIONS } from './GuideView';
+import { FUNCTION_CROSSWALK } from '@/features/investments/domain/functionCrosswalk';
+
 import { FISCUS_RULES, GLOSSARY } from './terms';
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -16,6 +18,7 @@ describe('GuideView', () => {
       'Qué es Fiscus',
       'De dónde salen los datos',
       'Cómo leer un proyecto',
+      'Clasificación por función',
       'Glosario',
       'Reglas de Fiscus',
       'Limitaciones conocidas',
@@ -33,6 +36,18 @@ describe('GuideView', () => {
     }
     const rules = screen.getByTestId('guide-rules');
     for (const term of FISCUS_RULES) expect(within(rules).getByText(term.definition)).toBeOnTheScreen();
+  });
+
+  it('lists every rule of the function crosswalk', async () => {
+    await render(<GuideView />);
+    const functions = screen.getByTestId('guide-functions');
+    expect(within(functions).getByText(/clasificación funcional vigente desde 2009/)).toBeOnTheScreen();
+    expect(within(functions).getByText('EDUCACION Y CULTURA / CULTURA → CULTURA Y DEPORTE')).toBeOnTheScreen();
+    expect(within(functions).getByText('EDUCACION Y CULTURA / otras divisiones → EDUCACIÓN')).toBeOnTheScreen();
+    expect(
+      within(functions).getByText('ADMINISTRACION Y PLANEAMIENTO → PLANEAMIENTO, GESTIÓN Y RESERVA DE CONTINGENCIA'),
+    ).toBeOnTheScreen();
+    expect(within(functions).getAllByText(/ → /)).toHaveLength(FUNCTION_CROSSWALK.length);
   });
 
   it('states the known limitations', async () => {

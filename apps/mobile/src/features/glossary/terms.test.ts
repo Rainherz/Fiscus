@@ -57,6 +57,10 @@ describe('glossary terms', () => {
     ]);
   });
 
+  it('points the function term to the crosswalk in the guide', () => {
+    expect(termById('funcion').extra).toBe('Fiscus agrupa la clasificación anterior del MEF en la vigente; ver la guía.');
+  });
+
   it('keys every term by its id', () => {
     for (const id of TERM_IDS) expect(termById(id).id).toBe(id);
   });

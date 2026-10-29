@@ -114,7 +114,7 @@ describe('InvestmentDetailView', () => {
     await render(<InvestmentDetailView investment={full} now={NOW} />);
     const facts: [string, string][] = [
       ['Entidad', 'GOBIERNO REGIONAL AREQUIPA'],
-      ['Función', 'AGRARIA'],
+      ['Función', 'AGROPECUARIA'],
       ['División funcional', 'RIEGO'],
       ['Grupo funcional', 'INFRAESTRUCTURA DE RIEGO'],
       ['Estado', 'ACTIVO'],
@@ -130,6 +130,42 @@ describe('InvestmentDetailView', () => {
     for (const [label, value] of facts) {
       expect(screen.getByLabelText(`${label}: ${value}`)).toBeOnTheScreen();
     }
+  });
+
+  it('shows the canonical function and the original MEF classification when they differ', async () => {
+    await render(
+      <InvestmentDetailView
+        investment={{
+          ...full,
+          function: 'EDUCACION Y CULTURA',
+          functionalDivision: 'INFRAESTRUCTURA EDUCATIVA',
+          functionCanonical: 'EDUCACIÓN',
+        }}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByLabelText('Función: EDUCACIÓN')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Clasificación original del MEF: EDUCACION Y CULTURA / INFRAESTRUCTURA EDUCATIVA'),
+    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('División funcional: INFRAESTRUCTURA EDUCATIVA')).toBeOnTheScreen();
+  });
+
+  it('omits the original classification when the function is already current', async () => {
+    await render(
+      <InvestmentDetailView
+        investment={{ ...full, function: 'TRANSPORTE', functionCanonical: 'TRANSPORTE', functionalDivision: 'TRANSPORTE TERRESTRE' }}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByLabelText('Función: TRANSPORTE')).toBeOnTheScreen();
+    expect(screen.queryByText(/Clasificación original del MEF/)).toBeNull();
+  });
+
+  it('shows a dash without a function', async () => {
+    await render(<InvestmentDetailView investment={{ ...full, function: null, functionCanonical: null }} now={NOW} />);
+    expect(screen.getByLabelText('Función: —')).toBeOnTheScreen();
+    expect(screen.queryByText(/Clasificación original del MEF/)).toBeNull();
   });
 
   it('cites the source and its update date', async () => {

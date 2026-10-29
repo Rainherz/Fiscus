@@ -6,6 +6,7 @@ import {
   spentOverUpdatedCost,
   type Investment,
 } from '@/features/investments/domain/investment';
+import { originalClassification } from '@/features/investments/domain/functionCrosswalk';
 import { stalledStatus } from '@/features/investments/domain/stalled';
 import { TermHint } from '@/features/glossary/TermHint';
 import type { TermId } from '@/features/glossary/terms';
@@ -67,20 +68,33 @@ function HintedLabel({ term, children }: { term: TermId; children: ReactNode }) 
   );
 }
 
-function Fact({ label, value, grid }: { label: string; value: string; grid: boolean }) {
+interface FactItem {
+  label: string;
+  value: string;
+  /** A muted line under the value; the label's term hint moves next to it. */
+  note?: string | null;
+}
+
+function Fact({ label, value, note, grid }: FactItem & { grid: boolean }) {
   const term = FACT_TERMS[label];
   const labelText = (
     <MonoText size={11} muted style={styles.factLabel}>
       {label.toUpperCase()}
     </MonoText>
   );
+  const noteText = note ? (
+    <MonoText size={11} muted style={styles.shrink}>
+      {note}
+    </MonoText>
+  ) : null;
   // With a hint the fact cannot be one accessible element (the hint button would be unreachable).
   return (
     <View accessible={!term} accessibilityLabel={`${label}: ${value}`} style={[styles.fact, grid && styles.factGrid]}>
-      {term ? <HintedLabel term={term}>{labelText}</HintedLabel> : labelText}
+      {term && !noteText ? <HintedLabel term={term}>{labelText}</HintedLabel> : labelText}
       <BodyText weight={600} size={15}>
         {value}
       </BodyText>
+      {noteText && term ? <HintedLabel term={term}>{noteText}</HintedLabel> : noteText}
     </View>
   );
 }
@@ -127,24 +141,30 @@ export function InvestmentDetailView({
   const updated = formatSoles(inv.updatedCost);
 
   const tag = levelTag(inv.governmentLevel);
-  const optional = (label: string, value: string | null): [string, string][] => (value ? [[label, value]] : []);
-  const facts: [string, string][] = [
+  const fact = (label: string, value: string): FactItem => ({ label, value });
+  const optional = (label: string, value: string | null): FactItem[] => (value ? [fact(label, value)] : []);
+  const original = originalClassification(inv.function, inv.functionalDivision, inv.functionCanonical);
+  const facts: FactItem[] = [
     ...optional('Nivel de gobierno', inv.governmentLevel ? levelName(inv.governmentLevel) : null),
-    ['Entidad', inv.entity ?? DASH],
+    fact('Entidad', inv.entity ?? DASH),
     ...optional('Unidad ejecutora', inv.executingUnit),
-    ['Función', inv.function ?? DASH],
-    ['División funcional', inv.functionalDivision ?? DASH],
-    ['Grupo funcional', inv.functionalGroup ?? DASH],
-    ['Estado', inv.status ?? DASH],
-    ['Situación', inv.situation ?? DASH],
-    ['Fecha de registro', formatDate(inv.registeredAt)],
-    ['Fecha de viabilidad', formatDate(inv.viabilityAt)],
-    ['Tiempo desde la viabilidad', formatYears(yearsSince(inv.viabilityAt, now))],
-    ['Primer devengado', formatMonth(inv.firstAccrualMonth)],
-    ['Último devengado', formatMonth(inv.lastAccrualMonth)],
-    ['Devengado acumulado', formatSoles(inv.accruedTotal)],
-    ['Beneficiarios', formatInteger(inv.beneficiaries)],
-    ['Región', inv.departmentCode === null ? regionLabel(null) : (inv.departmentName ?? DASH)],
+    {
+      label: 'Función',
+      value: inv.functionCanonical ?? DASH,
+      note: original ? `Clasificación original del MEF: ${original}` : null,
+    },
+    fact('División funcional', inv.functionalDivision ?? DASH),
+    fact('Grupo funcional', inv.functionalGroup ?? DASH),
+    fact('Estado', inv.status ?? DASH),
+    fact('Situación', inv.situation ?? DASH),
+    fact('Fecha de registro', formatDate(inv.registeredAt)),
+    fact('Fecha de viabilidad', formatDate(inv.viabilityAt)),
+    fact('Tiempo desde la viabilidad', formatYears(yearsSince(inv.viabilityAt, now))),
+    fact('Primer devengado', formatMonth(inv.firstAccrualMonth)),
+    fact('Último devengado', formatMonth(inv.lastAccrualMonth)),
+    fact('Devengado acumulado', formatSoles(inv.accruedTotal)),
+    fact('Beneficiarios', formatInteger(inv.beneficiaries)),
+    fact('Región', inv.departmentCode === null ? regionLabel(null) : (inv.departmentName ?? DASH)),
     ...optional('Provincia', inv.province),
     ...optional('Distrito', inv.district),
   ];
@@ -293,8 +313,8 @@ export function InvestmentDetailView({
   );
   const factList = (
     <View testID="detail-facts" style={[styles.facts, wide && styles.factsGrid, columns && styles.factsSide]}>
-      {facts.map(([label, value]) => (
-        <Fact key={label} label={label} value={value} grid={wide} />
+      {facts.map((item) => (
+        <Fact key={item.label} {...item} grid={wide} />
       ))}
     </View>
   );
