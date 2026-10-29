@@ -1,14 +1,16 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatDate } from '../format';
 import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '../layout/breakpoints';
 import { useBreakpoint } from '../layout/useBreakpoint';
-import { colors, rule, space } from '../theme/tokens';
+import { colors, minTouch, rule, space } from '../theme/tokens';
 import { MonoText } from './typography';
 
 interface Props {
   finishedAt: string | null;
   isDemo: boolean;
+  /** Opens the guide ("Cómo leer estos datos"); the link is hidden when absent. */
+  onPressGuide?: () => void;
 }
 
 export const SOURCE_NAME = 'MEF – Sistema de Seguimiento de Inversiones';
@@ -24,7 +26,7 @@ export function sourceNameOf(dataSource: 'ssi' | 'open_data'): string {
  * Demo notice, last update and sources. Phones show it as the last block of the screen; tablet
  * and desktop as a page footer: a full-width rule, sources on the left and the date on the right.
  */
-export function DataFooter({ finishedAt, isDemo }: Props) {
+export function DataFooter({ finishedAt, isDemo, onPressGuide }: Props) {
   const breakpoint = useBreakpoint();
   const demo = isDemo ? (
     <MonoText bold size={11}>
@@ -34,13 +36,27 @@ export function DataFooter({ finishedAt, isDemo }: Props) {
   const updated = finishedAt ? (
     <MonoText size={11} muted>{`Datos actualizados el ${formatDate(finishedAt)}`}</MonoText>
   ) : null;
+  const guide = onPressGuide ? (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel="Cómo leer estos datos"
+      onPress={onPressGuide}
+      style={({ pressed }) => [styles.guide, pressed && styles.pressed]}>
+      <MonoText bold size={12} style={styles.guideText}>
+        Cómo leer estos datos →
+      </MonoText>
+    </Pressable>
+  ) : null;
   const sources = <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}`}</MonoText>;
 
   if (isWide(breakpoint)) {
     return (
       <View testID="page-footer" role="contentinfo" style={styles.page}>
         <View testID="page-footer-row" style={[styles.pageRow, { paddingHorizontal: gutterFor(breakpoint) }]}>
-          <View style={styles.sources}>{sources}</View>
+          <View style={styles.sources}>
+            {guide}
+            {sources}
+          </View>
           <View style={styles.status}>
             {demo}
             {updated}
@@ -55,6 +71,7 @@ export function DataFooter({ finishedAt, isDemo }: Props) {
       {demo}
       {updated}
       {sources}
+      {guide}
     </View>
   );
 }
@@ -76,6 +93,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingVertical: space.lg,
   },
-  sources: { flexShrink: 1 },
+  sources: { flexShrink: 1, alignItems: 'flex-start' },
+  guide: { minHeight: minTouch, justifyContent: 'center', alignSelf: 'flex-start' },
+  guideText: { textDecorationLine: 'underline' },
+  pressed: { opacity: 0.6 },
   status: { alignItems: 'flex-end', gap: space.xs },
 });

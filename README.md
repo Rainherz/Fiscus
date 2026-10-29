@@ -256,6 +256,14 @@ DOM with `html2canvas-pro` (its optional web peer, loaded lazily as a separate c
 the Web Share API with the file when `navigator.canShare({ files })` allows it, otherwise it downloads
 `fiscus-<cui>.png`. Card logic is in `features/share-card/shareCardPresentation.ts`.
 
+Guía (`/guia`, "CÓMO LEER ESTOS DATOS"): what Fiscus is, the sources, how to read a project, the
+glossary, the rules of Fiscus and the known limitations. Linked from the footer ("Cómo leer estos
+datos"), from Inicio on phones and as a fifth header item ("GUÍA") on desktop (it does not fit on
+tablet). A small "?" (`features/glossary/TermHint.tsx`, 44 px touch target) next to figure labels on the
+detail, home hero, desktop ranking headers, map card and compare opens the term's definition: a popover
+on tablet and desktop, a bottom sheet on phones. Every definition lives in `features/glossary/terms.ts`;
+a test checks that each term the app refers to is defined there.
+
 Mapa (`/map`, `/map?f=increase,stalled,overspent`, `/map?cui=…`): the projects with coordinates (open data `latitude`/`longitude`, about 77 %
 of the rows; the screen says so) in the current scope and level. It opens from "Ver en el mapa →" on home
 and, centered on the project with its card open, from "VER EN EL MAPA" on a project's detail (shown only

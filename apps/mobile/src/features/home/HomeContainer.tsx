@@ -59,6 +59,10 @@ export function HomeContainer() {
         blurActiveElement();
         router.push(compareHref({ a: code }));
       }}
+      onPressGuide={() => {
+        blurActiveElement();
+        router.push('/guia');
+      }}
       regions={
         national ? (
           <TopRegionsContainer
