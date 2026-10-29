@@ -166,6 +166,7 @@ pnpm --filter @fiscus/mobile export:web        # static web build in apps/mobile
 | `EXPO_PUBLIC_SUPABASE_URL` | Project URL (public) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Anon key (public, read-only through RLS). Never use the service role key here. |
 | `EXPO_PUBLIC_USE_MOCK` | `1` uses bundled sample records from Arequipa, so no credentials are needed |
+| `EXPO_PUBLIC_MOCK_STALE` | With mock mode, `1` dates the sample's last update days back, to show the stale-data banner |
 | `EXPO_PUBLIC_SITE_URL` | Optional. Public web address (`https://rainherz.github.io/Fiscus`); when set, the share card and the shared message link to `<site>/investment/<cui>` |
 | `EXPO_BASE_URL` | Optional, build time only. Sub-path of the web export (`/Fiscus`); unset, the app lives at `/` |
 
@@ -394,13 +395,80 @@ journalctl --user -u fiscus-ingest -f       # follow logs
 `Persistent=true` runs a missed ingest at the next login when the machine was off at 04:00.
 The `ingest.yml` workflow is kept for manual dispatch only.
 
+## Monitoring
+
+Three signals, each visible without logging into a server:
+
+**Freshness data.** `public.data_freshness` (migration `20261104000000_data_freshness.sql`) has one
+row per source, readable with the anon key:
+
+| `source` | `last_success_at` | `last_checked_at` |
+|---|---|---|
+| `ssi` | end of the latest `ingest_runs` row with at least one department ingested | end of the latest run, successful or not |
+| `mef_detalle_inversiones` | `source_snapshots.ingested_at`: last time the file was ingested | `source_snapshots.checked_at`: last successful run, also when the file was unchanged and skipped |
+
+An SSI run counts as a success when `departments_ok` is not empty, the same rule as the CLI exit
+code (it exits 1 only when every department failed). Departments that failed in a partial run are
+in `ingest_runs.departments_failed`.
+
+**In the app.** When the last SSI success is older than 48 h, every screen shows a banner under
+the header: "Los datos podrían estar desactualizados. Última actualización: dd/mm/yyyy hh:mm."
+(Lima time). The reader can dismiss it for the session. The footer shows "Datos actualizados el …"
+(last SSI success) and "Datos abiertos revisados el …" (last open-data check). The open data is
+not judged for the banner: MEF refreshes that file rarely.
+
+**GitHub issues.**
+
+- `data-freshness.yml` runs daily at 15:00 UTC (10:00 Lima, after both ingests) and on demand. It
+  reads `data_freshness` with the `SUPABASE_ANON_KEY` secret and, when the last SSI success or the
+  last open-data check is older than 36 h, opens the issue "Datos desactualizados" (label
+  `data-stale`) or updates its status table. It closes the issue when both are fresh again. Logic:
+  `packages/ingest/src/freshness/` (`pnpm --filter @fiscus/ingest freshness --dry-run` prints the
+  evaluation without touching issues).
+- `open-data-ingest.yml` opens the issue "Falló la ingesta de datos abiertos" (label
+  `ingest-failure`) when the run fails, or comments on it if it is already open, with the run URL.
+- The local SSI ingest reports failures with `scripts/notify-ingest-failure.sh <unit>`: it opens the
+  issue "Falló la ingesta: <unit>" (label `ingest-failure`), or comments on the open one, with the
+  last 50 journal lines of the unit. Keys, tokens, `KEY=`/`TOKEN=` values, long opaque strings and the
+  home directory are replaced before anything is sent. It uses the local `gh` login. The labels are
+  created on first use.
+
+Wiring the script to the systemd units of "Daily ingest" (`OnFailure=` starts it when the ingest
+service fails, `%n` passes the failed unit's name):
+
+```ini
+# ~/.config/systemd/user/fiscus-notify-failure@.service
+[Unit]
+Description=Fiscus: report the failure of %i as a GitHub issue
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/Fiscus
+# gh must be on PATH and logged in (gh auth login), or set GH_TOKEN in an EnvironmentFile.
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/path/to/Fiscus/scripts/notify-ingest-failure.sh %i
+```
+
+```ini
+# Add to the [Unit] section of ~/.config/systemd/user/fiscus-ingest.service
+OnFailure=fiscus-notify-failure@%n.service
+```
+
+```sh
+systemctl --user daemon-reload
+systemctl --user start fiscus-notify-failure@fiscus-ingest.service   # test: opens or comments on the issue
+```
+
+A run where only some departments fail exits 0, so it does not trigger `OnFailure=`; it shows in
+`departments_failed` and, if no department succeeds for 36 h, in the "Datos desactualizados" issue.
+
 ## Secrets (GitHub Actions)
 
 | Secret | Purpose |
 |---|---|
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key. It bypasses RLS, so use it server-side only and never ship it to clients. |
-| `SUPABASE_ANON_KEY` | Public anon key, baked into the web build (`web-deploy.yml`) |
+| `SUPABASE_ANON_KEY` | Public anon key, baked into the web build (`web-deploy.yml`) and used read-only by `data-freshness.yml` |
 
 The public dashboard reads with the anon key. RLS lets the anon key run SELECT and nothing else.
 
