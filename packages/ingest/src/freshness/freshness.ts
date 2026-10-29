@@ -8,10 +8,12 @@
 export const SSI_FRESHNESS_SOURCE = "ssi";
 /** data_freshness.source of DETALLE_INVERSIONES.csv (source_snapshots). */
 export const OPEN_DATA_FRESHNESS_SOURCE = "mef_detalle_inversiones";
+/** data_freshness.source of CIERRE_INVERSIONES.csv (source_snapshots). */
+export const CLOSED_DATA_FRESHNESS_SOURCE = "mef_cierre_inversiones";
 
 export const STALE_ISSUE_TITLE = "Datos desactualizados";
 export const STALE_ISSUE_LABEL = "data-stale";
-/** Both ingests run daily, so 36 h tolerates one late run but not a missed day. */
+/** Every ingest runs daily, so 36 h tolerates one late run but not a missed day. */
 export const DEFAULT_MAX_AGE_HOURS = 36;
 
 export interface FreshnessRow {
@@ -21,7 +23,7 @@ export interface FreshnessRow {
 }
 
 export interface FreshnessCheck {
-  key: "ssi" | "open-data";
+  key: "ssi" | "open-data" | "closed-data";
   label: string;
   /** The timestamp judged; null when the source has none. */
   at: string | null;
@@ -64,8 +66,9 @@ function check(key: FreshnessCheck["key"], label: string, at: string | null, now
 
 /**
  * The SSI is judged by its last successful ingest (a run with at least one department ingested).
- * The open data by its last check: MEF refreshes the file rarely, so an old ingest is expected;
- * what must not stop is the daily run that compares the file. A missing source is stale.
+ * Both open-data files (active and closed investments) by their last check: MEF refreshes them
+ * rarely, so an old ingest is expected; what must not stop is the daily run that compares each
+ * file. A missing source is stale.
  */
 export function evaluateFreshness(
   rows: readonly FreshnessRow[],
@@ -79,6 +82,13 @@ export function evaluateFreshness(
       "open-data",
       "Datos abiertos: última revisión",
       find(OPEN_DATA_FRESHNESS_SOURCE)?.lastCheckedAt ?? null,
+      now,
+      maxAgeHours,
+    ),
+    check(
+      "closed-data",
+      "Datos abiertos de cierres: última revisión",
+      find(CLOSED_DATA_FRESHNESS_SOURCE)?.lastCheckedAt ?? null,
       now,
       maxAgeHours,
     ),

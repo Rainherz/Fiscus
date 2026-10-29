@@ -12,6 +12,22 @@ import {
 
 const read = { departmentCode: undefined, level: 'ALL' as const };
 
+describe('map requests with a status filter', () => {
+  const view = { bbox: { minLat: -17, minLon: -73, maxLat: -15, maxLon: -71 }, zoom: 7 };
+  const closed = { departmentCode: 4, level: 'ALL' as const, status: 'CLOSED' as const };
+
+  it('send the status to the map and its list', () => {
+    expect(toMapPointsRequest(view, closed)?.status).toBe('CLOSED');
+    expect(toMapListRequest(view, closed, [])?.status).toBe('CLOSED');
+  });
+
+  it('drop the stalled filter for closed projects (it only applies to active ones)', () => {
+    expect(toMapPointsRequest(view, closed, ['increase', 'stalled'])?.filters).toEqual(['increase']);
+    expect(toMapListRequest(view, closed, ['stalled'])?.filters).toEqual([]);
+    expect(toMapListRequest(view, { ...closed, status: 'ALL' }, ['stalled'])?.filters).toEqual(['stalled']);
+  });
+});
+
 describe('toMapPointsRequest', () => {
   it('rounds the box outward to two decimals and sends the 256-px tile zoom as an integer', () => {
     expect(

@@ -65,6 +65,16 @@ export function parseIsoDate(value: unknown): string | null {
   return isoDate(Number(match[1]), Number(match[2]), Number(match[3]));
 }
 
+/** SÍ / SI -> true, NO -> false (case and accents ignored); anything else -> null */
+export function parseYesNo(value: unknown): boolean | null {
+  const text = parseText(value);
+  if (text === null) return null;
+  const plain = text.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase();
+  if (plain === "SI") return true;
+  if (plain === "NO") return false;
+  return null;
+}
+
 /** yyyymm -> yyyy-mm-01 (first day of the month) */
 export function parseCompactYearMonth(value: unknown): string | null {
   const text = parseText(value);

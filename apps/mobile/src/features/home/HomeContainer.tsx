@@ -5,6 +5,7 @@ import { department } from '@/features/department/scope';
 import { useReadScope, useScope } from '@/features/department/ScopeContext';
 import { DataFooterContainer } from '@/features/investments/DataFooterContainer';
 import { useTopIncreases } from '@/features/investments/hooks/queries';
+import { isActiveOnlyHidden } from '@/features/investment-status/statusPresentation';
 import { StalledPreviewContainer } from '@/features/stalled/StalledPreviewContainer';
 import { compareHref } from '@/features/compare/compareSelection';
 import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
@@ -20,7 +21,7 @@ const TOP_COUNT = 6;
 
 export function HomeContainer() {
   const router = useRouter();
-  const { setScope, level } = useScope();
+  const { setScope, level, status } = useScope();
   const read = useReadScope();
   const code = read.departmentCode;
   const national = code === undefined;
@@ -67,6 +68,7 @@ export function HomeContainer() {
         national ? (
           <TopRegionsContainer
             level={level}
+            status={status}
             onPressRegion={(next) => setScope(department(next))}
             onPressSeeAll={() => {
               blurActiveElement();
@@ -81,11 +83,14 @@ export function HomeContainer() {
       }
       recentIncreases={<RecentIncreasesContainer read={read} onPressInvestment={openInvestment} />}
       stalled={
-        <StalledPreviewContainer
-          read={read}
-          onPressInvestment={openInvestment}
-          onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'stalled' } })}
-        />
+        // "Sin gasto reciente" only applies to active projects: no block when only closed ones are shown.
+        isActiveOnlyHidden(status) ? undefined : (
+          <StalledPreviewContainer
+            read={read}
+            onPressInvestment={openInvestment}
+            onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'stalled' } })}
+          />
+        )
       }
       footer={<DataFooterContainer />}
     />

@@ -1,6 +1,6 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { levelTag } from '@/features/government-level/levelPresentation';
+import { projectTag } from '@/features/government-level/levelPresentation';
 import type { MapListItem } from '@/features/investments/domain/mapPoints';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { RankingRow } from '@/shared/ui/RankingRow';
@@ -77,7 +77,7 @@ export function MapProjectList({ list, filtered, selectedCui, showCount = true, 
             value={row.value}
             detail={row.detail}
             summary={row.summary}
-            tag={levelTag(item.governmentLevel)}
+            tag={projectTag(item)}
             selected={item.cui === selectedCui}
             selectedTag="EN EL MAPA"
             onPress={() => onPressItem(item)}

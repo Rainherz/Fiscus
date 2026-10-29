@@ -1,7 +1,8 @@
 import type { CostChange, CostChangeKind, RecentCostIncrease } from './costChange';
 import type { EntityComparison } from './entityComparison';
 import { isGovernmentLevel } from './governmentLevel';
-import type { Coordinates, FunctionSummary, IngestRun, Investment } from './investment';
+import type { Coordinates, DataSourceKind, FunctionSummary, IngestRun, Investment, InvestmentClosure } from './investment';
+import { isClosed } from './investmentStatus';
 import type { MapListPage, MapPoints } from './mapPoints';
 import type { RegionComparison } from './regionComparison';
 import type { StalledInvestment } from './stalled';
@@ -47,6 +48,15 @@ export interface InvestmentRow {
   /** Open data; null when MEF has none or an invalid one. Not in stalled_investments_by_level. */
   latitude?: Numeric;
   longitude?: Numeric;
+  /** Closure facts (closed-investments file). Not in stalled_investments_by_level. */
+  closed_at?: Text;
+  closure_description?: Text;
+  liquidation_amount?: Numeric;
+  liquidated_at?: Text;
+  culminated?: boolean | null;
+  physical_start_at?: Text;
+  physical_end_at?: Text;
+  operation_start_at?: Text;
 }
 
 /** Columns shared by `investments` and `stalled_investments_by_level`. */
@@ -56,7 +66,12 @@ const SHARED_COLUMNS =
   'updated_cost_valid,accrued_total,cost_increase,cost_increase_pct,execution_progress,department_code,' +
   'department_name,source_updated_at,spent_anomaly,government_level,physical_progress,function_canonical';
 
-export const INVESTMENT_COLUMNS = `${SHARED_COLUMNS},executing_unit,province,district,data_source,latitude,longitude`;
+const CLOSURE_COLUMNS =
+  'closed_at,closure_description,liquidation_amount,liquidated_at,culminated,physical_start_at,' +
+  'physical_end_at,operation_start_at';
+
+export const INVESTMENT_COLUMNS =
+  `${SHARED_COLUMNS},executing_unit,province,district,data_source,latitude,longitude,${CLOSURE_COLUMNS}`;
 
 /** Row shape of the `stalled_investments_by_level` view. */
 export interface StalledInvestmentRow extends InvestmentRow {
@@ -86,6 +101,27 @@ function toNumber(value: Numeric): number | null {
 }
 
 const toText = (value: Text): string | null => value ?? null;
+
+const DATA_SOURCES: readonly DataSourceKind[] = ['ssi', 'open_data', 'open_data_closed'];
+
+function toDataSource(value: Text): DataSourceKind {
+  return DATA_SOURCES.find((source) => source === value) ?? 'ssi';
+}
+
+/** The closure facts of a row, or null when it has none (active projects). */
+function toClosure(row: InvestmentRow): InvestmentClosure | null {
+  const closure: InvestmentClosure = {
+    closedAt: toText(row.closed_at),
+    description: toText(row.closure_description),
+    liquidationAmount: toNumber(row.liquidation_amount),
+    liquidatedAt: toText(row.liquidated_at),
+    culminated: typeof row.culminated === 'boolean' ? row.culminated : null,
+    physicalStartAt: toText(row.physical_start_at),
+    physicalEndAt: toText(row.physical_end_at),
+    operationStartAt: toText(row.operation_start_at),
+  };
+  return Object.values(closure).some((value) => value !== null) ? closure : null;
+}
 
 export function mapInvestmentRow(row: InvestmentRow): Investment {
   return {
@@ -119,8 +155,9 @@ export function mapInvestmentRow(row: InvestmentRow): Investment {
     province: toText(row.province),
     district: toText(row.district),
     physicalProgress: toNumber(row.physical_progress),
-    dataSource: row.data_source === 'open_data' ? 'open_data' : 'ssi',
+    dataSource: toDataSource(row.data_source),
     coordinates: toCoordinates(row.latitude, row.longitude),
+    closure: toClosure(row),
   };
 }
 
@@ -145,6 +182,8 @@ export interface MapPointRow {
   total_cost_increase: Numeric;
   max_cost_increase_pct: Numeric;
   increased_count: Numeric;
+  /** Project status (points only; absent before the status migration). */
+  status?: Text;
 }
 
 /** Clusters when the function returned clusters (it never mixes kinds); points otherwise. */
@@ -180,6 +219,7 @@ export function mapMapPointRows(rows: MapPointRow[]): MapPoints {
               costIncrease: toNumber(row.cost_increase),
               costIncreasePct: toNumber(row.cost_increase_pct),
               updatedCostValid: row.updated_cost_valid === true,
+              closed: isClosed({ status: toText(row.status) }),
             },
           ]
         : [],

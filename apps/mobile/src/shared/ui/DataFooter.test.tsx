@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
-import { DataFooter } from './DataFooter';
+import { DataFooter, sourceNameOf } from './DataFooter';
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   __esModule: true,
@@ -12,13 +12,22 @@ const windowWidth = (width: number) =>
     .requireMock<{ default: jest.Mock }>('react-native/Libraries/Utilities/useWindowDimensions')
     .default.mockReturnValue({ width, height: 900, scale: 1, fontScale: 1 });
 
+describe('sourceNameOf', () => {
+  it('names the source of each kind of row', () => {
+    expect(sourceNameOf('ssi')).toBe('MEF – Sistema de Seguimiento de Inversiones');
+    expect(sourceNameOf('open_data')).toBe('MEF – Datos Abiertos, Detalle de inversiones');
+    expect(sourceNameOf('open_data_closed')).toBe('MEF – Datos Abiertos, Cierre de inversiones');
+  });
+});
+
 describe('DataFooter', () => {
   it('shows the last update and source', async () => {
     await render(<DataFooter finishedAt="2026-10-26T10:30:00Z" isDemo={false} />);
     expect(screen.getByText('Datos actualizados el 26/10/2026')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'Fuentes: MEF – Sistema de Seguimiento de Inversiones; MEF – Datos Abiertos, Detalle de inversiones',
+        'Fuentes: MEF – Sistema de Seguimiento de Inversiones; MEF – Datos Abiertos, Detalle de inversiones; ' +
+          'MEF – Datos Abiertos, Cierre de inversiones',
       ),
     ).toBeOnTheScreen();
   });

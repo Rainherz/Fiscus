@@ -78,6 +78,7 @@ describe('mapInvestmentRow', () => {
       physicalProgress: null,
       dataSource: 'ssi',
       coordinates: null,
+      closure: null,
     });
   });
 
@@ -268,7 +269,23 @@ describe('mapStalledInvestmentRow', () => {
   it('selects the investment columns the view has plus its derived columns', () => {
     const stalled = STALLED_INVESTMENT_COLUMNS.split(',');
     const shared = INVESTMENT_COLUMNS.split(',').filter(
-      (c) => !['executing_unit', 'province', 'district', 'data_source', 'latitude', 'longitude'].includes(c),
+      (c) =>
+        ![
+          'executing_unit',
+          'province',
+          'district',
+          'data_source',
+          'latitude',
+          'longitude',
+          'closed_at',
+          'closure_description',
+          'liquidation_amount',
+          'liquidated_at',
+          'culminated',
+          'physical_start_at',
+          'physical_end_at',
+          'operation_start_at',
+        ].includes(c),
     );
     expect(stalled).toEqual([...shared, 'months_without_accrual', 'pending_amount']);
   });
@@ -461,6 +478,7 @@ describe('mapMapPointRows', () => {
           costIncrease: 3_809_492_486,
           costIncreasePct: 284.6,
           updatedCostValid: true,
+          closed: false,
         },
       ],
     });

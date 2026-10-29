@@ -115,6 +115,7 @@ const SCRIPT = `
   var IS_CLUSTER = ['==', ['get', 'kind'], 'cluster'];
   var IS_POINT = ['==', ['get', 'kind'], 'point'];
   var INCREASED = ['==', ['get', 'increased'], true];
+  var CLOSED = ['==', ['get', 'closed'], true];
   var loaded = false;
   var pending = [];
 
@@ -125,7 +126,7 @@ const SCRIPT = `
       if (!f || !isFinite(f.latitude) || !isFinite(f.longitude) || typeof f.id !== 'string') continue;
       var properties;
       if (f.kind === 'cluster') properties = { kind: 'cluster', id: f.id, label: String(f.label), radius: Number(f.radius) || 14 };
-      else if (f.kind === 'point') properties = { kind: 'point', id: f.id, increased: f.increased === true };
+      else if (f.kind === 'point') properties = { kind: 'point', id: f.id, increased: f.increased === true, closed: f.closed === true };
       else continue;
       out.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.longitude, f.latitude] }, properties: properties });
     }
@@ -181,6 +182,7 @@ const SCRIPT = `
       },
       paint: { 'text-color': SIGNAL }
     });
+    // Closed projects: the same sizes, but hollow (no fill, a thicker ink ring).
     map.addLayer({
       id: 'points',
       type: 'circle',
@@ -189,8 +191,9 @@ const SCRIPT = `
       paint: {
         'circle-radius': ['case', INCREASED, 7, 5],
         'circle-color': ['case', INCREASED, SIGNAL, INK],
+        'circle-opacity': ['case', CLOSED, 0, 1],
         'circle-stroke-color': INK,
-        'circle-stroke-width': ['case', INCREASED, 2, 1]
+        'circle-stroke-width': ['case', CLOSED, ['case', INCREASED, 3, 2], INCREASED, 2, 1]
       }
     });
     map.addLayer({

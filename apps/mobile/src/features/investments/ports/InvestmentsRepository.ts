@@ -3,6 +3,7 @@ import type { EntityComparison } from '../domain/entityComparison';
 import type { DataFreshness } from '../domain/freshness';
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { FunctionSummary, IngestRun, Investment } from '../domain/investment';
+import type { StatusFilter } from '../domain/investmentStatus';
 import type { MapListPage, MapListRequest, MapPoints, MapPointsRequest } from '../domain/mapPoints';
 import type { InvestmentQuery } from '../domain/queries';
 import type { RegionComparison, RegionSort } from '../domain/regionComparison';
@@ -11,13 +12,15 @@ import type { StalledInvestment } from '../domain/stalled';
 /**
  * Read-only access to public investment data. Every `departmentCode` is optional: undefined
  * means all of Peru. Every `level` is optional: undefined or 'ALL' means every government level.
- * National reads stay paged or limited (about 165k investments with every level).
+ * Every `status` is optional: undefined reads the views without a status dimension (every status),
+ * 'ALL' / 'ACTIVE' / 'CLOSED' read the `*_by_status` views. National reads stay paged or limited
+ * (about 270k investments with every level and status).
  */
 export interface InvestmentsRepository {
   findMany(query: InvestmentQuery): Promise<Investment[]>;
   findByCui(cui: string): Promise<Investment | null>;
   /** Function aggregates for one department or all of Peru, largest current cost first. */
-  functionSummaries(departmentCode?: number, level?: LevelFilter): Promise<FunctionSummary[]>;
+  functionSummaries(departmentCode?: number, level?: LevelFilter, status?: StatusFilter): Promise<FunctionSummary[]>;
   lastIngestRun(): Promise<IngestRun | null>;
   /** Last successful SSI update and last open-data check (`data_freshness`). */
   getDataFreshness(): Promise<DataFreshness>;
@@ -27,26 +30,29 @@ export interface InvestmentsRepository {
   getRecentCostIncreases(params: {
     departmentCode?: number;
     level?: LevelFilter;
+    status?: StatusFilter;
     limit: number;
   }): Promise<RecentCostIncrease[]>;
-  /** "Sin gasto reciente", largest amount not yet spent first (see domain/stalled). */
+  /** "Sin gasto reciente", largest amount not yet spent first (see domain/stalled). Never closed projects. */
   getStalledInvestments(params: {
     departmentCode?: number;
     level?: LevelFilter;
     entity?: string;
+    status?: StatusFilter;
     page: number;
     pageSize?: number;
   }): Promise<StalledInvestment[]>;
-  countStalledInvestments(departmentCode?: number, level?: LevelFilter): Promise<number>;
+  countStalledInvestments(departmentCode?: number, level?: LevelFilter, status?: StatusFilter): Promise<number>;
   /** Latest last accrual month of every level (first day of a month), or null without data. */
   getAccrualReferenceMonth(): Promise<string | null>;
   /** One row per department with data, ordered by department code (see domain/regionComparison). */
-  getRegionComparison(level?: LevelFilter): Promise<RegionComparison[]>;
+  getRegionComparison(level?: LevelFilter, status?: StatusFilter): Promise<RegionComparison[]>;
   /** "Entidades": a page of entities in the scope, ranked by `sort` (see buildEntityQuery). */
   getEntityComparison(params: {
     sort: RegionSort;
     departmentCode?: number;
     level?: LevelFilter;
+    status?: StatusFilter;
     page: number;
     pageSize?: number;
   }): Promise<EntityComparison[]>;

@@ -40,6 +40,12 @@ describe('buildMapHtml', () => {
     expect(html).toContain("'text-font': ['Noto Sans Bold']");
   });
 
+  it('draws closed projects as hollow circles', () => {
+    expect(html).toContain("closed: f.closed === true");
+    expect(html).toContain("var CLOSED = ['==', ['get', 'closed'], true];");
+    expect(html).toContain("'circle-opacity': ['case', CLOSED, 0, 1]");
+  });
+
   it('embeds the initial view', () => {
     expect(html).toContain('"kind":"bounds"');
     const centered = buildMapHtml({ kind: 'center', latitude: -16.4, longitude: -71.5, zoom: 14 });

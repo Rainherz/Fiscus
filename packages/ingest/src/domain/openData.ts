@@ -122,6 +122,36 @@ function ubigeo(value: unknown): string | null {
   return text !== null && /^\d{6}$/.test(text) ? text : null;
 }
 
+/** Where an open-data investment is, from the location columns both MEF files share. */
+export interface OpenDataLocation {
+  departmentCode: number | null;
+  departmentName: string | null;
+  province: string | null;
+  district: string | null;
+  ubigeo: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Department from the ubigeo (then the DEPARTAMENTO name), and coordinates only inside Peru.
+ * Shared by DETALLE_INVERSIONES.csv and CIERRE_INVERSIONES.csv, which use the same columns.
+ */
+export function openDataLocation(row: OpenDataCsvRecord): OpenDataLocation {
+  const departmentCode =
+    departmentCodeFromUbigeo(parseText(row.UBIGEO)) ?? departmentCodeFromName(parseText(row.DEPARTAMENTO));
+  const coordinates = peruCoordinates(parseNumber(row.LATITUD), parseNumber(row.LONGITUD));
+  return {
+    departmentCode,
+    departmentName: departmentCode === null ? null : departmentName(departmentCode),
+    province: parseText(row.PROVINCIA),
+    district: parseText(row.DISTRITO),
+    ubigeo: ubigeo(row.UBIGEO),
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
+  };
+}
+
 /** Returns null when the row has no CUI (it cannot be keyed). */
 export function mapOpenDataRecord(
   row: OpenDataCsvRecord,
@@ -132,9 +162,7 @@ export function mapOpenDataRecord(
 
   const accruedPreviousYears = parseNumber(row.DEVEN_ACUMUL_ANIO_ANT);
   const accruedYear = parseNumber(row.DEV_ANIO_ACTUAL);
-  const departmentCode =
-    departmentCodeFromUbigeo(parseText(row.UBIGEO)) ?? departmentCodeFromName(parseText(row.DEPARTAMENTO));
-  const coordinates = peruCoordinates(parseNumber(row.LATITUD), parseNumber(row.LONGITUD));
+  const location = openDataLocation(row);
 
   return {
     cui,
@@ -168,13 +196,7 @@ export function mapOpenDataRecord(
     guaranteeAmount: parseNumber(row.MONTO_FIANZA),
     concurrentControlCost: parseNumber(row.CTRL_CONCURR),
     physicalProgress: physicalProgress(row.TIENE_AVAN_FISICO, row.AVANCE_FISICO),
-    departmentCode,
-    departmentName: departmentCode === null ? null : departmentName(departmentCode),
-    province: parseText(row.PROVINCIA),
-    district: parseText(row.DISTRITO),
-    ubigeo: ubigeo(row.UBIGEO),
-    latitude: coordinates?.latitude ?? null,
-    longitude: coordinates?.longitude ?? null,
+    ...location,
     sourceUpdatedAt: context.sourceUpdatedAt,
     openDataUpdatedAt: context.runAt,
   };

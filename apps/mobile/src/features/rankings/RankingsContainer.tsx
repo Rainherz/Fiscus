@@ -12,21 +12,33 @@ import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
 
 import { entityHref } from './entityRoute';
 import { isEntitySort, type EntitySort } from './entityPresentation';
-import { isRankingTab, type RankingList, type RankingTab } from './rankingPresentation';
+import { isActiveOnlyTab, isRankingTab, type RankingList, type RankingTab } from './rankingPresentation';
 import { RankingsView } from './RankingsView';
 
 const DEFAULT_TAB: RankingKind = 'increase-amount';
 const DEFAULT_ENTITY_SORT: EntitySort = 'increase-amount';
 
-/** The rows and paging state of one ranking tab in a read scope; only the selected tab fetches. */
+/**
+ * The rows and paging state of one ranking tab in a read scope; only the selected tab fetches. A
+ * tab that only applies to active projects fetches nothing while only closed ones are shown
+ * (`activeOnlyHidden`).
+ */
 export function useRankingList(tab: RankingTab, read: ReadScope, entitySort: EntitySort = DEFAULT_ENTITY_SORT) {
+  const activeOnlyHidden = isActiveOnlyTab(tab, read.status, entitySort);
   const rankingKind: RankingKind = tab === 'stalled' || tab === 'entities' ? DEFAULT_TAB : tab;
-  const ranking = useRanking(rankingKind, read, { enabled: tab !== 'stalled' && tab !== 'entities' });
-  const stalled = useStalledInvestments(read, { enabled: tab === 'stalled' });
-  const entities = useEntityComparison(entitySort, read, { enabled: tab === 'entities' });
+  const ranking = useRanking(rankingKind, read, {
+    enabled: tab !== 'stalled' && tab !== 'entities' && !activeOnlyHidden,
+  });
+  const stalled = useStalledInvestments(read, { enabled: tab === 'stalled' && !activeOnlyHidden });
+  const entities = useEntityComparison(entitySort, read, { enabled: tab === 'entities' && !activeOnlyHidden });
 
-  const list: RankingList =
-    tab === 'stalled'
+  const list: RankingList = activeOnlyHidden
+    ? tab === 'stalled'
+      ? { kind: 'stalled', items: [] }
+      : tab === 'entities'
+        ? { kind: 'entities', items: [] }
+        : { kind: rankingKind, items: [] }
+    : tab === 'stalled'
       ? { kind: 'stalled', items: stalled.data?.pages.flat() ?? [] }
       : tab === 'entities'
         ? { kind: 'entities', items: entities.data?.pages.flat() ?? [] }
@@ -34,7 +46,8 @@ export function useRankingList(tab: RankingTab, read: ReadScope, entitySort: Ent
   const query = tab === 'stalled' ? stalled : tab === 'entities' ? entities : ranking;
   return {
     list,
-    status: query.status,
+    activeOnlyHidden,
+    status: activeOnlyHidden ? ('success' as const) : query.status,
     isFetchingMore: query.isFetchingNextPage,
     onEndReached: () => {
       if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();

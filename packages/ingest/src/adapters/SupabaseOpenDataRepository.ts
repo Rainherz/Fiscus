@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { ClosedInvestment } from "../domain/closedData.js";
 import type { OpenDataInvestment } from "../domain/openData.js";
 import type { OpenDataRepository, SourceSnapshot } from "../ports/OpenDataRepository.js";
 
@@ -70,6 +71,58 @@ export function toOpenDataRow(investment: OpenDataInvestment) {
   };
 }
 
+/**
+ * ClosedInvestment -> argument row of public.upsert_closed_investments (the column whitelist, kept
+ * in sync with the function's recordset definition). RESPONSABLE_UEI never reaches this point: the
+ * CSV parser drops it.
+ */
+export function toClosedDataRow(investment: ClosedInvestment) {
+  return {
+    cui: investment.cui,
+    snip_code: investment.snipCode,
+    name: investment.name,
+    government_level: investment.governmentLevel,
+    sector: investment.sector,
+    entity: investment.entity,
+    executing_unit: investment.executingUnit,
+    status: investment.status,
+    situation: investment.situation,
+    beneficiaries: investment.beneficiaries,
+    registered_at: investment.registeredAt,
+    viability_at: investment.viabilityAt,
+    investment_type: investment.investmentType,
+    function: investment.function,
+    functional_division: investment.functionalDivision,
+    functional_group: investment.functionalGroup,
+    framework: investment.framework,
+    viable_amount: investment.viableAmount,
+    updated_cost: investment.updatedCost,
+    accrued_total: investment.accruedTotal,
+    first_accrual_month: investment.firstAccrualMonth,
+    last_accrual_month: investment.lastAccrualMonth,
+    dispute_cost: investment.disputeCost,
+    guarantee_amount: investment.guaranteeAmount,
+    concurrent_control_cost: investment.concurrentControlCost,
+    department_code: investment.departmentCode,
+    department_name: investment.departmentName,
+    province: investment.province,
+    district: investment.district,
+    ubigeo: investment.ubigeo,
+    latitude: investment.latitude,
+    longitude: investment.longitude,
+    closed_at: investment.closedAt,
+    closure_description: investment.closureDescription,
+    liquidation_amount: investment.liquidationAmount,
+    liquidated_at: investment.liquidatedAt,
+    culminated: investment.culminated,
+    physical_start_at: investment.physicalStartAt,
+    physical_end_at: investment.physicalEndAt,
+    operation_start_at: investment.operationStartAt,
+    source_updated_at: investment.sourceUpdatedAt,
+    open_data_updated_at: investment.openDataUpdatedAt,
+  };
+}
+
 function asNumberOrNull(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
@@ -107,9 +160,17 @@ export class SupabaseOpenDataRepository implements OpenDataRepository {
   }
 
   async upsertOpenDataInvestments(rows: readonly OpenDataInvestment[]): Promise<number> {
+    return this.callUpsert("upsert_open_data_investments", rows.map(toOpenDataRow));
+  }
+
+  async upsertClosedInvestments(rows: readonly ClosedInvestment[]): Promise<number> {
+    return this.callUpsert("upsert_closed_investments", rows.map(toClosedDataRow));
+  }
+
+  private async callUpsert(fn: string, rows: object[]): Promise<number> {
     if (rows.length === 0) return 0;
-    const { data, error } = await this.client.rpc("upsert_open_data_investments", { rows: rows.map(toOpenDataRow) });
-    if (error) throw new Error(`upsert_open_data_investments failed: ${error.message}`);
+    const { data, error } = await this.client.rpc(fn, { rows });
+    if (error) throw new Error(`${fn} failed: ${error.message}`);
     // The function returns the rows it inserted or changed; unchanged rows are skipped.
     return asNumberOrNull(data) ?? rows.length;
   }

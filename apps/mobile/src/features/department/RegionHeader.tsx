@@ -16,15 +16,16 @@ interface Props {
   };
 }
 
-/** Container: app header whose selector opens the region picker screen (`/region`), where the level is chosen too. */
+/** Container: app header whose selector opens the region picker screen (`/region`), where the level and status are chosen too. */
 export function RegionHeader({ nav }: Props) {
-  const { label, levelLabel, ready } = useScope();
+  const { label, levelLabel, statusLabel, ready } = useScope();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
     <AppHeader
       scopeLabel={ready ? label : null}
       levelLabel={ready ? levelLabel : null}
+      statusLabel={ready ? statusLabel : null}
       onPressScope={() => {
         blurActiveElement();
         router.push('/region');

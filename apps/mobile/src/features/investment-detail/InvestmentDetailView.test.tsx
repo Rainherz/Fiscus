@@ -110,6 +110,76 @@ describe('InvestmentDetailView', () => {
     });
   });
 
+  describe('closed project', () => {
+    const closed: Investment = {
+      ...full,
+      status: 'CERRADO',
+      governmentLevel: 'GL',
+      dataSource: 'open_data_closed',
+      closure: {
+        closedAt: '2024-08-15',
+        description: 'Sí, con liquidación',
+        liquidationAmount: 7_380_000,
+        liquidatedAt: '2024-06-30',
+        culminated: true,
+        physicalStartAt: '2021-03-01',
+        physicalEndAt: '2023-11-30',
+        operationStartAt: '2024-01-15',
+      },
+    };
+
+    it('tags the project CERRADO and lists the closure facts with glossary hints', async () => {
+      await render(<InvestmentDetailView investment={closed} now={NOW} />);
+      expect(screen.getByText('GL · CERRADO')).toBeOnTheScreen();
+      expect(screen.getByRole('header', { name: 'CIERRE DE LA INVERSIÓN' })).toBeOnTheScreen();
+      for (const [label, value] of [
+        ['Fecha de cierre', '15/08/2024'],
+        ['Tipo de cierre', 'Sí, con liquidación'],
+        ['Culminada', 'Sí'],
+        ['Liquidación', 'S/ 7.4 M, el 30/06/2024'],
+        ['Inicio de ejecución física', '01/03/2021'],
+        ['Fin de ejecución física', '30/11/2023'],
+        ['Inicio de operación', '15/01/2024'],
+      ]) {
+        expect(screen.getByLabelText(`${label}: ${value}`)).toBeOnTheScreen();
+      }
+      expect(screen.getByRole('button', { name: 'Qué significa Cierre de la inversión' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Qué significa Liquidación' })).toBeOnTheScreen();
+      expect(screen.getByText(/Fuente: MEF – Datos Abiertos, Cierre de inversiones\./)).toBeOnTheScreen();
+    });
+
+    it('shows only the closure facts MEF publishes, and no liquidation of S/ 0', async () => {
+      await render(
+        <InvestmentDetailView
+          investment={{
+            ...closed,
+            closure: { ...closed.closure!, liquidationAmount: 0, liquidatedAt: null, culminated: false, physicalStartAt: null, physicalEndAt: null, operationStartAt: null },
+          }}
+          now={NOW}
+        />,
+      );
+      expect(screen.getByLabelText('Culminada: No')).toBeOnTheScreen();
+      expect(screen.queryByLabelText(/^Liquidación:/)).toBeNull();
+      expect(screen.queryByLabelText(/^Inicio de ejecución física:/)).toBeNull();
+    });
+
+    it('is never "sin gasto reciente"', async () => {
+      await render(
+        <InvestmentDetailView
+          investment={{ ...closed, executionProgress: 0.4, lastAccrualMonth: '2020-01-01' }}
+          now={NOW}
+          referenceMonth="2026-10-01"
+        />,
+      );
+      expect(screen.queryByText(/Sin gasto registrado desde/)).toBeNull();
+    });
+
+    it('has no closure block for an active project', async () => {
+      await render(<InvestmentDetailView investment={full} now={NOW} />);
+      expect(screen.queryByText('CIERRE DE LA INVERSIÓN')).toBeNull();
+    });
+  });
+
   it('lists the key facts', async () => {
     await render(<InvestmentDetailView investment={full} now={NOW} />);
     const facts: [string, string][] = [

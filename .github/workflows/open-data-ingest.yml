@@ -1,9 +1,11 @@
 name: Fiscus open-data ingest
 
-# MEF open data (DETALLE_INVERSIONES.csv, ~250 MB): every active investment of national, regional
-# and local governments. Unlike the SSI host, fs.datosabiertos.mef.gob.pe is reachable from
-# GitHub-hosted runners. The file is not refreshed daily: the ingest compares Last-Modified and
-# Content-Length with public.source_snapshots and exits without downloading when unchanged.
+# MEF open data, two files on fs.datosabiertos.mef.gob.pe (reachable from GitHub-hosted runners,
+# unlike the SSI host):
+#   DETALLE_INVERSIONES.csv (~250 MB): every active investment of national, regional and local governments.
+#   CIERRE_INVERSIONES.csv  (~120 MB): every closed investment of those levels.
+# Neither file is refreshed daily: each ingest compares Last-Modified and Content-Length with its own
+# public.source_snapshots row and exits without downloading when unchanged.
 #
 # Daily at 10:00 UTC = 05:00 Lima, after the 04:00 SSI run on the machine in Peru.
 on:
@@ -12,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Ingest even if the file is unchanged since the last ingest"
+        description: "Ingest even if the files are unchanged since the last ingest"
         type: boolean
         required: false
         default: false
@@ -42,7 +44,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter @fiscus/ingest test
+      - id: tests
+        run: pnpm --filter @fiscus/ingest test
 
       - name: Ingest MEF open data into Supabase
         env:
@@ -51,8 +54,18 @@ jobs:
           FORCE: ${{ inputs.force && '--force' || '' }}
         run: pnpm ingest:open-data $FORCE
 
+      # Runs even when the active ingest failed (the files are independent), but not when the tests did.
+      - name: Ingest MEF closed investments into Supabase
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: pnpm ingest:open-data-closed $FORCE
+
       # Opens an ingest-failure issue, or comments on the open one with the same title, so repeated
-      # failures stay in one thread. Freshness (a run that never happens) is data-freshness.yml.
+      # failures stay in one thread. Covers both ingests (failure() is true when either step failed).
+      # Freshness (a run that never happens) is data-freshness.yml.
       - name: Report failure
         if: failure()
         env:
@@ -61,7 +74,7 @@ jobs:
           TITLE: "Falló la ingesta de datos abiertos"
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          body="La ingesta de datos abiertos falló (${{ github.event_name }}). Ejecución: $RUN_URL"
+          body="La ingesta de datos abiertos (inversiones activas o cerradas) falló (${{ github.event_name }}). Ejecución: $RUN_URL"
           gh label create ingest-failure --color B60205 --description "Falla de una ingesta" --force
           number=$(gh issue list --state open --label ingest-failure --search "in:title \"$TITLE\"" \
             --json number,title --jq "map(select(.title == \"$TITLE\")) | first | .number // empty")

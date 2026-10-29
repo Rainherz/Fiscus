@@ -69,9 +69,15 @@ describe('toMapFeatures', () => {
     const flat = { ...point, cui: '1', costIncrease: 0, costIncreasePct: 0 };
     const invalid = { ...point, cui: '2', updatedCostValid: false };
     expect(toMapFeatures({ kind: 'points', points: [point, flat, invalid] })).toEqual([
-      { kind: 'point', id: '2088142', latitude: -16.35, longitude: -72.15, increased: true },
+      { kind: 'point', id: '2088142', latitude: -16.35, longitude: -72.15, increased: true, closed: false },
       expect.objectContaining({ id: '1', increased: false }),
       expect.objectContaining({ id: '2', increased: false }),
+    ]);
+  });
+
+  it('marks closed projects, which the page draws hollow', () => {
+    expect(toMapFeatures({ kind: 'points', points: [{ ...point, closed: true }] })).toEqual([
+      expect.objectContaining({ id: '2088142', increased: true, closed: true }),
     ]);
   });
 });
@@ -110,7 +116,7 @@ describe('withSelected', () => {
     const clusters = toMapFeatures({ kind: 'clusters', clusters: [cluster] });
     expect(withSelected(clusters, point)).toEqual([
       ...clusters,
-      { kind: 'point', id: '2088142', latitude: -16.35, longitude: -72.15, increased: true },
+      { kind: 'point', id: '2088142', latitude: -16.35, longitude: -72.15, increased: true, closed: false },
     ]);
   });
 

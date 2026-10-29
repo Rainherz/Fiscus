@@ -2,6 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-qu
 
 import type { LevelFilter } from '../domain/governmentLevel';
 import type { RankingKind } from '../domain/investment';
+import type { StatusFilter } from '../domain/investmentStatus';
 import { MAP_LIST_PAGE_SIZE, type MapListRequest, type MapPointsRequest } from '../domain/mapPoints';
 import {
   PAGE_SIZE,
@@ -14,12 +15,14 @@ import { useRepository } from '../RepositoryContext';
 import { nextPageParam } from './pagination';
 
 /**
- * What every read is limited to: a department (undefined: all of Peru) and a government level
- * ('ALL': every level). The entity drill-down adds one entity. It is part of every query key.
+ * What every read is limited to: a department (undefined: all of Peru), a government level
+ * ('ALL': every level) and a project status ('ALL': active and closed). The entity drill-down adds
+ * one entity. It is part of every query key.
  */
 export interface ReadScope {
   departmentCode: number | undefined;
   level: LevelFilter;
+  status: StatusFilter;
   entity?: string;
 }
 
@@ -58,13 +61,13 @@ export function useFunctionSummaries(read: ReadScope) {
   const { repository } = useRepository();
   return useQuery({
     queryKey: ['function-summaries', read],
-    queryFn: () => repository.functionSummaries(read.departmentCode, read.level),
+    queryFn: () => repository.functionSummaries(read.departmentCode, read.level, read.status),
   });
 }
 
 export function useSearchInvestments(text: string, read: ReadScope) {
   const { repository } = useRepository();
-  const query = buildSearchQuery(text, read.departmentCode, read.level);
+  const query = buildSearchQuery(text, read.departmentCode, read.level, read.status);
   return {
     isSearchable: query !== null,
     ...useQuery({
@@ -140,7 +143,7 @@ export function useStalledPreview(read: ReadScope, count: number) {
     queryKey: ['stalled-preview', read, count],
     queryFn: async () => {
       const [total, items] = await Promise.all([
-        repository.countStalledInvestments(read.departmentCode, read.level),
+        repository.countStalledInvestments(read.departmentCode, read.level, read.status),
         repository.getStalledInvestments({ ...read, page: 0, pageSize: count }),
       ]);
       return { total, items };
@@ -158,12 +161,12 @@ export function useAccrualReferenceMonth() {
   });
 }
 
-/** "Regiones": every department of one level at once (25 rows), sorted on the client. */
-export function useRegionComparison(level: LevelFilter) {
+/** "Regiones": every department of one level and status at once (25 rows), sorted on the client. */
+export function useRegionComparison(level: LevelFilter, status: StatusFilter) {
   const { repository } = useRepository();
   return useQuery({
-    queryKey: ['region-comparison', level],
-    queryFn: () => repository.getRegionComparison(level),
+    queryKey: ['region-comparison', level, status],
+    queryFn: () => repository.getRegionComparison(level, status),
   });
 }
 
@@ -178,6 +181,7 @@ export function useEntityComparison(sort: RegionSort, read: ReadScope, options: 
         sort,
         departmentCode: read.departmentCode,
         level: read.level,
+        status: read.status,
         page: pageParam,
       }),
     initialPageParam: 0,

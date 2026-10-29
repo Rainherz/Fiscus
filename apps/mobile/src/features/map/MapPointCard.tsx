@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { TermHint } from '@/features/glossary/TermHint';
-import { levelTag } from '@/features/government-level/levelPresentation';
+import { projectTag } from '@/features/government-level/levelPresentation';
+import { CLOSED_STATUS } from '@/features/investments/domain/investmentStatus';
 import { hasValidIncrease, type MapListItem, type MapPoint } from '@/features/investments/domain/mapPoints';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { LevelTag } from '@/shared/ui/LevelTag';
@@ -21,7 +22,7 @@ interface Props {
 /** The selected project (outside the WebView, so it is native and accessible). */
 export function MapPointCard({ point, details, detailsStatus, onPressDetail, onClose }: Props) {
   const name = point.name ?? 'Sin nombre';
-  const tag = levelTag(point.governmentLevel);
+  const tag = projectTag({ governmentLevel: point.governmentLevel, status: point.closed ? CLOSED_STATUS : null });
   return (
     <View style={styles.card} accessibilityLiveRegion="polite">
       <View style={styles.top}>

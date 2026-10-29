@@ -1,5 +1,6 @@
 import type { GovernmentLevel, LevelFilter } from './governmentLevel';
 import type { Investment } from './investment';
+import { isClosed, matchesStatus, type StatusFilter } from './investmentStatus';
 import { stalledStatus } from './stalled';
 
 /**
@@ -37,6 +38,8 @@ export interface MapPointsRequest {
   departmentCode?: number;
   /** None (or undefined): every project. */
   filters?: readonly MapFilter[];
+  /** Undefined or 'ALL': every status (the `status_filter` argument). */
+  status?: StatusFilter;
 }
 
 /** One page of the list beside the map: the projects of the view that match the filters. */
@@ -45,6 +48,7 @@ export interface MapListRequest {
   level: LevelFilter;
   departmentCode?: number;
   filters?: readonly MapFilter[];
+  status?: StatusFilter;
   page: number;
   pageSize?: number;
 }
@@ -60,6 +64,8 @@ export interface MapPoint {
   costIncrease: number | null;
   costIncreasePct: number | null;
   updatedCostValid: boolean;
+  /** A closed project (status CERRADO): drawn with its own marker. */
+  closed?: boolean;
 }
 
 export interface MapCluster {
@@ -124,6 +130,7 @@ export function toMapPoint(investment: Investment): MapPoint | null {
     costIncrease: investment.costIncrease,
     costIncreasePct: investment.costIncreasePct,
     updatedCostValid: investment.updatedCostValid,
+    closed: isClosed(investment),
   };
 }
 
@@ -176,7 +183,7 @@ function isOverspent(i: Investment): boolean {
   return i.updatedCostValid && (i.executionProgress ?? 0) > 1;
 }
 
-type Scoped = Pick<MapPointsRequest, 'bbox' | 'level' | 'departmentCode' | 'filters'>;
+type Scoped = Pick<MapPointsRequest, 'bbox' | 'level' | 'departmentCode' | 'filters' | 'status'>;
 
 /** The located investments of the request's box and scope that match its filters. */
 function located(investments: Investment[], request: Scoped): { investment: Investment; point: MapPoint; stalled: boolean }[] {
@@ -186,6 +193,7 @@ function located(investments: Investment[], request: Scoped): { investment: Inve
   return investments.flatMap((investment) => {
     if (request.level !== 'ALL' && investment.governmentLevel !== request.level) return [];
     if (request.departmentCode !== undefined && investment.departmentCode !== request.departmentCode) return [];
+    if (!matchesStatus(investment.status, request.status)) return [];
     const point = toMapPoint(investment);
     if (!point || !within(point)) return [];
     const stalled = stalledStatus(investment, referenceMonth) !== null;

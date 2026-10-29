@@ -1,5 +1,6 @@
 import type { LevelFilter } from './governmentLevel';
 import type { RankingKind } from './investment';
+import { statusValueOf, type StatusFilter } from './investmentStatus';
 import type { RegionSort } from './regionComparison';
 
 /**
@@ -26,6 +27,7 @@ export type InvestmentColumn =
 export type EntityColumn =
   | 'entity'
   | 'government_level'
+  | 'status_group'
   | 'scope_department_code'
   | 'total_cost_increase'
   | 'increased_viable_amount'
@@ -86,13 +88,39 @@ function ofEntity<C extends string = InvestmentColumn>(entity: string | undefine
   return entity === undefined ? [] : [{ column: 'entity' as C, op: 'eq', value: entity }];
 }
 
-/** Department, level and entity filters, in that order (they match the composite indexes). */
+/** One MEF status (ACTIVO or CERRADO), or none for every status. */
+function withStatus<C extends string = InvestmentColumn>(status: StatusFilter | undefined): Filter<C>[] {
+  const value = statusValueOf(status);
+  return value === null ? [] : [{ column: 'status' as C, op: 'eq', value }];
+}
+
+/**
+ * Department, level, entity and status filters, in that order (the first ones match the composite
+ * indexes).
+ */
 function inReadScope<C extends string = InvestmentColumn>(params: {
   departmentCode?: number;
   level?: LevelFilter;
   entity?: string;
+  status?: StatusFilter;
 }): Filter<C>[] {
-  return [...inScope<C>(params.departmentCode), ...atLevel<C>(params.level), ...ofEntity<C>(params.entity)];
+  return [
+    ...inScope<C>(params.departmentCode),
+    ...atLevel<C>(params.level),
+    ...ofEntity<C>(params.entity),
+    ...withStatus<C>(params.status),
+  ];
+}
+
+/** Drops repeated filters (the duration ranking already keeps ACTIVO projects only). */
+function unique<C extends string>(filters: Filter<C>[]): Filter<C>[] {
+  const seen = new Set<string>();
+  return filters.filter((filter) => {
+    const key = JSON.stringify(filter);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Placeholder costs in the source would distort cost-based rankings and the home hero. */
@@ -132,12 +160,14 @@ export function buildRankingQuery(params: {
   level?: LevelFilter;
   /** Only the projects of one entity (the entity drill-down). */
   entity?: string;
+  /** Undefined or 'ALL' ranks every status. */
+  status?: StatusFilter;
   page: number;
   pageSize?: number;
 }): InvestmentQuery {
   const ranking = RANKINGS[params.kind];
   return {
-    filters: [...inReadScope(params), ...ranking.filters],
+    filters: unique([...inReadScope(params), ...ranking.filters]),
     order: [ranking.order, tieBreak],
     range: pageRange(params.page, params.pageSize ?? PAGE_SIZE),
   };
@@ -148,13 +178,14 @@ function escapeLike(text: string): string {
 }
 
 /**
- * Digits are an exact CUI (unique nationwide, at every level); anything else searches names in the
- * department (or all of Peru when `departmentCode` is undefined) and the level.
+ * Digits are an exact CUI (unique nationwide, at every level and status); anything else searches
+ * names in the department (or all of Peru when `departmentCode` is undefined), the level and the status.
  */
 export function buildSearchQuery(
   text: string,
   departmentCode: number | undefined,
   level?: LevelFilter,
+  status?: StatusFilter,
 ): InvestmentQuery | null {
   const normalized = text.trim().replace(/\s+/g, ' ');
   if (/^\d+$/.test(normalized)) {
@@ -167,7 +198,7 @@ export function buildSearchQuery(
   if (normalized.length < MIN_NAME_SEARCH_LENGTH) return null;
   return {
     filters: [
-      ...inReadScope({ departmentCode, level }),
+      ...inReadScope({ departmentCode, level, status }),
       { column: 'name', op: 'ilike', value: `%${escapeLike(normalized)}%` },
     ],
     order: [{ column: 'updated_cost', ascending: false }, tieBreak],
@@ -178,6 +209,7 @@ export function buildSearchQuery(
 export function buildFunctionQuery(params: {
   departmentCode?: number;
   level?: LevelFilter;
+  status?: StatusFilter;
   fn: string | null;
   page: number;
 }): InvestmentQuery {
@@ -200,6 +232,7 @@ export function buildStalledQuery(params: {
   departmentCode?: number;
   level?: LevelFilter;
   entity?: string;
+  status?: StatusFilter;
   page: number;
   pageSize?: number;
 }): InvestmentQuery<StalledColumn> {
@@ -240,19 +273,25 @@ export const NATIONAL_SCOPE_CODE = 0;
 
 /**
  * "Entidades": entities ranked by one figure in the scope, only those with a figure above zero,
- * paged. In a department the view counts only the entity's projects there.
+ * paged. In a department the view counts only the entity's projects there. With a status the spec
+ * reads one `status_group` of `entity_comparison_by_status` ('ALL' included); without one it
+ * applies to `entity_comparison`.
  */
 export function buildEntityQuery(params: {
   sort: RegionSort;
   departmentCode?: number;
   level?: LevelFilter;
+  status?: StatusFilter;
   page: number;
   pageSize?: number;
 }): InvestmentQuery<EntityColumn> {
   const sort = ENTITY_SORTS[params.sort];
+  const statusGroup: Filter<EntityColumn>[] =
+    params.status === undefined ? [] : [{ column: 'status_group', op: 'eq', value: params.status }];
   return {
     filters: [
       { column: 'scope_department_code', op: 'eq', value: params.departmentCode ?? NATIONAL_SCOPE_CODE },
+      ...statusGroup,
       ...atLevel<EntityColumn>(params.level),
       ...sort.filters,
     ],

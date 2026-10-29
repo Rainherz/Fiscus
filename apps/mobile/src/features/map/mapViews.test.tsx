@@ -53,6 +53,7 @@ describe('MapLegend', () => {
     expect(screen.getByText('Con aumento de costo')).toBeOnTheScreen();
     expect(screen.getByText('Sin aumento')).toBeOnTheScreen();
     expect(screen.getByText('Grupo de proyectos (toca para acercar)')).toBeOnTheScreen();
+    expect(screen.getByText('Proyecto cerrado (círculo hueco)')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /leyenda/ })).toBeNull();
   });
 
@@ -96,6 +97,13 @@ describe('MapControls', () => {
     expect(screen.getByRole('checkbox', { name: 'Con aumento' })).not.toBeChecked();
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Gastó más que su costo' }));
     expect(handlers.onToggleFilter).toHaveBeenCalledWith('overspent');
+  });
+
+  it('has no stalled chip when only closed projects are shown', async () => {
+    const handlers = { onPressScope: jest.fn(), onSelectLevel: jest.fn(), onToggleFilter: jest.fn() };
+    await render(<MapControls scopeLabel="Arequipa" level="ALL" filters={['stalled']} hiddenFilters={['stalled']} {...handlers} />);
+    expect(screen.queryByRole('checkbox', { name: 'Sin gasto reciente' })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Con aumento' })).toBeOnTheScreen();
   });
 });
 

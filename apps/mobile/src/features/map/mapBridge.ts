@@ -26,7 +26,8 @@ export type MapEvent =
 /** What the page draws. Labels and sizes are computed in the app (mapPresentation.ts). */
 export type MapFeature =
   | { kind: 'cluster'; id: string; latitude: number; longitude: number; label: string; radius: number }
-  | { kind: 'point'; id: string; latitude: number; longitude: number; increased: boolean };
+  /** `closed`: a closed project (status CERRADO), drawn as a hollow circle. */
+  | { kind: 'point'; id: string; latitude: number; longitude: number; increased: boolean; closed?: boolean };
 
 /** App → page. */
 export type MapCommand =

@@ -4,15 +4,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useScope } from '@/features/department/ScopeContext';
 import type { LevelFilter } from '@/features/investments/domain/governmentLevel';
+import type { StatusFilter } from '@/features/investments/domain/investmentStatus';
 import { useRegionComparison, useTopIncreases } from '@/features/investments/hooks/queries';
 import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
 
 import { needsComparisonData, parseRegionCode, resolvePair, swapPair, type RegionPair } from './compareSelection';
 import { CompareView, type BiggestIncreaseState } from './CompareView';
 
-function useBiggestIncrease(code: number | undefined, level: LevelFilter): BiggestIncreaseState {
+function useBiggestIncrease(code: number | undefined, level: LevelFilter, status: StatusFilter): BiggestIncreaseState {
   // The increase ranking cut to one row: the same query as the home hero, per department.
-  const query = useTopIncreases({ departmentCode: code, level }, 1);
+  const query = useTopIncreases({ departmentCode: code, level, status }, 1);
   if (code === undefined || query.status === 'pending') return { status: 'pending' };
   if (query.status === 'error') return { status: 'error' };
   return { status: 'success', investment: query.data[0] ?? null };
@@ -25,10 +26,10 @@ function useBiggestIncrease(code: number | undefined, level: LevelFilter): Bigge
 export function CompareContainer() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { scope, level } = useScope();
+  const { scope, level, status } = useScope();
   const params = useLocalSearchParams<{ a?: string; b?: string }>();
   const requested = { a: parseRegionCode(params.a), b: parseRegionCode(params.b) };
-  const query = useRegionComparison(level);
+  const query = useRegionComparison(level, status);
   const regions = useMemo(() => query.data ?? [], [query.data]);
 
   const waiting = needsComparisonData(requested) && query.status === 'pending';
@@ -40,14 +41,15 @@ export function CompareContainer() {
     if (a !== undefined && b !== undefined && (params.a !== a || params.b !== b)) router.setParams({ a, b });
   }, [a, b, params.a, params.b, router]);
 
-  const biggestA = useBiggestIncrease(pair?.a, level);
-  const biggestB = useBiggestIncrease(pair?.b, level);
+  const biggestA = useBiggestIncrease(pair?.a, level, status);
+  const biggestB = useBiggestIncrease(pair?.b, level, status);
 
   const setPair = (next: RegionPair) => router.setParams({ a: String(next.a), b: String(next.b) });
 
   return (
     <CompareView
       level={level}
+      projectStatus={status}
       pair={pair}
       status={query.status}
       regions={regions}

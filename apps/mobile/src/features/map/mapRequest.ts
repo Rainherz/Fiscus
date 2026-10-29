@@ -1,4 +1,6 @@
 import type { LevelFilter } from '@/features/investments/domain/governmentLevel';
+import type { StatusFilter } from '@/features/investments/domain/investmentStatus';
+import { isActiveOnlyHidden } from '@/features/investment-status/statusPresentation';
 import type { Coordinates } from '@/features/investments/domain/investment';
 import {
   PERU_BBOX,
@@ -96,7 +98,12 @@ function queryBox(view: BBox): BBox | null {
   return bbox.minLat > bbox.maxLat || bbox.minLon > bbox.maxLon ? null : bbox;
 }
 
-type ReadScope = { departmentCode: number | undefined; level: LevelFilter };
+type ReadScope = { departmentCode: number | undefined; level: LevelFilter; status?: StatusFilter };
+
+/** The filters that apply: "Sin gasto reciente" needs active projects, so it is dropped for closed ones. */
+export function applicableMapFilters(filters: readonly MapFilter[], status: StatusFilter | undefined): MapFilter[] {
+  return status !== undefined && isActiveOnlyHidden(status) ? filters.filter((f) => f !== 'stalled') : [...filters];
+}
 
 export function toMapPointsRequest(
   view: { bbox: BBox; zoom: number },
@@ -110,7 +117,8 @@ export function toMapPointsRequest(
     zoom: toTileZoom(view.zoom),
     level: read.level,
     departmentCode: read.departmentCode,
-    filters,
+    filters: applicableMapFilters(filters, read.status),
+    status: read.status,
   };
 }
 
@@ -122,5 +130,11 @@ export function toMapListRequest(
 ): Omit<MapListRequest, 'page'> | null {
   const bbox = queryBox(view.bbox);
   if (!bbox) return null;
-  return { bbox, level: read.level, departmentCode: read.departmentCode, filters };
+  return {
+    bbox,
+    level: read.level,
+    departmentCode: read.departmentCode,
+    filters: applicableMapFilters(filters, read.status),
+    status: read.status,
+  };
 }

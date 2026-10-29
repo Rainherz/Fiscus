@@ -82,6 +82,75 @@ Size (measured on Postgres 17 with the October 2026 file plus 27,296 SSI-like GR
 sources adds 0 bytes. A run where about 1 % of the rows change adds about 1.3 MB to `investments` and
 0.3 MB to the history.
 
+### Closed investments (open data, every level, GitHub Actions)
+
+`https://fs.datosabiertos.mef.gob.pe/datastorefiles/CIERRE_INVERSIONES.csv`: about 120 MB, same host and
+format as the active file (UTF-8 with BOM, every field quoted). It lists every CLOSED investment
+(`ESTADO = CERRADO`) of national, regional and local governments: 120,429 rows in the October 2026 file,
+116,983 distinct CUIs (GL 72,563, GN 31,705, GR 12,715), 3,446 rows without CUI (all GN) and no repeated
+CUI. It shares no CUI with the active file.
+
+- `pnpm ingest:open-data-closed` (the open-data CLI with `--dataset closed`) reuses the streaming source,
+  the snapshot check and the chunked upsert of the active file, with its own `source_snapshots` row
+  (`mef_cierre_inversiones`): unchanged `Last-Modified` and `Content-Length` skip the download and only
+  move `checked_at`. Rows without CUI are skipped; a repeated CUI keeps the last row.
+- **Privacy.** `RESPONSABLE_UEI` is a person's name (the official responsible for the executing unit).
+  The CSV parser drops the column, so it never reaches the mapper, the dry-run output or the database.
+  The OPMI/UF/UEI unit names and the other unmapped columns are not stored either. The committed fixture
+  (`packages/ingest/test/fixtures/closed-data-sample.csv`) replaces it with a placeholder.
+- Mapping: the same columns as the active file where they exist (`DEVEN_ACUMULADO` is `accrued_total`,
+  `CONTROL_CONCURR` the concurrent control cost, `BENEFICIARIO` the beneficiaries, `NOM_UEP` the executing
+  unit, `PROGRAMA`/`SUBPROGRAMA` the functional division and group), plus closure columns
+  (`supabase/migrations/20261106000000_closed_investments.sql`): `closed_at` (`FEC_CIERRE`),
+  `closure_description` (`DES_CIERRE`, the closure type such as "Sí, con liquidación" or "No culminada",
+  trimmed, at most 200 characters), `liquidation_amount` (`TOTAL_LIQUIDACION`, as published: 0 happens),
+  `liquidated_at`, `culminated` (`CULMINADA` SÍ/NO, null when blank), `physical_start_at` /
+  `physical_end_at` (`INICIO`/`CULMINA_EJEC_FISICA`) and `operation_start_at` (`FEC_INI_OPER`). The
+  file has no current-year budget, physical progress or pending balance.
+- Function crosswalk: `PROGRAMA` holds the functional division, as in the active file, so the crosswalk
+  trigger applies unchanged. About 14,100 closed projects carry old-classification labels (EDUCACION Y
+  CULTURA, SALUD Y SANEAMIENTO, AGRARIA, ENERGIA Y RECURSOS MINERALES...), mapped by their division or by
+  the function's wildcard row when the division has no row of its own.
+- Ownership (`data_source`): the SSI keeps every column it publishes (closed GR projects are in both
+  sources); the closed file fills only the open-data and closure columns of SSI rows. Rows only the closed
+  file has are `open_data_closed`. A project that closes leaves the active file and appears in the closed
+  one: the closed upsert (`upsert_closed_investments`) takes the row over (`open_data` →
+  `open_data_closed`), its status flips to CERRADO, the columns the closed file lacks are cleared (`pim`,
+  `pim_year`, `accrued_year`, `accrued_previous_years`, `pending_balance`, `physical_progress`), and the
+  cost history logs a row only if `viable_amount` or `updated_cost` changed. The active upsert does the
+  reverse for a project in the active file (`open_data`, closure columns cleared). An identical re-ingest
+  writes 0 rows: the crosswalk and `touch_ingested_at` triggers are unchanged and the new columns are
+  data columns.
+- `open-data-ingest.yml` runs it right after the active ingest, on the same daily schedule; it runs even
+  if the active ingest failed (not if the tests did) and the failure issue covers both.
+
+Real dry run over the full file (`pnpm ingest:open-data-closed --dry-run`): 120,429 rows read, 116,983
+upserted, 3,446 without CUI, 0 duplicates, 45,225 with coordinates inside Peru, 170 without department,
+116,805 with a closure date, 51,539 with a liquidation amount, 76,280 culminated; 12 s including the
+download, 259 MB peak RSS.
+
+Size (Postgres 17, every migration, autovacuum off, the October 2026 active file plus every GR project of
+both files as SSI rows, then the closed file): `investments` grows from 153 MB (163,116 rows) to 243 MB
+(267,384 rows), +90 MB (+94.5 MB in bytes: 160.0 MB → 254.5 MB), and `investment_cost_changes` from 28 MB
+to 45 MB, +18 MB (one `first_seen` row per new CUI, 104,268). An identical re-ingest of either file writes
+0 rows and adds 0 bytes.
+
+Views. The existing views keep their meaning (every status, as they always had: the SSI already loaded
+closed GR projects), so an app that does not know about statuses reads the same numbers. New
+`*_by_status` views (`region_comparison_by_status`, `function_summary_by_status`,
+`department_function_summary_by_status`, `entity_comparison_by_status`) add a `status_group` column:
+`ACTIVE` (status ACTIVO), `CLOSED` (CERRADO) or `ALL`; other statuses only count under `ALL`. They read
+two internal views (`investment_status_groups`, `stalled_status_groups`) that repeat each row once per
+status group and level group as `UNION ALL` branches with constant columns, so a filter on
+`status_group` and `government_level` prunes the other branches and a read aggregates only the requested
+group (measured on 267k rows: region comparison 0.2 s, a national entity page 0.34 s, function summaries
+under 0.1 s; `GROUP BY CUBE` versions took 1-3.7 s because no filter reaches below grouping sets).
+`map_points` and `map_list` gain `status_filter` (`ALL` by default, so older callers keep their
+results) and `map_points` returns each project's `status`. "Sin gasto reciente" already requires
+`status = 'ACTIVO'` everywhere (both stalled views, `map_points`, `map_list`), so a closed project is
+never stalled; `accrual_reference_month_all_levels` stays the latest month of every row (the closed file
+ends in the same month as the active one, 2026-10).
+
 ## Layout
 
 ```
@@ -92,8 +161,8 @@ packages/ingest/src/
   adapters/      MefXlsxSource (HTTP + XLSX), ssiReportParser, SupabaseInvestmentRepository,
                  JsonFileInvestmentRepository (dry-run), OpenDataCsvSource (HEAD + streamed CSV),
                  SupabaseOpenDataRepository, DryRunOpenDataRepository
-  application/   runIngest (per-department fault isolation), runOpenDataIngest (snapshot check,
-                 chunked upsert)
+  application/   runIngest (per-department fault isolation), runSnapshotIngest (snapshot check,
+                 chunked upsert) behind runOpenDataIngest and runClosedDataIngest
   cli.ts         SSI entrypoint
   openDataCli.ts open-data entrypoint
 apps/mobile/src/
@@ -103,7 +172,7 @@ apps/mobile/src/
                  share-card (share image: presentation, card, capture and share)
   shared/        theme tokens, formatters, UI atoms
 supabase/migrations/   schema, RLS, summary views
-.github/workflows/     ingest.yml (manual SSI ingest), open-data-ingest.yml (manual open-data ingest),
+.github/workflows/     ingest.yml (manual SSI ingest), open-data-ingest.yml (daily active and closed open-data ingests),
                        ci.yml (typecheck + tests)
 ```
 
@@ -136,6 +205,11 @@ pnpm ingest:open-data --dry-run --source /path/to/DETALLE_INVERSIONES.csv --out 
 pnpm ingest:open-data --dry-run --limit 1000
 # Real run (skips when the file is unchanged since the last ingest; --force ingests anyway)
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:open-data [--force]
+
+# Closed investments (CIERRE_INVERSIONES.csv): same options; OPEN_DATA_CLOSED_SOURCE overrides the URL
+pnpm ingest:open-data-closed --dry-run
+pnpm ingest:open-data-closed --dry-run --source /path/to/CIERRE_INVERSIONES.csv --out /absolute/closed.ndjson
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:open-data-closed [--force]
 ```
 
 `--source` takes a URL or a local path (default: the MEF URL); `--out` writes the exact rows a real run
@@ -194,6 +268,25 @@ announced as "Gobierno nacional/regional/local". National projects without depar
 regiones" and never appear in a region. The detail adds entity, executing unit, province and district
 when present, and "AVANCE FÍSICO 42 %" (`physical_progress`) as a plain bar, apart from the striped
 "GASTADO X % DEL COSTO". Its source line follows `data_source` (SSI or open data).
+
+Status filter: the scope also holds a project status, "Activos" (default, `status = 'ACTIVO'`),
+"Cerrados" (`CERRADO`) or "Todos", stored on the device (`fiscus.status`) and chosen in the region picker
+("ESTADO DEL PROYECTO", under the level); the header's second line shows it after the level
+("TODOS LOS NIVELES · PROYECTOS ACTIVOS"). Every read follows it: direct `investments` reads add
+`status = 'ACTIVO' | 'CERRADO'` (an exact CUI search ignores it), recent increases filter the embedded
+investment's status, view reads use the `*_by_status` views with `status_group`, and the map sends
+`status_filter`. The default keeps the meaning of the screens (active projects); it changes the numbers
+of the regional figures, which used to include the closed GR projects the SSI publishes (they now show
+under "Cerrados" and "Todos"). Footnotes of the region comparison name the status. Closed rows carry a
+"GN · CERRADO" tag (announced "Gobierno nacional, proyecto cerrado"); the detail adds a "CIERRE DE LA
+INVERSIÓN" block (fecha de cierre, tipo de cierre, culminada, liquidación when above S/ 0, inicio y fin de
+ejecución física, inicio de operación, only what MEF publishes) with glossary hints ("Cierre de la
+inversión", "Liquidación"), and its source line names "Cierre de inversiones". "Sin gasto reciente" and
+"Más tiempo en curso" only apply to active projects: with "Cerrados" their Rankings tabs (and the entity
+and region sorts by stalled projects) keep their place but show "Este criterio se aplica solo a proyectos
+activos…" instead of a list, the home block is hidden and the map hides its "Sin gasto reciente" chip.
+The map draws closed projects as hollow circles, and the legend says so. The demo mode adds three closed
+projects marked "(demo)".
 
 Entidades: a Rankings tab (`/rankings?tab=entities&sort=…`) ranks `entity_comparison` in the scope and
 level, paged by the view, with the region comparison's sorts (S/, %, sin gasto reciente, gasto sobre el
@@ -429,6 +522,7 @@ row per source, readable with the anon key:
 |---|---|---|
 | `ssi` | end of the latest `ingest_runs` row with at least one department ingested | end of the latest run, successful or not |
 | `mef_detalle_inversiones` | `source_snapshots.ingested_at`: last time the file was ingested | `source_snapshots.checked_at`: last successful run, also when the file was unchanged and skipped |
+| `mef_cierre_inversiones` | the same, for the closed-investments file | the same, for the closed-investments file |
 
 An SSI run counts as a success when `departments_ok` is not empty, the same rule as the CLI exit
 code (it exits 1 only when every department failed). Departments that failed in a partial run are
@@ -444,12 +538,15 @@ not judged for the banner: MEF refreshes that file rarely.
 
 - `data-freshness.yml` runs daily at 15:00 UTC (10:00 Lima, after both ingests) and on demand. It
   reads `data_freshness` with the `SUPABASE_ANON_KEY` secret and, when the last SSI success or the
-  last open-data check is older than 36 h, opens the issue "Datos desactualizados" (label
-  `data-stale`) or updates its status table. It closes the issue when both are fresh again. Logic:
+  last check of either open-data file (active or closed investments) is older than 36 h, opens the
+  issue "Datos desactualizados" (label `data-stale`) or updates its status table. It closes the
+  issue when every source is fresh again. A source without a row is stale, so the closed file shows as
+  stale until its first ingest after deploying. Logic:
   `packages/ingest/src/freshness/` (`pnpm --filter @fiscus/ingest freshness --dry-run` prints the
   evaluation without touching issues).
 - `open-data-ingest.yml` opens the issue "Falló la ingesta de datos abiertos" (label
-  `ingest-failure`) when the run fails, or comments on it if it is already open, with the run URL.
+  `ingest-failure`) when either ingest of the run (active or closed investments) fails, or comments on
+  it if it is already open, with the run URL.
 - The local SSI ingest reports failures with `scripts/notify-ingest-failure.sh <unit>`: it opens the
   issue "Falló la ingesta: <unit>" (label `ingest-failure`), or comments on the open one, with the
   last 50 journal lines of the unit. Keys, tokens, `KEY=`/`TOKEN=` values, long opaque strings and the
@@ -503,8 +600,9 @@ The public dashboard reads with the anon key. RLS lets the anon key run SELECT a
   `packages/ingest/certs/entrust-ov-tls-issuing-rsa-ca2.pem` and loaded with `NODE_EXTRA_CA_CERTS`
   (in the `ingest` script and in the workflow). If MEF rotates its certificate, replace that file.
 - **National and local governments come only from open data.** The SSI ingest requests `tipo: "GR"`.
-  The open-data file has GN and GL too, but only active projects, so closed national and local
-  projects are not in Fiscus.
+  Active GN and GL projects come from `DETALLE_INVERSIONES.csv` and closed ones from
+  `CIERRE_INVERSIONES.csv`; neither has projects in other statuses (e.g. deactivated), so those are only
+  in Fiscus when the SSI publishes them (GR).
 - **PIM year label.** The SSI report headers say `PIM 2023` / `DEVENGADO 2023` even in 2026 reports, and
   SSI rows store that header year in `pim_year`. The open-data file has the same figures as
   `PIM_ANIO_ACTUAL` / `DEV_ANIO_ACTUAL` with `ANIO_PROCESO = 2026` (checked on CUIs 2114611 and

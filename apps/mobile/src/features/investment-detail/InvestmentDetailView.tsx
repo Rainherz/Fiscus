@@ -5,13 +5,15 @@ import {
   hasInvalidUpdatedCost,
   spentOverUpdatedCost,
   type Investment,
+  type InvestmentClosure,
 } from '@/features/investments/domain/investment';
+import { isClosed } from '@/features/investments/domain/investmentStatus';
 import { originalClassification } from '@/features/investments/domain/functionCrosswalk';
 import { stalledStatus } from '@/features/investments/domain/stalled';
 import { TermHint } from '@/features/glossary/TermHint';
 import type { TermId } from '@/features/glossary/terms';
 import { regionLabel } from '@/features/department/departments';
-import { levelName, levelTag } from '@/features/government-level/levelPresentation';
+import { levelName, projectTag } from '@/features/government-level/levelPresentation';
 import { stalledSinceSentence } from '@/features/stalled/stalledPresentation';
 import {
   formatDate,
@@ -56,6 +58,7 @@ const FACT_TERMS: Partial<Record<string, TermId>> = {
   Función: 'funcion',
   Estado: 'estado',
   'Devengado acumulado': 'devengado',
+  Liquidación: 'liquidacion',
 };
 
 /** A small label followed by its term hint. */
@@ -126,6 +129,51 @@ function PhysicalProgress({ percent }: { percent: number }) {
   );
 }
 
+/** The closure facts MEF publishes, in the order of the project's life; only those with a value. */
+function closureFacts(closure: InvestmentClosure): FactItem[] {
+  const date = (label: string, value: string | null): FactItem[] => (value ? [{ label, value: formatDate(value) }] : []);
+  const liquidation: FactItem[] =
+    closure.liquidationAmount !== null && closure.liquidationAmount > 0
+      ? [
+          {
+            label: 'Liquidación',
+            value: closure.liquidatedAt
+              ? `${formatSoles(closure.liquidationAmount)}, el ${formatDate(closure.liquidatedAt)}`
+              : formatSoles(closure.liquidationAmount),
+          },
+        ]
+      : [];
+  return [
+    ...date('Fecha de cierre', closure.closedAt),
+    ...(closure.description ? [{ label: 'Tipo de cierre', value: closure.description }] : []),
+    ...(closure.culminated === null ? [] : [{ label: 'Culminada', value: closure.culminated ? 'Sí' : 'No' }]),
+    ...liquidation,
+    ...date('Inicio de ejecución física', closure.physicalStartAt),
+    ...date('Fin de ejecución física', closure.physicalEndAt),
+    ...date('Inicio de operación', closure.operationStartAt),
+  ];
+}
+
+/** "Cierre de la inversión": what MEF publishes about the closure of a closed project. */
+function ClosureSection({ closure, grid }: { closure: InvestmentClosure; grid: boolean }) {
+  const facts = closureFacts(closure);
+  if (facts.length === 0) return null;
+  return (
+    <View testID="closure" style={styles.closure}>
+      <HintedLabel term="cierre">
+        <MonoText bold size={12} accessibilityRole="header">
+          CIERRE DE LA INVERSIÓN
+        </MonoText>
+      </HintedLabel>
+      <View style={grid ? styles.factsGrid : undefined}>
+        {facts.map((item) => (
+          <Fact key={item.label} {...item} grid={grid} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function InvestmentDetailView({
   investment: inv,
   now,
@@ -140,7 +188,7 @@ export function InvestmentDetailView({
   const viable = formatSoles(inv.viableAmount);
   const updated = formatSoles(inv.updatedCost);
 
-  const tag = levelTag(inv.governmentLevel);
+  const tag = projectTag(inv);
   const fact = (label: string, value: string): FactItem => ({ label, value });
   const optional = (label: string, value: string | null): FactItem[] => (value ? [fact(label, value)] : []);
   const original = originalClassification(inv.function, inv.functionalDivision, inv.functionCanonical);
@@ -308,6 +356,8 @@ export function InvestmentDetailView({
 
       {inv.physicalProgress !== null ? <PhysicalProgress percent={inv.physicalProgress} /> : null}
 
+      {inv.closure && isClosed(inv) ? <ClosureSection closure={inv.closure} grid={wide} /> : null}
+
       {costHistory}
     </>
   );
@@ -420,4 +470,5 @@ const styles = StyleSheet.create({
   },
   factLabel: { letterSpacing: 0.5 },
   source: { marginTop: space.lg, marginHorizontal: space.lg },
+  closure: { marginTop: space.lg, marginHorizontal: space.lg, gap: space.sm },
 });

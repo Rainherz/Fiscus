@@ -40,6 +40,23 @@ describe('RankingsView', () => {
     expect(screen.getByRole('button', { name: '1. Majes Siguas II etapa, Gobierno regional, +285%' })).toBeOnTheScreen();
   });
 
+  it('tags closed projects CERRADO next to their level', async () => {
+    const closed = mapInvestmentRow(
+      sampleRow({ cui: '9', name: 'Puente cerrado', level: 'GL', status: 'CERRADO', viable: 1_000_000, updated: 2_000_000 }),
+    );
+    await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: [closed] }} />);
+    expect(screen.getByText('GL · CERRADO')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /^1\. Puente cerrado, Gobierno local, proyecto cerrado/ })).toBeOnTheScreen();
+  });
+
+  it('replaces an active-only ranking with a note when only closed projects are shown', async () => {
+    await render(<RankingsView {...baseProps} list={{ kind: 'stalled', items: [] }} activeOnlyHidden />);
+    expect(screen.getByRole('tab', { name: 'Sin gasto reciente' })).toBeSelected();
+    expect(screen.getByText(/se aplica solo a proyectos activos/)).toBeOnTheScreen();
+    expect(screen.queryByText(/gastaron entre 5 % y 95 %/)).toBeNull();
+    expect(screen.queryByText('No hay proyectos activos sin gasto en los últimos 12 meses.')).toBeNull();
+  });
+
   it('switches rankings', async () => {
     const onSelectKind = jest.fn();
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: arequipa }} onSelectKind={onSelectKind} />);

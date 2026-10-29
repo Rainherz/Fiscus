@@ -217,7 +217,7 @@ describe('supabase cost history', () => {
     ]);
     expect(calls).toEqual([
       ['from', 'investment_cost_changes'],
-      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level)`],
+      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level,status)`],
       ['eq', 'change_kind', 'changed'],
       ['gt', 'updated_cost_delta', 0],
       ['eq', 'investments.department_code', 4],
@@ -240,7 +240,7 @@ describe('supabase cost history', () => {
     expect(increases).toEqual([expect.objectContaining({ cui: '2088142', departmentCode: 4 })]);
     expect(calls).toEqual([
       ['from', 'investment_cost_changes'],
-      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level)`],
+      ['select', `${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level,status)`],
       ['eq', 'change_kind', 'changed'],
       ['gt', 'updated_cost_delta', 0],
       ['order', 'observed_at', { ascending: false }],

@@ -29,6 +29,7 @@ import {
 } from '../domain/mappers';
 import { mapDataFreshnessRows, type DataFreshnessRow } from '../domain/freshness';
 import type { LevelFilter } from '../domain/governmentLevel';
+import { statusValueOf, type StatusFilter } from '../domain/investmentStatus';
 import { MAP_LIST_PAGE_SIZE, type MapFilter } from '../domain/mapPoints';
 import { buildEntityQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
@@ -53,6 +54,11 @@ interface Result<T> {
   error: { message: string } | null;
   /** Present when the select asked for a count. */
   count?: number | null;
+}
+
+/** The status_filter argument of map_points and map_list; absent when no status is asked for. */
+function statusArgument(status: StatusFilter | undefined) {
+  return status === undefined ? {} : { status_filter: status };
 }
 
 /** The `only_*` arguments of map_points and map_list. */
@@ -108,6 +114,18 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
   /** Only one level, unless every level is asked for. */
   const atLevel = (builder: FilterBuilder, column: string, level: LevelFilter = 'ALL') =>
     level === 'ALL' ? builder : builder.eq(column, level);
+  /** Only one MEF status, unless every status is asked for. */
+  const withStatus = (builder: FilterBuilder, column: string, status: StatusFilter | undefined) => {
+    const value = statusValueOf(status);
+    return value === null ? builder : builder.eq(column, value);
+  };
+  /** One status group of a *_by_status view, or the view without statuses when none is asked for. */
+  const byStatus = (view: string, status: StatusFilter | undefined, columns = '*') =>
+    status === undefined
+      ? (client.from(`${view}_by_level`).select(columns) as unknown as FilterBuilder)
+      : (client.from(`${view}_by_status`).select(columns) as unknown as FilterBuilder);
+  const statusGroup = (builder: FilterBuilder, status: StatusFilter | undefined) =>
+    status === undefined ? builder : builder.eq('status_group', status);
 
   return {
     async findMany(query: InvestmentQuery) {
@@ -118,14 +136,15 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       const row = unwrap(await table('investments').eq('cui', cui).maybeSingle<InvestmentRow>());
       return row ? mapInvestmentRow(row) : null;
     },
-    async functionSummaries(departmentCode, level = 'ALL') {
-      // The *_by_level views have one row per level plus an 'ALL' row, so the level is always filtered.
+    async functionSummaries(departmentCode, level = 'ALL', status) {
+      // The views have one row per level plus an 'ALL' row (and per status group), so both are always filtered.
       const source =
         departmentCode === undefined
-          ? table('function_summary_by_level').eq('government_level', level)
-          : table('department_function_summary_by_level')
-              .eq('government_level', level)
-              .eq('department_code', departmentCode);
+          ? statusGroup(byStatus('function_summary', status).eq('government_level', level), status)
+          : statusGroup(byStatus('department_function_summary', status).eq('government_level', level), status).eq(
+              'department_code',
+              departmentCode,
+            );
       const rows = unwrap(
         (await source
           .order('total_updated_cost', { ascending: false, nullsFirst: false })) as Result<
@@ -160,15 +179,19 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       );
       return (rows ?? []).map(mapCostChangeRow);
     },
-    async getRecentCostIncreases({ departmentCode, level, limit }) {
-      // `!inner` turns the embedded investment into a join, so its filters drop other departments and levels.
-      const increases = costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level)`)
+    async getRecentCostIncreases({ departmentCode, level, status, limit }) {
+      // `!inner` turns the embedded investment into a join, so its filters drop other departments, levels and statuses.
+      const increases = costChanges(`${COST_CHANGE_COLUMNS},investments!inner(name,department_code,government_level,status)`)
         .eq('change_kind', 'changed')
         .gt('updated_cost_delta', 0);
-      const scoped = atLevel(
-        departmentCode === undefined ? increases : increases.eq('investments.department_code', departmentCode),
-        'investments.government_level',
-        level,
+      const scoped = withStatus(
+        atLevel(
+          departmentCode === undefined ? increases : increases.eq('investments.department_code', departmentCode),
+          'investments.government_level',
+          level,
+        ),
+        'investments.status',
+        status,
       );
       const rows = unwrap(
         (await scoped
@@ -179,6 +202,8 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       return (rows ?? []).map(mapRecentCostIncreaseRow);
     },
     async getStalledInvestments(params) {
+      // The rule needs status ACTIVO: closed projects are never stalled.
+      if (params.status === 'CLOSED') return [];
       const rows = unwrap(
         (await applyQuery(stalled(STALLED_INVESTMENT_COLUMNS), buildStalledQuery(params))) as Result<
           StalledInvestmentRow[]
@@ -186,7 +211,8 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       );
       return (rows ?? []).map(mapStalledInvestmentRow);
     },
-    async countStalledInvestments(departmentCode, level) {
+    async countStalledInvestments(departmentCode, level, status) {
+      if (status === 'CLOSED') return 0;
       const all = stalled('cui', { count: 'exact', head: true });
       const result = (await atLevel(
         departmentCode === undefined ? all : all.eq('department_code', departmentCode),
@@ -203,20 +229,20 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       );
       return row?.reference_month ?? null;
     },
-    async getRegionComparison(level = 'ALL') {
+    async getRegionComparison(level = 'ALL', status) {
       const rows = unwrap(
-        (await (client.from('region_comparison_by_level').select(REGION_COMPARISON_COLUMNS) as unknown as FilterBuilder)
-          .eq('government_level', level)
+        (await statusGroup(byStatus('region_comparison', status, REGION_COMPARISON_COLUMNS).eq('government_level', level), status)
           .order('department_code', { ascending: true })) as Result<RegionComparisonRow[]>,
       );
       return (rows ?? []).map(mapRegionComparisonRow);
     },
     async getEntityComparison(params) {
-      const source = client.from('entity_comparison').select(ENTITY_COMPARISON_COLUMNS) as unknown as FilterBuilder;
+      const view = params.status === undefined ? 'entity_comparison' : 'entity_comparison_by_status';
+      const source = client.from(view).select(ENTITY_COMPARISON_COLUMNS) as unknown as FilterBuilder;
       const rows = unwrap((await applyQuery(source, buildEntityQuery(params))) as Result<EntityComparisonRow[]>);
       return (rows ?? []).map(mapEntityComparisonRow);
     },
-    async getMapPoints({ bbox, zoom, level, departmentCode, filters }) {
+    async getMapPoints({ bbox, zoom, level, departmentCode, filters, status }) {
       const result = (await client.rpc('map_points', {
         min_lat: bbox.minLat,
         min_lon: bbox.minLon,
@@ -227,10 +253,11 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
         department: departmentCode ?? null,
         // Without filters, the arguments of the original function (older deployments accept them).
         ...(filters?.length ? filterArguments(filters) : {}),
+        ...statusArgument(status),
       })) as Result<MapPointRow[]>;
       return mapMapPointRows(unwrap(result) ?? []);
     },
-    async getMapList({ bbox, level, departmentCode, filters = [], page, pageSize = MAP_LIST_PAGE_SIZE }) {
+    async getMapList({ bbox, level, departmentCode, filters = [], status, page, pageSize = MAP_LIST_PAGE_SIZE }) {
       const result = (await client.rpc('map_list', {
         min_lat: bbox.minLat,
         min_lon: bbox.minLon,
@@ -241,6 +268,7 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
         ...filterArguments(filters),
         page_limit: pageSize,
         page_offset: page * pageSize,
+        ...statusArgument(status),
       })) as Result<MapListRow[]>;
       return mapMapListRows(unwrap(result) ?? []);
     },

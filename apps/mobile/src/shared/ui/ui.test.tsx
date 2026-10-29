@@ -203,6 +203,18 @@ describe('AppHeader', () => {
     expect(onPress).toHaveBeenCalled();
   });
 
+  it('shows the status filter after the level', async () => {
+    await render(
+      <AppHeader scopeLabel="Cusco" levelLabel="Todos los niveles" statusLabel="Proyectos cerrados" onPressScope={jest.fn()} />,
+    );
+    expect(screen.getByText('TODOS LOS NIVELES · PROYECTOS CERRADOS')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', {
+        name: 'Cambiar región o nivel de gobierno. Región actual: Cusco. Nivel: Todos los niveles. Estado: Proyectos cerrados',
+      }),
+    ).toBeOnTheScreen();
+  });
+
   it('labels all of Peru', async () => {
     await render(<AppHeader scopeLabel="Todo el Perú" levelLabel="Todos los niveles" onPressScope={jest.fn()} />);
     expect(screen.getByText('TODO EL PERÚ ▾')).toBeOnTheScreen();

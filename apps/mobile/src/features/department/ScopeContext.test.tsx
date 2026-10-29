@@ -2,9 +2,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
 
 import { department, NATIONAL, type Scope } from './scope';
-import { ScopeProvider, useScope } from './ScopeContext';
+import { ScopeProvider, useReadScope, useScope } from './ScopeContext';
 import type { LevelFilter } from '../investments/domain/governmentLevel';
-import type { LevelStorage, ScopeStorage } from './scopeStorage';
+import type { StatusFilter } from '../investments/domain/investmentStatus';
+import type { LevelStorage, ScopeStorage, StatusStorage } from './scopeStorage';
 
 function Probe() {
   const { scope, label, ready, setScope } = useScope();
@@ -157,6 +158,76 @@ describe('ScopeProvider government level', () => {
       </ScopeProvider>,
     );
     expect(screen.getByText('level GR: Gobiernos regionales')).toBeOnTheScreen();
+    expect(load).not.toHaveBeenCalled();
+  });
+});
+
+function StatusProbe() {
+  const { status, statusLabel, ready, setStatus } = useScope();
+  const read = useReadScope();
+  return (
+    <>
+      <Text>{ready ? `status ${status}: ${statusLabel}` : 'hydrating'}</Text>
+      <Text>{`read ${read.status}`}</Text>
+      <Pressable accessibilityRole="button" onPress={() => setStatus('CLOSED')}>
+        <Text>Cerrados</Text>
+      </Pressable>
+    </>
+  );
+}
+
+describe('ScopeProvider status filter', () => {
+  const noScope: ScopeStorage = { load: async () => null, save: async () => {} };
+  const noLevel: LevelStorage = { load: async () => null, save: async () => {} };
+
+  function deferredStatus() {
+    let resolve: (status: StatusFilter | null) => void = () => {};
+    const saved: StatusFilter[] = [];
+    const statusStorage: StatusStorage = {
+      load: () => new Promise((r) => (resolve = r)),
+      save: async (status) => {
+        saved.push(status);
+      },
+    };
+    return { statusStorage, saved, finish: (status: StatusFilter | null) => act(async () => resolve(status)) };
+  }
+
+  it('waits for the stored status, then uses it in every read', async () => {
+    const { statusStorage, finish } = deferredStatus();
+    await render(
+      <ScopeProvider storage={noScope} levelStorage={noLevel} statusStorage={statusStorage}>
+        <StatusProbe />
+      </ScopeProvider>,
+    );
+    expect(screen.getByText('hydrating')).toBeOnTheScreen();
+    await finish('ALL');
+    expect(screen.getByText('status ALL: Activos y cerrados')).toBeOnTheScreen();
+    expect(screen.getByText('read ALL')).toBeOnTheScreen();
+  });
+
+  it('defaults to active projects and saves a selection', async () => {
+    const { statusStorage, saved, finish } = deferredStatus();
+    await render(
+      <ScopeProvider storage={noScope} levelStorage={noLevel} statusStorage={statusStorage}>
+        <StatusProbe />
+      </ScopeProvider>,
+    );
+    await finish(null);
+    expect(screen.getByText('status ACTIVE: Proyectos activos')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Cerrados' }));
+    expect(screen.getByText('status CLOSED: Proyectos cerrados')).toBeOnTheScreen();
+    expect(screen.getByText('read CLOSED')).toBeOnTheScreen();
+    expect(saved).toEqual(['CLOSED']);
+  });
+
+  it('starts ready with an initial scope and status, without reading the storage', async () => {
+    const load = jest.fn(() => Promise.resolve('ALL' as const));
+    await render(
+      <ScopeProvider storage={noScope} statusStorage={{ load, save: async () => {} }} initialScope={NATIONAL} initialStatus="CLOSED">
+        <StatusProbe />
+      </ScopeProvider>,
+    );
+    expect(screen.getByText('status CLOSED: Proyectos cerrados')).toBeOnTheScreen();
     expect(load).not.toHaveBeenCalled();
   });
 });

@@ -10,8 +10,9 @@ import Region from '@/app/region';
 import { department, NATIONAL, type Scope } from '@/features/department/scope';
 import { ScopeProvider } from '@/features/department/ScopeContext';
 import { ScopeGate } from '@/features/department/ScopeGate';
-import type { LevelStorage, ScopeStorage } from '@/features/department/scopeStorage';
+import type { LevelStorage, ScopeStorage, StatusStorage } from '@/features/department/scopeStorage';
 import type { LevelFilter } from '@/features/investments/domain/governmentLevel';
+import type { StatusFilter } from '@/features/investments/domain/investmentStatus';
 import { createInMemoryInvestmentsRepository } from '@/features/investments/adapters/inMemoryInvestmentsRepository';
 import { MOCK_COST_CHANGES, MOCK_ROWS } from '@/features/investments/adapters/sampleData';
 import { RepositoryProvider } from '@/features/investments/RepositoryContext';
@@ -35,10 +36,20 @@ const levelStorage: LevelStorage = {
   },
 };
 
+/** Like the level: the status filter is kept in memory per test. */
+let storedStatus: StatusFilter | null = null;
+const statusStorage: StatusStorage = {
+  load: async () => storedStatus,
+  save: async (status) => {
+    storedStatus = status;
+  },
+};
+
 beforeEach(() => {
   stored = department(4);
   saved = [];
   storedLevel = null;
+  storedStatus = null;
 });
 
 /** The real tabs layout, Home, Rankings and region picker inside a root stack with the app's providers. */
@@ -48,7 +59,7 @@ function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoryProvider repository={repository} isDemo>
-        <ScopeProvider storage={storage} levelStorage={levelStorage}>
+        <ScopeProvider storage={storage} levelStorage={levelStorage} statusStorage={statusStorage}>
           <ScopeGate>
             <Stack screenOptions={{ headerShown: false }} />
           </ScopeGate>
@@ -72,7 +83,7 @@ const routes = {
 
 const headerSelector = (name: string) =>
   screen.findByRole('button', {
-    name: `Cambiar región o nivel de gobierno. Región actual: ${name}. Nivel: Todos los niveles`,
+    name: `Cambiar región o nivel de gobierno. Región actual: ${name}. Nivel: Todos los niveles. Estado: Proyectos activos`,
   });
 
 describe('region picker navigation', () => {
@@ -81,13 +92,28 @@ describe('region picker navigation', () => {
     await fireEvent.press(await headerSelector('Arequipa'));
     await fireEvent.press(await screen.findByRole('tab', { name: 'Local' }));
     expect(router.getPathname()).toBe('/region');
-    expect(await screen.findByText('Gobiernos locales. Montos en soles corrientes.')).toBeOnTheScreen();
+    expect(await screen.findByText('Gobiernos locales. Solo proyectos activos. Montos en soles corrientes.')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
     expect(
       await screen.findByRole('button', {
-        name: 'Cambiar región o nivel de gobierno. Región actual: Arequipa. Nivel: Gobiernos locales',
+        name: 'Cambiar región o nivel de gobierno. Región actual: Arequipa. Nivel: Gobiernos locales. Estado: Proyectos activos',
       }),
     ).toBeOnTheScreen();
+  });
+
+  it('changes the global status from the picker, and the header and the rankings follow it', async () => {
+    await renderRouter(routes, { initialUrl: '/rankings' });
+    await fireEvent.press(await headerSelector('Arequipa'));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Cerrados' }));
+    expect(storedStatus).toBe('CLOSED');
+    await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(
+      await screen.findByRole('button', {
+        name: 'Cambiar región o nivel de gobierno. Región actual: Arequipa. Nivel: Todos los niveles. Estado: Proyectos cerrados',
+      }),
+    ).toBeOnTheScreen();
+    expect(await screen.findByText(/Puente peatonal Chilina/)).toBeOnTheScreen();
+    expect(screen.queryByText(/Majes Siguas II etapa/)).toBeNull();
   });
 
   it('opens from the header selector', async () => {

@@ -301,3 +301,56 @@ describe('buildEntityQuery', () => {
     ]);
   });
 });
+
+describe('status filter', () => {
+  const active = { column: 'status', op: 'eq', value: 'ACTIVO' };
+  const closed = { column: 'status', op: 'eq', value: 'CERRADO' };
+
+  it('adds no status filter for every status or when absent', () => {
+    for (const status of ['ALL', undefined] as const) {
+      for (const query of [
+        buildRankingQuery({ kind: 'cost', status, page: 0 }),
+        buildSearchQuery('hospital', undefined, 'ALL', status)!,
+        buildFunctionQuery({ fn: 'SALUD', status, page: 0 }),
+        buildStalledQuery({ status, page: 0 }),
+      ]) {
+        expect(query.filters.some((f) => f.column === 'status')).toBe(false);
+      }
+    }
+  });
+
+  it('filters rankings, name searches, functions and stalled lists by status after the scope', () => {
+    expect(buildRankingQuery({ kind: 'cost', departmentCode: 4, level: 'GL', status: 'CLOSED', page: 0 }).filters).toEqual([
+      { column: 'department_code', op: 'eq', value: 4 },
+      { column: 'government_level', op: 'eq', value: 'GL' },
+      closed,
+      { column: 'updated_cost_valid', op: 'eq', value: true },
+    ]);
+    expect(buildSearchQuery('hospital', undefined, 'ALL', 'ACTIVE')!.filters[0]).toEqual(active);
+    expect(buildFunctionQuery({ fn: 'SALUD', status: 'CLOSED', page: 0 }).filters[0]).toEqual(closed);
+    expect(buildStalledQuery({ status: 'ACTIVE', page: 0 }).filters).toEqual([active]);
+  });
+
+  it('does not repeat the active filter of the duration ranking', () => {
+    expect(buildRankingQuery({ kind: 'duration', status: 'ACTIVE', page: 0 }).filters).toEqual([
+      active,
+      { column: 'viability_at', op: 'notNull' },
+    ]);
+  });
+
+  it('looks up an exact CUI whatever the status', () => {
+    expect(buildSearchQuery('2088142', 4, 'GN', 'CLOSED')?.filters).toEqual([{ column: 'cui', op: 'eq', value: '2088142' }]);
+  });
+
+  it('reads one status group of the entity view right after the scope', () => {
+    expect(buildEntityQuery({ sort: 'increase-amount', status: 'CLOSED', page: 0 }).filters.slice(0, 2)).toEqual([
+      { column: 'scope_department_code', op: 'eq', value: 0 },
+      { column: 'status_group', op: 'eq', value: 'CLOSED' },
+    ]);
+    expect(buildEntityQuery({ sort: 'increase-amount', status: 'ALL', page: 0 }).filters[1]).toEqual({
+      column: 'status_group',
+      op: 'eq',
+      value: 'ALL',
+    });
+  });
+});

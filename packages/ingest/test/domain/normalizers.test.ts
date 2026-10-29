@@ -4,6 +4,7 @@ import {
   parseCompactYearMonth,
   parseInteger,
   parseIsoDate,
+  parseYesNo,
   parseNumber,
   parseText,
   parseYearMonth,
@@ -127,5 +128,22 @@ describe("parseCompactYearMonth", () => {
     expect(parseCompactYearMonth("2026-10")).toBeNull();
     expect(parseCompactYearMonth("202613")).toBeNull();
     expect(parseCompactYearMonth("20261")).toBeNull();
+  });
+});
+
+describe("parseYesNo", () => {
+  it("reads SÍ / SI as true and NO as false, with or without accent and case", () => {
+    expect(parseYesNo("SÍ")).toBe(true);
+    expect(parseYesNo("SI")).toBe(true);
+    expect(parseYesNo(" sí ")).toBe(true);
+    expect(parseYesNo("NO")).toBe(false);
+    expect(parseYesNo("no")).toBe(false);
+  });
+
+  it("returns null for blanks and anything else", () => {
+    expect(parseYesNo("")).toBeNull();
+    expect(parseYesNo(undefined)).toBeNull();
+    expect(parseYesNo("TAL VEZ")).toBeNull();
+    expect(parseYesNo(1)).toBeNull();
   });
 });

@@ -26,7 +26,8 @@ import { parseMapFilters, serializeMapFilters, toggleMapFilter } from './mapFilt
 import { buildMapHtml } from './mapHtml';
 import { toMapFeatures, withSelected } from './mapPresentation';
 import type { MapListState } from './MapProjectList';
-import { initialMapView, toMapListRequest, toMapPointsRequest } from './mapRequest';
+import { applicableMapFilters, initialMapView, toMapListRequest, toMapPointsRequest } from './mapRequest';
+import { isActiveOnlyHidden } from '@/features/investment-status/statusPresentation';
 import { MapScreenView, type MapSelection, type MapStatus } from './MapScreenView';
 
 /** Wait this long after the map stops moving before asking for its projects. */
@@ -46,7 +47,8 @@ function useBack() {
 
 /**
  * "Mapa" (`/map`, `/map?f=increase,stalled` with filters, or `/map?cui=…` from a project's detail:
- * centered on it, card open). Follows the app's scope (department bounds or all of Peru) and level.
+ * centered on it, card open). Follows the app's scope (department bounds or all of Peru), level and
+ * status (closed projects are drawn hollow).
  */
 export function MapContainer() {
   const insets = useSafeAreaInsets();
@@ -171,6 +173,7 @@ function MapScreen({ focus }: { focus: MapListItem | null }) {
           scopeLabel={label}
           level={level}
           filters={filters}
+          hiddenFilters={isActiveOnlyHidden(read.status) ? ['stalled'] : []}
           onPressScope={() => {
             blurActiveElement();
             router.push('/region');
@@ -190,7 +193,7 @@ function MapScreen({ focus }: { focus: MapListItem | null }) {
         />
       }
       list={list}
-      filtered={filters.length > 0}
+      filtered={applicableMapFilters(filters, read.status).length > 0}
       selected={selection}
       onPressItem={(item) => setSelected({ point: item, details: item })}
       onLoadMore={() => {

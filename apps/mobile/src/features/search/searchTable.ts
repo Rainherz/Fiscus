@@ -1,5 +1,5 @@
 import { regionLabel } from '@/features/department/departments';
-import { levelTag } from '@/features/government-level/levelPresentation';
+import { projectTag } from '@/features/government-level/levelPresentation';
 import type { Investment } from '@/features/investments/domain/investment';
 import { formatSignedPercent, formatSignedSoles, formatSoles } from '@/shared/format';
 import type { TableColumn, TableRowData } from '@/shared/ui/DataTable';
@@ -35,7 +35,7 @@ export function searchTable(
         cui: item.cui,
         name: item.name ?? 'Sin nombre',
         sub: item.entity,
-        tag: levelTag(item.governmentLevel),
+        tag: projectTag(item),
         region,
         cells,
         summary: (options.national ? [region, ...figures] : figures).join(', '),

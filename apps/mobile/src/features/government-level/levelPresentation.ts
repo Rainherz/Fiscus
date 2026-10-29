@@ -1,6 +1,8 @@
 import type { Tag } from '@/shared/ui/LevelTag';
 
+import { statusScopeNote } from '../investment-status/statusPresentation';
 import type { GovernmentLevel, LevelFilter } from '../investments/domain/governmentLevel';
+import { isClosed, type StatusFilter } from '../investments/domain/investmentStatus';
 
 /** The level filter as the header shows it. */
 const FILTER_LABELS: Record<LevelFilter, string> = {
@@ -38,6 +40,16 @@ export function levelTag(level: GovernmentLevel | null): Tag | undefined {
   return level === null ? undefined : { text: level, label: LEVEL_NAMES[level] };
 }
 
+/** The tag of a project row: its level code (GN, GR, GL), followed by CERRADO when it is closed. */
+export function projectTag(project: { governmentLevel: GovernmentLevel | null; status: string | null }): Tag | undefined {
+  const closed = isClosed(project);
+  const level = project.governmentLevel;
+  if (level === null) return closed ? { text: 'CERRADO', label: 'Proyecto cerrado' } : undefined;
+  return closed
+    ? { text: `${level} · CERRADO`, label: `${LEVEL_NAMES[level]}, proyecto cerrado` }
+    : { text: level, label: LEVEL_NAMES[level] };
+}
+
 /** Which investments a figure covers: the first sentence of the footnotes. */
 export function levelScopeNote(level: LevelFilter): string {
   return level === 'ALL' ? 'Todos los niveles de gobierno.' : `${FILTER_LABELS[level]}.`;
@@ -45,9 +57,11 @@ export function levelScopeNote(level: LevelFilter): string {
 
 /**
  * Footnote of the region comparison (picker, home block, compare screen). Multi-department
- * national projects have no region, so they are not in any region's figures.
+ * national projects have no region, so they are not in any region's figures. With a status, the
+ * note says which projects (active, closed or both) the figures cover.
  */
-export function regionsNote(level: LevelFilter): string {
+export function regionsNote(level: LevelFilter, status?: StatusFilter): string {
   const missing = level === 'ALL' || level === 'GN' ? ' No incluye proyectos de varias regiones.' : '';
-  return `${levelScopeNote(level)}${missing} Montos en soles corrientes.`;
+  const statusNote = status === undefined ? '' : ` ${statusScopeNote(status)}`;
+  return `${levelScopeNote(level)}${statusNote}${missing} Montos en soles corrientes.`;
 }
