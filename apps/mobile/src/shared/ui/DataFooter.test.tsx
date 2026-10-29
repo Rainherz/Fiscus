@@ -23,6 +23,18 @@ describe('DataFooter', () => {
     ).toBeOnTheScreen();
   });
 
+  it('shows when the open data was last checked', async () => {
+    await render(
+      <DataFooter finishedAt="2026-10-26T10:30:00Z" openDataCheckedAt="2026-10-28T10:05:00Z" isDemo={false} />,
+    );
+    expect(screen.getByText('Datos abiertos revisados el 28/10/2026')).toBeOnTheScreen();
+  });
+
+  it('omits the open-data check when unknown', async () => {
+    await render(<DataFooter finishedAt="2026-10-26T10:30:00Z" isDemo={false} />);
+    expect(screen.queryByText(/Datos abiertos revisados/)).toBeNull();
+  });
+
   it('omits the date when unknown', async () => {
     await render(<DataFooter finishedAt={null} isDemo={false} />);
     expect(screen.queryByText(/Datos actualizados/)).toBeNull();
@@ -41,7 +53,7 @@ describe('DataFooter', () => {
 
   it('is a page footer on desktop: a full-width rule with sources and the update date in a row', async () => {
     windowWidth(1440);
-    await render(<DataFooter finishedAt="2026-10-26T10:30:00Z" isDemo />);
+    await render(<DataFooter finishedAt="2026-10-26T10:30:00Z" openDataCheckedAt="2026-10-28T10:05:00Z" isDemo />);
     const footer = screen.getByTestId('page-footer');
     expect(footer).toHaveProp('role', 'contentinfo');
     expect(StyleSheet.flatten(footer.props.style)).toMatchObject({ borderTopWidth: 2 });
@@ -51,5 +63,6 @@ describe('DataFooter', () => {
     });
     expect(screen.getByText('Datos actualizados el 26/10/2026')).toBeOnTheScreen();
     expect(screen.getByText('Modo demostración: datos de ejemplo.')).toBeOnTheScreen();
+    expect(screen.getByText('Datos abiertos revisados el 28/10/2026')).toBeOnTheScreen();
   });
 });

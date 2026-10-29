@@ -4,7 +4,14 @@ describe('resolveDataSource', () => {
   it('uses the in-memory sample when mock mode is on', () => {
     expect(resolveDataSource({ useMock: '1', url: undefined, anonKey: undefined })).toEqual({
       kind: 'mock',
+      staleData: false,
     });
+  });
+
+  it('can force stale sample data in mock mode', () => {
+    expect(
+      resolveDataSource({ useMock: '1', mockStale: '1', url: undefined, anonKey: undefined }),
+    ).toEqual({ kind: 'mock', staleData: true });
   });
 
   it('uses Supabase when URL and anon key are set', () => {

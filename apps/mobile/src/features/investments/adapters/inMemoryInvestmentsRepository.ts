@@ -1,6 +1,7 @@
 import { isCostIncrease, type CostChange } from '../domain/costChange';
 import { computeEntityComparison, type EntityComparison } from '../domain/entityComparison';
 import type { LevelFilter } from '../domain/governmentLevel';
+import type { DataFreshness } from '../domain/freshness';
 import type { FunctionSummary, IngestRun } from '../domain/investment';
 import { computeMapList, computeMapPoints } from '../domain/mapPoints';
 import {
@@ -148,6 +149,8 @@ export function createInMemoryInvestmentsRepository(seed: {
   rows: InvestmentRow[];
   lastRun: IngestRun | null;
   costChanges?: CostChangeRow[];
+  /** Defaults to the last run as the last SSI success and no open-data check. */
+  freshness?: DataFreshness;
 }): InvestmentsRepository {
   const rows = seed.rows;
   const changes = (seed.costChanges ?? []).map(mapCostChangeRow);
@@ -181,6 +184,9 @@ export function createInMemoryInvestmentsRepository(seed: {
     },
     async lastIngestRun() {
       return seed.lastRun;
+    },
+    async getDataFreshness() {
+      return seed.freshness ?? { ssiLastSuccessAt: seed.lastRun?.finishedAt ?? null, openDataCheckedAt: null };
     },
     async getCostHistory(cui) {
       return changes.filter((change) => change.cui === cui).sort(byObservation);

@@ -115,6 +115,18 @@ export function formatDate(value: string | null): string {
   return `${pad2(date.day)}/${pad2(date.month)}/${date.year}`;
 }
 
+/** "dd/mm/yyyy hh:mm" in Lima time; a dash for anything that is not a timestamp. */
+export function formatDateTime(value: string | null): string {
+  if (!value) return DASH;
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) return DASH;
+  const lima = new Date(time + LIMA_OFFSET_MS);
+  return (
+    `${pad2(lima.getUTCDate())}/${pad2(lima.getUTCMonth() + 1)}/${lima.getUTCFullYear()} ` +
+    `${pad2(lima.getUTCHours())}:${pad2(lima.getUTCMinutes())}`
+  );
+}
+
 export function formatMonth(value: string | null): string {
   const date = toCalendarDate(value);
   if (!date) return DASH;

@@ -14,6 +14,9 @@ export interface OpenDataClient {
       };
     };
     upsert(rows: object[], options?: { onConflict?: string }): PromiseLike<{ error: DbError }>;
+    update(values: object): {
+      eq(column: string, value: string): PromiseLike<{ error: DbError }>;
+    };
   };
 }
 
@@ -87,7 +90,7 @@ export class SupabaseOpenDataRepository implements OpenDataRepository {
   async getSnapshot(source: string): Promise<SourceSnapshot | null> {
     const { data, error } = await this.client
       .from("source_snapshots")
-      .select("source, last_modified, content_length, ingested_at, rows_upserted")
+      .select("source, last_modified, content_length, ingested_at, checked_at, rows_upserted")
       .eq("source", source)
       .maybeSingle();
     if (error) throw new Error(`source_snapshots read failed: ${error.message}`);
@@ -97,6 +100,8 @@ export class SupabaseOpenDataRepository implements OpenDataRepository {
       lastModified: (data.last_modified as string | null) ?? null,
       contentLength: asNumberOrNull(data.content_length),
       ingestedAt: String(data.ingested_at),
+      // Rows written before checked_at existed fall back to the ingest time (the migration backfills it).
+      checkedAt: String(data.checked_at ?? data.ingested_at),
       rowsUpserted: asNumberOrNull(data.rows_upserted) ?? 0,
     };
   }
@@ -117,11 +122,17 @@ export class SupabaseOpenDataRepository implements OpenDataRepository {
           last_modified: snapshot.lastModified,
           content_length: snapshot.contentLength,
           ingested_at: snapshot.ingestedAt,
+          checked_at: snapshot.checkedAt,
           rows_upserted: snapshot.rowsUpserted,
         },
       ],
       { onConflict: "source" },
     );
     if (error) throw new Error(`source_snapshots upsert failed: ${error.message}`);
+  }
+
+  async markChecked(source: string, checkedAt: string): Promise<void> {
+    const { error } = await this.client.from("source_snapshots").update({ checked_at: checkedAt }).eq("source", source);
+    if (error) throw new Error(`source_snapshots check update failed: ${error.message}`);
   }
 }

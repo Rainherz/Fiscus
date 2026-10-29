@@ -84,6 +84,16 @@ export function useInvestment(cui: string, options: { enabled?: boolean } = {}) 
   });
 }
 
+/** Last SSI success and open-data check: the footer and the stale-data banner. */
+export function useDataFreshness() {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['data-freshness'],
+    queryFn: () => repository.getDataFreshness(),
+    staleTime: 30 * 60 * 1000,
+  });
+}
+
 export function useLastIngestRun() {
   const { repository } = useRepository();
   return useQuery({

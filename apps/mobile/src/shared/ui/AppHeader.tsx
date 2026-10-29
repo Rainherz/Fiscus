@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '../layout/breakpoints';
 import { useBreakpoint } from '../layout/useBreakpoint';
 import { colors, minTouch, space } from '../theme/tokens';
+import { HeaderAccessory } from './HeaderAccessory';
 import { HomeLink } from './HomeLink';
 import { MonoText } from './typography';
 
@@ -23,7 +24,7 @@ interface Props {
  * Black bar: brand in signal yellow (a link to Inicio) and the scope selector trigger, which shows
  * the region and, on a second line, the government level. Both are chosen in the region picker.
  * On tablet and desktop the bar spans the window, its content follows the page column and the
- * main sections sit next to the brand.
+ * main sections sit next to the brand. The header accessory (stale-data banner) follows the bar.
  */
 export function AppHeader({ scopeLabel, levelLabel, onPressScope, topInset = 0, nav }: Props) {
   const breakpoint = useBreakpoint();
@@ -51,23 +52,29 @@ export function AppHeader({ scopeLabel, levelLabel, onPressScope, topInset = 0, 
 
   if (!wide) {
     return (
-      <View style={[styles.bar, styles.row, styles.phone, { paddingTop: topInset + 12 }]}>
-        <HomeLink size={30} origin="tab" />
-        {selector}
-      </View>
+      <>
+        <View style={[styles.bar, styles.row, styles.phone, { paddingTop: topInset + 12 }]}>
+          <HomeLink size={30} origin="tab" />
+          {selector}
+        </View>
+        <HeaderAccessory />
+      </>
     );
   }
 
   return (
-    <View role="banner" style={[styles.bar, { paddingTop: topInset + 12 }]}>
-      <View style={[styles.row, styles.column, { paddingHorizontal: gutterFor(breakpoint) }]}>
-        <View style={styles.start}>
-          <HomeLink size={30} origin="tab" />
-          {nav}
+    <>
+      <View role="banner" style={[styles.bar, { paddingTop: topInset + 12 }]}>
+        <View style={[styles.row, styles.column, { paddingHorizontal: gutterFor(breakpoint) }]}>
+          <View style={styles.start}>
+            <HomeLink size={30} origin="tab" />
+            {nav}
+          </View>
+          {selector}
         </View>
-        {selector}
       </View>
-    </View>
+      <HeaderAccessory />
+    </>
   );
 }
 

@@ -23,6 +23,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Only for the failure alert below (an ingest-failure issue).
+  issues: write
 
 jobs:
   ingest:
@@ -48,3 +50,23 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FORCE: ${{ inputs.force && '--force' || '' }}
         run: pnpm ingest:open-data $FORCE
+
+      # Opens an ingest-failure issue, or comments on the open one with the same title, so repeated
+      # failures stay in one thread. Freshness (a run that never happens) is data-freshness.yml.
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Falló la ingesta de datos abiertos"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="La ingesta de datos abiertos falló (${{ github.event_name }}). Ejecución: $RUN_URL"
+          gh label create ingest-failure --color B60205 --description "Falla de una ingesta" --force
+          number=$(gh issue list --state open --label ingest-failure --search "in:title \"$TITLE\"" \
+            --json number,title --jq "map(select(.title == \"$TITLE\")) | first | .number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$TITLE" --label ingest-failure --body "$body"
+          fi

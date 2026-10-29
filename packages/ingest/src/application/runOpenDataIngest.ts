@@ -36,6 +36,8 @@ export interface OpenDataIngestSummary {
   withoutDepartment: number;
   withPhysicalProgress: number;
   snapshotRecorded: boolean;
+  /** When the snapshot's checked_at was set (successful full or skipped runs); null otherwise. */
+  checkedAt: string | null;
   startedAt: string;
   finishedAt: string;
 }
@@ -79,13 +81,16 @@ export async function runOpenDataIngest({
     withoutDepartment: 0,
     withPhysicalProgress: 0,
     snapshotRecorded: false,
+    checkedAt: null,
     startedAt,
     finishedAt: startedAt,
   };
 
   if (!force && isUnchanged(file, await repository.getSnapshot(OPEN_DATA_SOURCE))) {
     log(`open data unchanged (Last-Modified ${file.lastModified}, ${file.contentLength} bytes); skipping`);
-    return { ...summary, skipped: true, finishedAt: now().toISOString() };
+    const checkedAt = now().toISOString();
+    await repository.markChecked(OPEN_DATA_SOURCE, checkedAt);
+    return { ...summary, skipped: true, checkedAt, finishedAt: checkedAt };
   }
 
   const context = { sourceUpdatedAt: file.lastModified, runAt: startedAt };
@@ -125,17 +130,19 @@ export async function runOpenDataIngest({
   await flush();
   summary.rowsUpserted = seen.size;
 
+  summary.finishedAt = now().toISOString();
   if (limit === undefined) {
     await repository.recordSnapshot({
       source: OPEN_DATA_SOURCE,
       lastModified: file.lastModified,
       contentLength: file.contentLength,
       ingestedAt: startedAt,
+      checkedAt: summary.finishedAt,
       rowsUpserted: summary.rowsUpserted,
     });
     summary.snapshotRecorded = true;
+    summary.checkedAt = summary.finishedAt;
   }
 
-  summary.finishedAt = now().toISOString();
   return summary;
 }

@@ -1,10 +1,16 @@
 import { DataFooter } from '@/shared/ui/DataFooter';
 
-import { useLastIngestRun } from './hooks/queries';
+import { useDataFreshness } from './hooks/queries';
 import { useRepository } from './RepositoryContext';
 
 export function DataFooterContainer() {
   const { isDemo } = useRepository();
-  const lastRun = useLastIngestRun();
-  return <DataFooter finishedAt={lastRun.data?.finishedAt ?? null} isDemo={isDemo} />;
+  const freshness = useDataFreshness();
+  return (
+    <DataFooter
+      finishedAt={freshness.data?.ssiLastSuccessAt ?? null}
+      openDataCheckedAt={freshness.data?.openDataCheckedAt ?? null}
+      isDemo={isDemo}
+    />
+  );
 }
