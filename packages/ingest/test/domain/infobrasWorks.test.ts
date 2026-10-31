@@ -4,7 +4,9 @@ import {
   dataAsOf,
   headerKeys,
   INFOBRAS_HEADERS,
+  isContractAmountValid,
   mapInfobrasRecord,
+  normalizePartyName,
   parseInfobrasDecimal,
   type InfobrasRecord,
 } from "../../src/domain/infobrasWorks.js";
@@ -19,6 +21,9 @@ const RECORD: InfobrasRecord = {
   "RUC (Ejecución)": "20301552115",
   "Nombre o razón social de la empresa o consorcio": "AMERIKA PROMASER S R L",
   "Monto del contrato en soles": "3158683 99",
+  "Costo de obra según Expediente técnico": "3280120 5",
+  Moneda: "S/ Soles",
+  "Costo de obra en soles según ET en soles": "3280120 5",
   "RUC (Supervisión)": "20341472564",
   "Nombre o razón social de la empresa o consorcio #2": "CONSORCIO SUPERVISOR ANDINO",
   "Año de avance": "2025",
@@ -79,6 +84,30 @@ describe("headerKeys", () => {
       "Monto del contrato en soles #2",
       "Fecha de aprobación del expediente",
     ]);
+  });
+});
+
+describe("normalizePartyName", () => {
+  it("replaces the standalone lowercase token 'amp' with '&'", () => {
+    expect(normalizePartyName("CONSORCIO DHMONT amp CG amp M S A C")).toBe("CONSORCIO DHMONT & CG & M S A C");
+    expect(normalizePartyName("amp CONSTRUCTORES")).toBe("& CONSTRUCTORES");
+    expect(normalizePartyName("INGENIEROS amp")).toBe("INGENIEROS &");
+  });
+
+  it("leaves words containing 'amp' and the uppercase word AMP untouched", () => {
+    expect(normalizePartyName("CONSTRUCTORA CAMPO VERDE AMPLIACION S A C")).toBe("CONSTRUCTORA CAMPO VERDE AMPLIACION S A C");
+    expect(normalizePartyName("Consorcio Campos y Ampliaciones")).toBe("Consorcio Campos y Ampliaciones");
+    expect(normalizePartyName("AMP INGENIERIA S A C")).toBe("AMP INGENIERIA S A C");
+    expect(normalizePartyName("champ amp")).toBe("champ &");
+  });
+
+  it("trims and collapses repeated whitespace", () => {
+    expect(normalizePartyName("  CONSORCIO   VIAL  amp  NORTE ")).toBe("CONSORCIO VIAL & NORTE");
+  });
+
+  it("is null for blanks", () => {
+    expect(normalizePartyName("   ")).toBeNull();
+    expect(normalizePartyName(undefined)).toBeNull();
   });
 });
 
@@ -156,6 +185,7 @@ describe("mapInfobrasRecord", () => {
       progressPeriod: "2025-12-01",
       progressRegisteredAt: "2026-01-31",
       contractAmount: 3158683.99,
+      expedienteCostSoles: 3280120.5,
       contractorKind: "empresa",
       contractorRuc: "20301552115",
       contractorName: "AMERIKA PROMASER S R L",
@@ -253,8 +283,89 @@ describe("mapInfobrasRecord", () => {
     expect(mapInfobrasRecord({ ...RECORD, "Código INFOBRAS": "0" })).toBeNull();
   });
 
+  it("keeps the contract amount as published even when it lacks the decimal separator", () => {
+    // Obra 507248 (dataset of 31-10-2026): the contract was typed without its decimal space.
+    const work = mapInfobrasRecord({
+      ...RECORD,
+      "Monto del contrato en soles": "113862565000",
+      "Costo de obra según Expediente técnico": "68571690 63",
+      "Costo de obra en soles según ET en soles": "68571690 63",
+    });
+    expect(work).toMatchObject({ contractAmount: 113862565000, expedienteCostSoles: 68571690.63 });
+  });
+
+  it("reads the expediente cost in soles, falling back to the cost as published when it is in soles", () => {
+    const fallback = { ...RECORD, "Costo de obra en soles según ET en soles": "0", "Costo de obra según Expediente técnico": "25464014 95" };
+    expect(mapInfobrasRecord(fallback)?.expedienteCostSoles).toBe(25464014.95);
+    expect(mapInfobrasRecord({ ...fallback, "Costo de obra en soles según ET en soles": "" })?.expedienteCostSoles).toBe(
+      25464014.95,
+    );
+  });
+
+  it("does not fall back to an expediente cost in another currency", () => {
+    const work = mapInfobrasRecord({
+      ...RECORD,
+      "Costo de obra según Expediente técnico": "120000",
+      Moneda: " USD Dólares",
+      "Costo de obra en soles según ET en soles": "",
+    });
+    expect(work?.expedienteCostSoles).toBeNull();
+    const converted = mapInfobrasRecord({
+      ...RECORD,
+      "Costo de obra según Expediente técnico": "120000",
+      Moneda: " USD Dólares",
+      "Costo de obra en soles según ET en soles": "402000",
+    });
+    expect(converted?.expedienteCostSoles).toBe(402000);
+  });
+
+  it("stores a missing or zero expediente cost as null", () => {
+    const work = mapInfobrasRecord({
+      ...RECORD,
+      "Costo de obra según Expediente técnico": "0",
+      "Costo de obra en soles según ET en soles": "0",
+    });
+    expect(work?.expedienteCostSoles).toBeNull();
+    const { Moneda: _m, ...withoutColumns } = RECORD;
+    expect(
+      mapInfobrasRecord({
+        ...withoutColumns,
+        "Costo de obra según Expediente técnico": undefined,
+        "Costo de obra en soles según ET en soles": undefined,
+      })?.expedienteCostSoles,
+    ).toBeNull();
+  });
+
+  it("writes '&' for the word 'amp' the source uses in contractor and supervisor names", () => {
+    const work = mapInfobrasRecord({
+      ...RECORD,
+      "RUC (Ejecución)": "C0003136723",
+      "Nombre o razón social de la empresa o consorcio": "CONSORCIO DHMONT amp CG amp M S A C",
+      "Nombre o razón social de la empresa o consorcio #2": "CONSORCIO  SUPERVISOR amp ASOCIADOS ",
+    });
+    expect(work).toMatchObject({
+      contractorName: "CONSORCIO DHMONT & CG & M S A C",
+      supervisorName: "CONSORCIO SUPERVISOR & ASOCIADOS",
+    });
+  });
+
   it("never reads a person-name column", () => {
     for (const header of INFOBRAS_HEADERS) expect(header).not.toMatch(/Nombres Apellidos/);
+  });
+});
+
+describe("isContractAmountValid (Regla de Fiscus)", () => {
+  it("rejects a contract amount above 10 times the expediente cost of the same obra", () => {
+    expect(isContractAmountValid({ contractAmount: 113862565000, expedienteCostSoles: 68571690.63 })).toBe(false);
+    expect(isContractAmountValid({ contractAmount: 21560454080, expedienteCostSoles: 25464014.95 })).toBe(false);
+    expect(isContractAmountValid({ contractAmount: 1000.01, expedienteCostSoles: 100 })).toBe(false);
+  });
+
+  it("accepts amounts up to 10 times the expediente cost, and amounts it cannot judge", () => {
+    expect(isContractAmountValid({ contractAmount: 1000, expedienteCostSoles: 100 })).toBe(true);
+    expect(isContractAmountValid({ contractAmount: 3158683.99, expedienteCostSoles: 3280120.5 })).toBe(true);
+    expect(isContractAmountValid({ contractAmount: 5e9, expedienteCostSoles: null })).toBe(true);
+    expect(isContractAmountValid({ contractAmount: null, expedienteCostSoles: 100 })).toBe(true);
   });
 });
 

@@ -20,7 +20,7 @@ export interface InfobrasClient {
   };
 }
 
-/** InfobrasWork -> a row of upsert_infobras_works (every column but removed_at). */
+/** InfobrasWork -> a row of upsert_infobras_works (every stored column but removed_at). */
 export function toInfobrasRow(work: InfobrasWork) {
   return {
     infobras_code: work.infobrasCode,
@@ -39,6 +39,7 @@ export function toInfobrasRow(work: InfobrasWork) {
     physical_progress_planned: work.physicalProgressPlanned,
     physical_progress_actual: work.physicalProgressActual,
     contract_amount: work.contractAmount,
+    expediente_cost_soles: work.expedienteCostSoles,
     additional_works_amount: work.additionalWorksAmount,
     deductions_amount: work.deductionsAmount,
     modality: work.modality,

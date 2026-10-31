@@ -40,7 +40,13 @@ export interface InfobrasWork {
   /** First day of the month of the last progress report (Año / Mes de avance). */
   progressPeriod: string | null;
   progressRegisteredAt: string | null;
+  /** Monto del contrato (ejecución) in soles, as published (see expedienteCostSoles). */
   contractAmount: number | null;
+  /**
+   * Costo de obra según expediente técnico, in soles: the reference to judge contractAmount, which
+   * the source sometimes types without its decimal separator (113862565000 for S/ 113,862,565.00).
+   */
+  expedienteCostSoles: number | null;
   contractorKind: PartyKind | null;
   contractorRuc: string | null;
   contractorName: string | null;
@@ -66,6 +72,9 @@ export const H = {
   contractorRuc: "RUC (Ejecución)",
   contractorName: "Nombre o razón social de la empresa o consorcio",
   contractAmount: "Monto del contrato en soles",
+  expedienteCost: "Costo de obra según Expediente técnico",
+  expedienteCurrency: "Moneda",
+  expedienteCostSoles: "Costo de obra en soles según ET en soles",
   supervisorRuc: "RUC (Supervisión)",
   supervisorName: "Nombre o razón social de la empresa o consorcio #2",
   progressYear: "Año de avance",
@@ -128,6 +137,32 @@ function positiveInteger(value: unknown): number | null {
   return parsed !== null && parsed > 0 ? Math.round(parsed) : null;
 }
 
+/**
+ * Costo de obra en soles según ET; when it is blank or 0, the cost as published if its currency is
+ * soles ("S/ Soles"). A cost in another currency without its conversion is unknown (null).
+ */
+function expedienteCostSoles(record: InfobrasRecord): number | null {
+  const soles = positiveOrNull(parseInfobrasDecimal(record[H.expedienteCostSoles]));
+  if (soles !== null) return soles;
+  const currency = parseText(record[H.expedienteCurrency]);
+  if (currency === null || !/soles/i.test(currency)) return null;
+  return positiveOrNull(parseInfobrasDecimal(record[H.expedienteCost]));
+}
+
+/**
+ * Contractor or supervisor name as the app shows it: trimmed, whitespace collapsed, and the word
+ * "amp" the source writes for "&" (an escaped ampersand that lost its symbols, "DHMONT amp CG")
+ * turned back into "&". Only the lowercase standalone token: "CAMPO", "AMPLIACION" or "AMP" stay.
+ */
+export function normalizePartyName(value: unknown): string | null {
+  const text = parseText(value);
+  if (text === null) return null;
+  return text
+    .split(/\s+/)
+    .map((token) => (token === "amp" ? "&" : token))
+    .join(" ");
+}
+
 const NATURAL_PERSON_RUC = /^1[057]\d{9}$/;
 const COMPANY_RUC = /^20\d{9}$/;
 const CONSORTIUM_CODE = /^C\d{10}$/;
@@ -140,7 +175,7 @@ const CONSORTIUM_NAME = /^CONSORCIO\b/i;
  */
 export function classifyParty(rawRuc: unknown, rawName: unknown): Party {
   const ruc = parseText(rawRuc)?.toUpperCase() ?? null;
-  const name = parseText(rawName)?.replace(/\s+/g, " ") ?? null;
+  const name = normalizePartyName(rawName);
   const consortiumName = name !== null && CONSORTIUM_NAME.test(name);
   if (ruc !== null && NATURAL_PERSON_RUC.test(ruc)) return { kind: "persona_natural", ruc: null, name: null };
   if (ruc !== null && COMPANY_RUC.test(ruc)) return { kind: consortiumName ? "consorcio" : "empresa", ruc, name };
@@ -183,6 +218,7 @@ export function mapInfobrasRecord(record: InfobrasRecord): InfobrasWork | null {
     progressPeriod: progressPeriod(record[H.progressYear], record[H.progressMonth]),
     progressRegisteredAt: parseDayMonthYear(record[H.progressRegisteredAt]),
     contractAmount: positiveOrNull(parseInfobrasDecimal(record[H.contractAmount])),
+    expedienteCostSoles: expedienteCostSoles(record),
     contractorKind: contractor.kind,
     contractorRuc: contractor.ruc,
     contractorName: contractor.name,
@@ -196,6 +232,20 @@ export function mapInfobrasRecord(record: InfobrasRecord): InfobrasWork | null {
     liquidationDate: parseDayMonthYear(record[H.liquidationDate]),
     modality: parseText(record[H.modality]),
   };
+}
+
+/** Regla de Fiscus: a contract amount above this multiple of the expediente cost is not valid. */
+export const CONTRACT_TO_EXPEDIENTE_MAX_RATIO = 10;
+
+/**
+ * Regla de Fiscus, the same as infobras_works.contract_amount_valid: a contract amount is not valid
+ * when it exceeds 10 times the expediente cost of the same obra (a typing error in the source, such
+ * as a missing decimal separator). Amounts without an expediente cost to compare are valid.
+ */
+export function isContractAmountValid(work: Pick<InfobrasWork, "contractAmount" | "expedienteCostSoles">): boolean {
+  const { contractAmount, expedienteCostSoles: cost } = work;
+  if (contractAmount === null || cost === null || cost <= 0) return true;
+  return contractAmount <= CONTRACT_TO_EXPEDIENTE_MAX_RATIO * cost;
 }
 
 /**
