@@ -192,6 +192,102 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:paralyzed [--force]
 accruals. The app keeps them apart (glossary, guide, detail block) and always attributes the former:
 "Fuente: Contraloría General de la República".
 
+### INFOBRAS obras and contractors (Contraloría, GitHub Actions weekly)
+
+Source: Contraloría General de la República, INFOBRAS open data
+([DataSets page](https://infobras.contraloria.gob.pe/InfobrasWeb/DataSets), published "para ser
+descargada, reutilizada o compartida"). One XLSX (~57 MB; its single worksheet is ~730 MB of XML,
+191,180 rows of 97 inline-string cells, a 3-row title block before the header) regenerated daily under
+a dated name (`DataSet-Obras-Publicas 30-10-2026`). Decimals use a space ("693405 56" = 693405.56).
+
+`pnpm ingest:infobras` (`.github/workflows/infobras-ingest.yml`, Tuesdays 11:00 UTC and on demand) reads
+the DataSets page for the current link, skips the run when the file name or its Content-Length matches
+the last ingest (`source_snapshots`, source `infobras_obras`: `edition_url` and `content_length`), else
+streams the file to a temporary file, inflates the worksheet from the ZIP and tokenizes it with a SAX
+parser (no full workbook in memory), maps each row and upserts chunks of 1,000 through
+`upsert_infobras_works` (service role; unchanged rows are not rewritten). Obras missing from a new file
+are marked `removed_at` and hidden by RLS, never deleted (`mark_removed_infobras_works`, which refuses
+when the file has fewer than half the visible obras). Then `refresh_contractor_totals()` recomputes the
+contractor totals (also on skipped runs, since their scope comes from `investments`). Two GET requests
+per run, default headers.
+
+**Privacy.** The dataset names people. The ingest reads only the columns it stores: never `Nombres
+Apellidos (Supervisión)`, `Nombres Apellidos (Residente)` or the free-text comments. A contractor or
+supervisor whose RUC starts with 10, 15 or 17 (natural persons; RUC 10 embeds the DNI) keeps
+`*_kind = 'persona_natural'` and neither name nor RUC. Companies (RUC 20…) and consortia (RUC 20… named
+"CONSORCIO…", or OSCE consortium code C + 10 digits) keep name and identifier. Any other identifier keeps
+only a name that starts with "CONSORCIO". Check constraints in the table enforce the rule.
+
+**Freshness.** The file is new every day, but its content stops around March 2026: `data_as_of`, the
+latest `Fecha de registro de avance` in the file (2026-03-31 on 2026-10-30), is stored in
+`source_snapshots.data_as_of`, exposed in `data_freshness` and shown wherever the data appears ("Datos de
+INFOBRAS al 31/03/2026. El estado puede haber cambiado."). The INFOBRAS status is never presented as
+current; the Contraloría paralyzed report stays the authoritative "Paralizada" source.
+
+Schema (migration `20261108000000_infobras_works.sql`): `infobras_works` (one row per obra, only the
+columns the app shows; zero amounts and terms stored as null), views `infobras_by_cui`,
+`contractor_summary` and `contractor_works`, the materialized view `contractor_scope_totals` (contractor ×
+department, level and status group of each obra's investment; an obra without a CUI in `investments`
+counts only without filters) and `contractor_ranking(level, department, status_filter, sort_by, …)`, which
+honours the app's scope, level and status filters. Obras in the latest Contraloría edition are joined
+live by `infobras_code`.
+
+Measured in postgres 17 with the full file: `infobras_works` 39 MB with indexes (26 MB heap, 14 MB
+indexes) for 191,180 obras; keeping only obras whose CUI is in `investments` would be 27 MB (133,048
+obras), not needed. `contractor_scope_totals` 6–11 MB (35,252 contractors; more rows when obras spread
+over several scopes). Ranking reads 50–200 ms; the per-row aggregation without the materialized view
+took 400–560 ms.
+
+Dry run over the live file (2026-10-31): 191,180 obras, 0 without code, 0 repeated; 170,793 with a CUI;
+Finalizado 122,212, Sin Ejecución 42,860, En Ejecución 24,579, Paralizada 1,529. Contractors: 49,698
+empresa, 28,767 consorcio (15,799 with RUC 20, 12,453 with a C code, 515 with a name only), 1,972
+persona natural, 110,743 none (mostly administración directa). Supervisors: 10,010 empresa, 5,809
+consorcio, 8,292 persona natural. 35,252 distinct contractor identifiers. data_as_of 2026-03-31.
+58 s including the download, 246 MB peak RSS.
+
+```bash
+pnpm ingest:infobras --dry-run [--out /absolute/rows.ndjson]
+pnpm ingest:infobras --dry-run --file /path/DataSet-Obras-Publicas.xlsx
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:infobras [--force]
+```
+
+The test fixture (`packages/ingest/test/fixtures/infobras-obras-sample.xlsx`, 23 real rows) is built by
+`scripts/build-infobras-fixture.ts`, which replaces every person name, every natural-person RUC and the
+comments.
+
+Reachability of `infobras.contraloria.gob.pe` from GitHub-hosted runners is unverified. If the workflow
+times out like the MEF SSI host, run it from the PC instead, mirroring the SSI timer of "Daily ingest":
+
+```ini
+# ~/.config/systemd/user/fiscus-infobras.service
+[Unit]
+Description=Fiscus: ingest the INFOBRAS obras dataset into Supabase
+Wants=network-online.target
+After=network-online.target
+OnFailure=fiscus-notify-failure@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/Fiscus
+EnvironmentFile=/path/to/Fiscus/.env.local
+ExecStart=/path/to/pnpm ingest:infobras
+TimeoutStartSec=30min
+```
+
+```ini
+# ~/.config/systemd/user/fiscus-infobras.timer
+[Timer]
+OnCalendar=Tue *-*-* 06:00:00 America/Lima
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
+```
+
+(`systemctl --user daemon-reload && systemctl --user enable --now fiscus-infobras.timer`, and disable
+the schedule of `infobras-ingest.yml`.)
+
 ## Layout
 
 ```
@@ -336,6 +432,20 @@ that increased). Tapping an entity opens `/entity?name=…&level=…`: its proje
 with the project ranking tabs, filtered by the entity and its own level. The demo mode adds national and
 local projects marked "(demo)", one national project without department and one local project with
 physical progress and coordinates.
+
+INFOBRAS: the detail screen shows "OBRAS EN INFOBRAS" for a CUI with obras there (five, then "Ver
+más"): execution status, real vs planned physical progress, contractor (company or consortium name and
+RUC, or "Persona natural"), contract amount, supervision (same rule), additional works, deductions,
+extensions, reception and liquidation dates, the "Ver ficha en INFOBRAS →" link and "Datos de INFOBRAS al
+dd/mm/yyyy. El estado puede haber cambiado." The Contraloría paralyzed block stays the headline. The
+"Contratistas" Rankings tab (`/rankings?tab=contractors&sort=contract|additional|paralyzed`) ranks
+companies and consortia by contract amount, additional works or obras in the latest Contraloría report,
+in the scope, level and status (those of each obra's investment). Tapping one opens
+`/contractor?ruc=…`: national totals and its obras, each opening its project or, without one in Fiscus,
+its INFOBRAS ficha. Glossary terms (INFOBRAS, Contratista, Supervisión, Adicional de obra, Deductivo,
+Ampliación de plazo), a guide section and the footer source ("Contraloría – INFOBRAS (datos al …)") go
+with it. The demo mode adds obras of demo projects with "(demo)" companies (RUCs that fail the SUNAT
+check digit) and one natural-person contractor.
 
 The "Categorías" screen reads `department_function_summary_by_level` for a department and
 `function_summary_by_level` for all of Peru.
@@ -565,6 +675,7 @@ row per source, readable with the anon key:
 | `mef_detalle_inversiones` | `source_snapshots.ingested_at`: last time the file was ingested | `source_snapshots.checked_at`: last successful run, also when the file was unchanged and skipped |
 | `mef_cierre_inversiones` | the same, for the closed-investments file | the same, for the closed-investments file |
 | `contraloria_obras_paralizadas` | last time an edition was ingested (`edition_cutoff` holds its cut-off) | last successful weekly run, also when the edition was already ingested |
+| `infobras_obras` | last time a file was ingested (`data_as_of` holds the date its data describes) | last successful weekly run, also when the file was skipped |
 
 An SSI run counts as a success when `departments_ok` is not empty, the same rule as the CLI exit
 code (it exits 1 only when every department failed). Departments that failed in a partial run are
@@ -581,8 +692,9 @@ not judged for the banner: MEF refreshes that file rarely.
 - `data-freshness.yml` runs daily at 15:00 UTC (10:00 Lima, after both ingests) and on demand. It
   reads `data_freshness` with the `SUPABASE_ANON_KEY` secret and, when the last SSI success or the
   last check of either open-data file (active or closed investments) is older than 36 h, or the last
-  weekly paralyzed-works check is older than 9 days (the quarterly edition age is never judged; the app
-  shows "Corte: junio 2026 (hace 4 meses)" instead), opens the
+  weekly paralyzed-works check or the weekly INFOBRAS check is older than 9 days (the quarterly edition
+  age and the INFOBRAS `data_as_of` are never judged; the app shows "Corte: junio 2026 (hace 4 meses)"
+  and "Datos de INFOBRAS al 31/03/2026" instead), opens the
   issue "Datos desactualizados" (label `data-stale`) or updates its status table. It closes the
   issue when every source is fresh again. A source without a row is stale, so the closed file shows as
   stale until its first ingest after deploying. Logic:
