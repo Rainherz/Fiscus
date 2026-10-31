@@ -1,0 +1,74 @@
+name: Fiscus paralyzed-works ingest
+
+# Contraloría General de la República, "Informe de obras paralizadas en el territorio nacional":
+# quarterly, published on gob.pe with a new URL each edition. The ingest reads the collection page,
+# picks the edition with the latest cut-off and its Anexo N° 01 spreadsheet (~0.7 MB), and exits
+# without downloading it when that file was already ingested (public.source_snapshots, source
+# contraloria_obras_paralizadas). Three GET requests per run at most.
+#
+# Weekly on Mondays at 11:00 UTC = 06:00 Lima: a new edition shows up within a week. Freshness
+# (a run that stops happening, 9 days) is data-freshness.yml.
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ingest even if the latest edition was already ingested"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: fiscus-paralyzed-works-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Only for the failure alert below (an ingest-failure issue).
+  issues: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @fiscus/ingest test
+
+      - name: Ingest the Contraloría report of paralyzed works into Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: pnpm ingest:paralyzed $FORCE
+
+      # Opens an ingest-failure issue, or comments on the open one with the same title, so repeated
+      # failures stay in one thread (same pattern as open-data-ingest.yml).
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Falló la ingesta de obras paralizadas"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="La ingesta del informe de obras paralizadas de la Contraloría falló (${{ github.event_name }}). Ejecución: $RUN_URL"
+          gh label create ingest-failure --color B60205 --description "Falla de una ingesta" --force
+          number=$(gh issue list --state open --label ingest-failure --search "in:title \"$TITLE\"" \
+            --json number,title --jq "map(select(.title == \"$TITLE\")) | first | .number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$TITLE" --label ingest-failure --body "$body"
+          fi

@@ -3,6 +3,8 @@ import {
   CLOSED_DATA_FRESHNESS_SOURCE,
   evaluateFreshness,
   OPEN_DATA_FRESHNESS_SOURCE,
+  PARALYZED_FRESHNESS_SOURCE,
+  PARALYZED_MAX_AGE_HOURS,
   parseFreshnessRows,
   planStaleIssue,
   renderStaleIssueBody,
@@ -18,11 +20,13 @@ function rows({
   ssi = hoursAgo(11),
   openData = hoursAgo(5),
   closedData = hoursAgo(5),
-}: { ssi?: string | null; openData?: string | null; closedData?: string | null } = {}) {
+  paralyzed = hoursAgo(30),
+}: { ssi?: string | null; openData?: string | null; closedData?: string | null; paralyzed?: string | null } = {}) {
   const result: FreshnessRow[] = [
     { source: SSI_FRESHNESS_SOURCE, lastSuccessAt: ssi, lastCheckedAt: ssi },
     { source: OPEN_DATA_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(400), lastCheckedAt: openData },
     { source: CLOSED_DATA_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(400), lastCheckedAt: closedData },
+    { source: PARALYZED_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(1800), lastCheckedAt: paralyzed },
   ];
   return result;
 }
@@ -51,13 +55,22 @@ describe("evaluateFreshness", () => {
 
     expect(result.stale).toBe(false);
     expect(result.checks).toEqual([
-      { key: "ssi", label: "SSI: última ingesta exitosa", at: hoursAgo(35.9), ageHours: 35.9, stale: false },
-      { key: "open-data", label: "Datos abiertos: última revisión", at: hoursAgo(36), ageHours: 36, stale: false },
+      { key: "ssi", label: "SSI: última ingesta exitosa", at: hoursAgo(35.9), ageHours: 35.9, maxAgeHours: 36, stale: false },
+      { key: "open-data", label: "Datos abiertos: última revisión", at: hoursAgo(36), ageHours: 36, maxAgeHours: 36, stale: false },
       {
         key: "closed-data",
         label: "Datos abiertos de cierres: última revisión",
         at: hoursAgo(20),
         ageHours: 20,
+        maxAgeHours: 36,
+        stale: false,
+      },
+      {
+        key: "paralyzed",
+        label: "Contraloría, obras paralizadas: última revisión",
+        at: hoursAgo(30),
+        ageHours: 30,
+        maxAgeHours: 216,
         stale: false,
       },
     ]);
@@ -67,14 +80,14 @@ describe("evaluateFreshness", () => {
     const result = evaluateFreshness(rows({ ssi: hoursAgo(36.1) }), NOW);
 
     expect(result.stale).toBe(true);
-    expect(result.checks.map((check) => check.stale)).toEqual([true, false, false]);
+    expect(result.checks.map((check) => check.stale)).toEqual([true, false, false, false]);
   });
 
   it("judges the closed-investments file by its own last check (36 h)", () => {
     expect(CLOSED_DATA_FRESHNESS_SOURCE).toBe("mef_cierre_inversiones");
     const late = evaluateFreshness(rows({ closedData: hoursAgo(36.5) }), NOW);
     expect(late.stale).toBe(true);
-    expect(late.checks.map((check) => check.stale)).toEqual([false, false, true]);
+    expect(late.checks.map((check) => check.stale)).toEqual([false, false, true, false]);
     expect(evaluateFreshness(rows({ closedData: null }), NOW).checks[2]).toMatchObject({ at: null, stale: true });
   });
 
@@ -89,9 +102,27 @@ describe("evaluateFreshness", () => {
       label: "SSI: última ingesta exitosa",
       at: null,
       ageHours: null,
+      maxAgeHours: 36,
       stale: true,
     });
     expect(evaluateFreshness([], NOW).checks.every((check) => check.stale)).toBe(true);
+  });
+
+  it("judges the weekly Contraloría run by its last check within 9 days, not by the edition age", () => {
+    expect(PARALYZED_FRESHNESS_SOURCE).toBe("contraloria_obras_paralizadas");
+    expect(PARALYZED_MAX_AGE_HOURS).toBe(216);
+    expect(evaluateFreshness(rows({ paralyzed: hoursAgo(215) }), NOW).stale).toBe(false);
+    const late = evaluateFreshness(rows({ paralyzed: hoursAgo(217) }), NOW);
+    expect(late.stale).toBe(true);
+    expect(late.checks.map((check) => check.stale)).toEqual([false, false, false, true]);
+    expect(evaluateFreshness(rows({ paralyzed: null }), NOW).checks[3]).toMatchObject({ at: null, stale: true });
+  });
+
+  it("keeps the 9-day threshold of the weekly run under a custom daily threshold", () => {
+    expect(evaluateFreshness(rows({ paralyzed: hoursAgo(100) }), NOW, { maxAgeHours: 12 }).checks[3]).toMatchObject({
+      maxAgeHours: 216,
+      stale: false,
+    });
   });
 
   it("accepts a custom threshold", () => {
@@ -105,10 +136,11 @@ describe("renderStaleIssueBody", () => {
       runUrl: "https://github.com/o/r/actions/runs/1",
     });
 
-    expect(body).toContain("| SSI: última ingesta exitosa | 26/10/2026 08:00 | 50 h | Desactualizado |");
-    expect(body).toContain("| Datos abiertos: última revisión | sin registro | — | Desactualizado |");
-    expect(body).toContain("| Datos abiertos de cierres: última revisión | 28/10/2026 05:00 | 5 h | Al día |");
-    expect(body).toContain("más de 36 h");
+    expect(body).toContain("| SSI: última ingesta exitosa | 26/10/2026 08:00 | 50 h | 36 h | Desactualizado |");
+    expect(body).toContain("| Datos abiertos: última revisión | sin registro | — | 36 h | Desactualizado |");
+    expect(body).toContain("| Datos abiertos de cierres: última revisión | 28/10/2026 05:00 | 5 h | 36 h | Al día |");
+    expect(body).toContain("| Contraloría, obras paralizadas: última revisión | 27/10/2026 04:00 | 30 h | 216 h | Al día |");
+    expect(body).toContain("| Fuente | Fecha (hora de Lima) | Antigüedad | Umbral | Estado |");
     expect(body).toContain("https://github.com/o/r/actions/runs/1");
   });
 });

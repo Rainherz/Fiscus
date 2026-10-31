@@ -4,7 +4,8 @@ name: Fiscus data freshness
 # run (10:00 UTC). Reads public.data_freshness with the public anon key (read-only through RLS) and
 # opens, updates or closes the "Datos desactualizados" issue (label data-stale) when the last SSI
 # success or the last check of either open-data file (active or closed investments) is older than
-# 36 h. Logic: packages/ingest/src/freshness/.
+# 36 h, or the last check of the weekly Contraloría paralyzed-works run is older than 9 days (the
+# quarterly edition age is not judged). Logic: packages/ingest/src/freshness/.
 on:
   schedule:
     - cron: "0 15 * * *"

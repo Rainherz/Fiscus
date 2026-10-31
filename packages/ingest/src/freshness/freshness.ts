@@ -11,10 +11,18 @@ export const OPEN_DATA_FRESHNESS_SOURCE = "mef_detalle_inversiones";
 /** data_freshness.source of CIERRE_INVERSIONES.csv (source_snapshots). */
 export const CLOSED_DATA_FRESHNESS_SOURCE = "mef_cierre_inversiones";
 
+/** data_freshness.source of the Contraloría report of paralyzed works (source_snapshots). */
+export const PARALYZED_FRESHNESS_SOURCE = "contraloria_obras_paralizadas";
+
 export const STALE_ISSUE_TITLE = "Datos desactualizados";
 export const STALE_ISSUE_LABEL = "data-stale";
-/** Every ingest runs daily, so 36 h tolerates one late run but not a missed day. */
+/** The SSI and open-data ingests run daily, so 36 h tolerates one late run but not a missed day. */
 export const DEFAULT_MAX_AGE_HOURS = 36;
+/**
+ * The paralyzed-works ingest runs weekly: 9 days tolerate one late run but not a missed week. The
+ * report itself is quarterly, so the edition age is never judged here (the app shows it).
+ */
+export const PARALYZED_MAX_AGE_HOURS = 9 * 24;
 
 export interface FreshnessRow {
   source: string;
@@ -23,17 +31,20 @@ export interface FreshnessRow {
 }
 
 export interface FreshnessCheck {
-  key: "ssi" | "open-data" | "closed-data";
+  key: "ssi" | "open-data" | "closed-data" | "paralyzed";
   label: string;
   /** The timestamp judged; null when the source has none. */
   at: string | null;
   /** Hours between `at` and now, rounded to 0.1; null without a timestamp. */
   ageHours: number | null;
+  /** The threshold of this source. */
+  maxAgeHours: number;
   stale: boolean;
 }
 
 export interface FreshnessEvaluation {
   stale: boolean;
+  /** Threshold of the daily sources (the weekly one has PARALYZED_MAX_AGE_HOURS). */
   maxAgeHours: number;
   checks: FreshnessCheck[];
 }
@@ -57,18 +68,25 @@ export function parseFreshnessRows(json: unknown): FreshnessRow[] {
   });
 }
 
-function check(key: FreshnessCheck["key"], label: string, at: string | null, now: Date, maxAgeHours: number) {
+function check(
+  key: FreshnessCheck["key"],
+  label: string,
+  at: string | null,
+  now: Date,
+  maxAgeHours: number,
+): FreshnessCheck {
   const time = at === null ? Number.NaN : Date.parse(at);
-  if (Number.isNaN(time)) return { key, label, at, ageHours: null, stale: true };
+  if (Number.isNaN(time)) return { key, label, at, ageHours: null, maxAgeHours, stale: true };
   const ageHours = Math.round((now.getTime() - time) / 360_000) / 10;
-  return { key, label, at, ageHours, stale: ageHours > maxAgeHours };
+  return { key, label, at, ageHours, maxAgeHours, stale: ageHours > maxAgeHours };
 }
 
 /**
  * The SSI is judged by its last successful ingest (a run with at least one department ingested).
  * Both open-data files (active and closed investments) by their last check: MEF refreshes them
  * rarely, so an old ingest is expected; what must not stop is the daily run that compares each
- * file. A missing source is stale.
+ * file. The Contraloría report likewise by the last check of its weekly run, with its own 9-day
+ * threshold. A missing source is stale.
  */
 export function evaluateFreshness(
   rows: readonly FreshnessRow[],
@@ -91,6 +109,13 @@ export function evaluateFreshness(
       find(CLOSED_DATA_FRESHNESS_SOURCE)?.lastCheckedAt ?? null,
       now,
       maxAgeHours,
+    ),
+    check(
+      "paralyzed",
+      "Contraloría, obras paralizadas: última revisión",
+      find(PARALYZED_FRESHNESS_SOURCE)?.lastCheckedAt ?? null,
+      now,
+      PARALYZED_MAX_AGE_HOURS,
     ),
   ];
   return { stale: checks.some((c) => c.stale), maxAgeHours, checks };
@@ -115,13 +140,14 @@ function limaTime(iso: string): string {
 export function renderStaleIssueBody(evaluation: FreshnessEvaluation, { runUrl }: { runUrl: string }): string {
   const lines = evaluation.checks.map(
     (c) =>
-      `| ${c.label} | ${c.at === null ? "sin registro" : limaTime(c.at)} | ${c.ageHours === null ? "—" : `${c.ageHours} h`} | ${c.stale ? "Desactualizado" : "Al día"} |`,
+      `| ${c.label} | ${c.at === null ? "sin registro" : limaTime(c.at)} | ${c.ageHours === null ? "—" : `${c.ageHours} h`} | ${c.maxAgeHours} h | ${c.stale ? "Desactualizado" : "Al día"} |`,
   );
   return [
-    `Una fuente se considera desactualizada cuando su última actualización tiene más de ${evaluation.maxAgeHours} h.`,
+    "Una fuente se considera desactualizada cuando su última actualización supera su umbral: las fuentes diarias, " +
+      `${evaluation.maxAgeHours} h; la revisión semanal del informe de la Contraloría, ${PARALYZED_MAX_AGE_HOURS} h.`,
     "",
-    "| Fuente | Fecha (hora de Lima) | Antigüedad | Estado |",
-    "|---|---|---|---|",
+    "| Fuente | Fecha (hora de Lima) | Antigüedad | Umbral | Estado |",
+    "|---|---|---|---|---|",
     ...lines,
     "",
     `Revisión: ${runUrl}`,
