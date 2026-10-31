@@ -151,6 +151,47 @@ results) and `map_points` returns each project's `status`. "Sin gasto reciente" 
 never stalled; `accrual_reference_month_all_levels` stays the latest month of every row (the closed file
 ends in the same month as the active one, 2026-10).
 
+### Paralyzed works (Contraloría, quarterly, GitHub Actions weekly)
+
+Source: Contraloría General de la República, "Informe de obras paralizadas en el territorio nacional"
+([collection on gob.pe](https://www.gob.pe/institucion/contraloria/colecciones/18230-obras-paralizadas-documentos)).
+Each quarterly edition has its own URL; its Anexo N° 01 is a spreadsheet (~0.7 MB, ~2,300 rows) with
+one row per obra registered in INFOBRAS: INFOBRAS code, CUI, SNIP, entity, level, location, modality,
+causal of the paralysis (coded, e.g. "2 INCUMPLIMIENTO DE CONTRATO"), physical progress, cost per the
+expediente técnico, remaining work balance (saldo de obra), MEF inventory flag and situational report,
+prioritized-list flag. No personal names; the Contraloría unit and the ranges are not kept.
+
+`pnpm ingest:paralyzed` (`.github/workflows/paralyzed-works-ingest.yml`, Mondays 11:00 UTC and on
+demand) reads the collection page, picks the edition with the latest cut-off from its title ("a junio
+de 2026" → 2026-06-30), reads the edition page for the Anexo N° 01 link and, unless that file URL is
+already in `source_snapshots` (source `contraloria_obras_paralizadas`, columns `edition_cutoff` and
+`edition_url`), downloads it and upserts every obra into `official_paralyzed_works` by
+`(edition_cutoff, infobras_code)`. Every edition is kept. Three GET requests at most, default headers.
+Mapping: Excel serial or date cells → dates, causal split into code and label, SI/NO → booleans, CUI and
+SNIP 0 → null, "P. C. DEL CALLAO" → Callao, only http(s) report links. A file without the expected
+columns, or without any INFOBRAS code, fails the run (and opens an `ingest-failure` issue).
+
+Views (migration `20261107000000_official_paralyzed_works.sql`, all `security_invoker`, readable by
+anon): `latest_paralyzed_works` (latest edition), `paralyzed_by_cui` (per CUI: obra count, main causal =
+the obra with the largest remaining balance, progress range, total remaining balance, INFOBRAS codes)
+and `paralyzed_investments` (that joined with `investments`, for scope, level and status filters).
+`map_points` and `map_list` gain `only_paralyzed` (default false) and return `paralyzed`. The INFOBRAS
+public ficha `Mapa/Sumario?ObraId=<CODIGO INFOBRAS>` was checked to be the same obra (ObraId 45282 →
+CUI 2151761, as in the spreadsheet); the app only links to it.
+
+June 2026 edition (dry run, 2026-10-31): 2,262 obras, 2,084 distinct CUIs, 134 without CUI; 1,543 GL,
+396 GN, 323 GR; 733 in the MEF inventory.
+
+```bash
+pnpm ingest:paralyzed --dry-run [--out /absolute/rows.ndjson]
+pnpm ingest:paralyzed --dry-run --xlsx /path/anexo-01.xlsx --cutoff 2026-06-30 --published 2026-08-17
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:paralyzed [--force]
+```
+
+"Obra paralizada (Contraloría)" is an official record; "Sin gasto reciente" is a rule of Fiscus over MEF
+accruals. The app keeps them apart (glossary, guide, detail block) and always attributes the former:
+"Fuente: Contraloría General de la República".
+
 ## Layout
 
 ```
@@ -523,6 +564,7 @@ row per source, readable with the anon key:
 | `ssi` | end of the latest `ingest_runs` row with at least one department ingested | end of the latest run, successful or not |
 | `mef_detalle_inversiones` | `source_snapshots.ingested_at`: last time the file was ingested | `source_snapshots.checked_at`: last successful run, also when the file was unchanged and skipped |
 | `mef_cierre_inversiones` | the same, for the closed-investments file | the same, for the closed-investments file |
+| `contraloria_obras_paralizadas` | last time an edition was ingested (`edition_cutoff` holds its cut-off) | last successful weekly run, also when the edition was already ingested |
 
 An SSI run counts as a success when `departments_ok` is not empty, the same rule as the CLI exit
 code (it exits 1 only when every department failed). Departments that failed in a partial run are
@@ -538,7 +580,9 @@ not judged for the banner: MEF refreshes that file rarely.
 
 - `data-freshness.yml` runs daily at 15:00 UTC (10:00 Lima, after both ingests) and on demand. It
   reads `data_freshness` with the `SUPABASE_ANON_KEY` secret and, when the last SSI success or the
-  last check of either open-data file (active or closed investments) is older than 36 h, opens the
+  last check of either open-data file (active or closed investments) is older than 36 h, or the last
+  weekly paralyzed-works check is older than 9 days (the quarterly edition age is never judged; the app
+  shows "Corte: junio 2026 (hace 4 meses)" instead), opens the
   issue "Datos desactualizados" (label `data-stale`) or updates its status table. It closes the
   issue when every source is fresh again. A source without a row is stale, so the closed file shows as
   stale until its first ingest after deploying. Logic:
