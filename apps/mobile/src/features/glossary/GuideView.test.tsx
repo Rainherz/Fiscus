@@ -78,5 +78,6 @@ describe('GuideView', () => {
     expect(within(limits).getByText(/≈77 %/)).toBeOnTheScreen();
     expect(within(limits).getByText(/27\/10\/2026/)).toBeOnTheScreen();
     expect(within(limits).getByText(/menores que S\/ 1,000/)).toBeOnTheScreen();
+    expect(within(limits).getByText(/montos de contrato sin el separador decimal/)).toBeOnTheScreen();
   });
 });

@@ -8,6 +8,7 @@ import {
   contractorWorkRow,
   identifierText,
   infobrasCaveat,
+  invalidContractsText,
 } from '@/features/infobras/infobrasPresentation';
 import type { ContractorSummary, ContractorWork } from '@/features/investments/domain/infobras';
 import { infobrasUrl } from '@/features/investments/domain/paralyzed';
@@ -51,6 +52,7 @@ function Figure({ label, value }: { label: string; value: string }) {
 
 function Header({ summary }: { summary: ContractorSummary }) {
   const statuses = contractorStatusLine(summary);
+  const excluded = invalidContractsText(summary.invalidContractCount);
   return (
     <View style={styles.header}>
       <View style={styles.kicker}>
@@ -69,6 +71,14 @@ function Header({ summary }: { summary: ContractorSummary }) {
         <Figure label="Adicionales de obra" value={formatSoles(summary.totalAdditionalWorks)} />
         <Figure label="Obras en el informe de obras paralizadas" value={formatInteger(summary.contraloriaParalyzedCount)} />
       </View>
+      {excluded ? (
+        <View style={styles.kicker}>
+          <MonoText size={11} muted>
+            {excluded}
+          </MonoText>
+          <TermHint term="monto-contrato-no-valido" />
+        </View>
+      ) : null}
       {statuses ? <MonoText size={12}>{statuses}</MonoText> : null}
       <MonoText size={11} muted>{`Totales de todo el país. ${infobrasCaveat(summary.dataAsOf)}`}</MonoText>
       <MonoText bold size={12} style={styles.listTitle}>

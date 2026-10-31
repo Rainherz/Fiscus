@@ -348,6 +348,8 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       const rows = unwrap(
         (await (client.from('infobras_works').select(INFOBRAS_WORK_COLUMNS) as unknown as FilterBuilder)
           .eq('cui', cui)
+          // Invalid contract amounts (Regla de Fiscus) last: their figure is not shown.
+          .order('contract_amount_valid', { ascending: false })
           .order('contract_amount', { ascending: false, nullsFirst: false })
           .order('infobras_code', { ascending: true, nullsFirst: false })
           .limit(INFOBRAS_WORKS_LIMIT)) as Result<InfobrasWorkRow[]>,
@@ -385,6 +387,7 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
       const rows = unwrap(
         (await (client.from('contractor_works').select(CONTRACTOR_WORK_COLUMNS) as unknown as FilterBuilder)
           .eq('contractor_ruc', ruc)
+          .order('contract_amount_valid', { ascending: false })
           .order('contract_amount', { ascending: false, nullsFirst: false })
           .order('infobras_code', { ascending: true, nullsFirst: false })
           .range(page * pageSize, (page + 1) * pageSize - 1)) as Result<ContractorWorkRow[]>,

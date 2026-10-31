@@ -22,6 +22,7 @@ const SUMMARY: ContractorSummary = {
   inProgressCount: 1,
   notStartedCount: 0,
   infobrasParalyzedCount: 1,
+  invalidContractCount: 0,
   dataAsOf: '2026-03-31',
 };
 
@@ -30,6 +31,7 @@ const work = (overrides: Partial<ContractorWork>): ContractorWork => ({
   cui: '9900001',
   executionStatus: 'En Ejecución',
   contractAmount: 30_000_000,
+  contractAmountValid: true,
   additionalWorksAmount: null,
   physicalProgressActual: 40,
   investmentName: 'Planta de tratamiento (demo)',
@@ -99,6 +101,26 @@ describe('ContractorView', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: /^2\. Obra 2 en INFOBRAS, Sin CUI en Fiscus/ }));
     expect(onOpenUrl).toHaveBeenCalledWith('https://infobras.contraloria.gob.pe/InfobrasWeb/Mapa/Sumario?ObraId=2');
+  });
+
+  it('says how many invalid contract amounts the total leaves out, and marks them in the list', async () => {
+    await render(
+      <ContractorView
+        {...baseProps}
+        summary={{ ...SUMMARY, invalidContractCount: 3 }}
+        works={[work({ infobrasCode: 507248, contractAmount: 113_862_565_000, contractAmountValid: false })]}
+      />,
+    );
+    expect(screen.getByText('3 montos no válidos excluidos')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /Monto de contrato no válido/ })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: /En Ejecución · monto de contrato no válido en la fuente INFOBRAS$/ }),
+    ).toBeOnTheScreen();
+  });
+
+  it('shows no exclusion note when every amount is valid', async () => {
+    await render(<ContractorView {...baseProps} summary={SUMMARY} works={[]} />);
+    expect(screen.queryByText(/no válidos? excluidos?/)).toBeNull();
   });
 
   it('says when the contractor is unknown', async () => {

@@ -11,7 +11,8 @@ import { matchesStatus, type StatusFilter } from './investmentStatus';
  * Privacy: natural-person contractors and supervisors have neither name nor RUC here, only their
  * kind ('persona_natural').
  *
- * Keep in sync with supabase/migrations/20261108000000_infobras_works.sql.
+ * Keep in sync with supabase/migrations/20261108000000_infobras_works.sql and
+ * 20261109000000_infobras_contract_amount_validity.sql (Regla de Fiscus on contract amounts).
  */
 
 /** data_freshness.source of the INFOBRAS dataset (its data_as_of is the date the data describes). */
@@ -48,6 +49,12 @@ export interface InfobrasWork {
   /** yyyy-mm-01: month of the last progress report. */
   progressPeriod: string | null;
   contractAmount: number | null;
+  /**
+   * Regla de Fiscus (infobras_works.contract_amount_valid): false when the contract amount is greater
+   * than 10 times the expediente técnico cost of the same obra, a typing error in the source; the
+   * figure is then not shown nor summed.
+   */
+  contractAmountValid: boolean;
   contractor: Party;
   supervisor: Party;
   additionalWorksAmount: number | null;
@@ -65,10 +72,13 @@ export interface ContractorRankingItem {
   name: string | null;
   kind: PartyKind | null;
   obraCount: number;
+  /** Sum of the valid contract amounts only (see InfobrasWork.contractAmountValid). */
   totalContractAmount: number;
   totalAdditionalWorks: number;
   /** Obras in the latest Contraloría report of paralyzed works. */
   contraloriaParalyzedCount: number;
+  /** Contract amounts left out of totalContractAmount by the Regla de Fiscus. */
+  invalidContractCount: number;
 }
 
 export interface ContractorRankingPage {
@@ -102,6 +112,8 @@ export interface ContractorWork {
   cui: string | null;
   executionStatus: ExecutionStatus | null;
   contractAmount: number | null;
+  /** See InfobrasWork.contractAmountValid. */
+  contractAmountValid: boolean;
   additionalWorksAmount: number | null;
   physicalProgressActual: number | null;
   /** Null when Fiscus does not have the CUI. */
@@ -124,6 +136,8 @@ function toNumber(value: Numeric): number | null {
 
 const toText = (value: Text): string | null => value ?? null;
 const toBoolean = (value: boolean | null | undefined): boolean | null => (typeof value === 'boolean' ? value : null);
+/** contract_amount_valid: only an explicit false marks an amount as invalid. */
+const toValidity = (value: boolean | null | undefined): boolean => value !== false;
 
 export function isPartyKind(value: unknown): value is PartyKind {
   return value === 'empresa' || value === 'consorcio' || value === 'persona_natural';
@@ -153,6 +167,7 @@ export interface InfobrasWorkRow {
   physical_progress_actual?: Numeric;
   progress_period?: Text;
   contract_amount?: Numeric;
+  contract_amount_valid?: boolean | null;
   contractor_kind?: Text;
   contractor_ruc?: Text;
   contractor_name?: Text;
@@ -169,7 +184,7 @@ export interface InfobrasWorkRow {
 
 export const INFOBRAS_WORK_COLUMNS =
   'infobras_code,cui,execution_status,has_paralysis,paralysis_cause,paralysis_date,paralysis_days,' +
-  'physical_progress_planned,physical_progress_actual,progress_period,contract_amount,contractor_kind,' +
+  'physical_progress_planned,physical_progress_actual,progress_period,contract_amount,contract_amount_valid,contractor_kind,' +
   'contractor_ruc,contractor_name,supervisor_kind,supervisor_ruc,supervisor_name,additional_works_amount,' +
   'deductions_amount,extension_days,reception_date,liquidation_date,modality';
 
@@ -186,6 +201,7 @@ export function mapInfobrasWorkRow(row: InfobrasWorkRow): InfobrasWork {
     physicalProgressActual: toNumber(row.physical_progress_actual),
     progressPeriod: toText(row.progress_period),
     contractAmount: toNumber(row.contract_amount),
+    contractAmountValid: toValidity(row.contract_amount_valid),
     contractor: toParty(row.contractor_kind, row.contractor_ruc, row.contractor_name),
     supervisor: toParty(row.supervisor_kind, row.supervisor_ruc, row.supervisor_name),
     additionalWorksAmount: toNumber(row.additional_works_amount),
@@ -206,6 +222,7 @@ export interface ContractorRankingRow {
   total_contract_amount: Numeric;
   total_additional_works: Numeric;
   contraloria_paralyzed_count: Numeric;
+  invalid_contract_count?: Numeric;
   total_count?: Numeric;
   data_as_of?: Text;
 }
@@ -219,6 +236,7 @@ function mapRankingItem(row: ContractorRankingRow): ContractorRankingItem {
     totalContractAmount: toNumber(row.total_contract_amount) ?? 0,
     totalAdditionalWorks: toNumber(row.total_additional_works) ?? 0,
     contraloriaParalyzedCount: toNumber(row.contraloria_paralyzed_count) ?? 0,
+    invalidContractCount: toNumber(row.invalid_contract_count) ?? 0,
   };
 }
 
@@ -240,7 +258,8 @@ export interface ContractorSummaryRow extends ContractorRankingRow {
 
 export const CONTRACTOR_SUMMARY_COLUMNS =
   'contractor_ruc,contractor_name,contractor_kind,obra_count,total_contract_amount,total_additional_works,' +
-  'finished_count,in_progress_count,not_started_count,infobras_paralyzed_count,contraloria_paralyzed_count,data_as_of';
+  'finished_count,in_progress_count,not_started_count,infobras_paralyzed_count,contraloria_paralyzed_count,data_as_of,' +
+  'invalid_contract_count';
 
 export function mapContractorSummaryRow(row: ContractorSummaryRow): ContractorSummary {
   return {
@@ -267,11 +286,12 @@ export interface ContractorWorkRow {
   government_level: Text;
   investment_status: Text;
   contraloria_paralyzed: boolean | null | undefined;
+  contract_amount_valid?: boolean | null;
 }
 
 export const CONTRACTOR_WORK_COLUMNS =
   'infobras_code,cui,execution_status,contract_amount,additional_works_amount,physical_progress_actual,' +
-  'investment_name,entity,department_code,government_level,investment_status,contraloria_paralyzed';
+  'investment_name,entity,department_code,government_level,investment_status,contraloria_paralyzed,contract_amount_valid';
 
 export function mapContractorWorkRow(row: ContractorWorkRow): ContractorWork {
   return {
@@ -279,6 +299,7 @@ export function mapContractorWorkRow(row: ContractorWorkRow): ContractorWork {
     cui: toText(row.cui),
     executionStatus: isExecutionStatus(row.execution_status) ? row.execution_status : null,
     contractAmount: toNumber(row.contract_amount),
+    contractAmountValid: toValidity(row.contract_amount_valid),
     additionalWorksAmount: toNumber(row.additional_works_amount),
     physicalProgressActual: toNumber(row.physical_progress_actual),
     investmentName: toText(row.investment_name),
@@ -339,9 +360,11 @@ export function rankContractors(
       totalContractAmount: 0,
       totalAdditionalWorks: 0,
       contraloriaParalyzedCount: 0,
+      invalidContractCount: 0,
     };
     group.obraCount++;
-    group.totalContractAmount += work.contractAmount ?? 0;
+    if (work.contractAmountValid) group.totalContractAmount += work.contractAmount ?? 0;
+    else group.invalidContractCount++;
     group.totalAdditionalWorks += work.additionalWorksAmount ?? 0;
     if (paralyzedCodes.has(work.infobrasCode)) group.contraloriaParalyzedCount++;
     groups.set(ruc, group);

@@ -215,6 +215,7 @@ export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: Re
           'El historial del costo empieza el 27/10/2026; los cambios anteriores no se conocen.',
           'Las obras paralizadas se enlazan por CUI: las obras sin CUI en el informe de la Contraloría, o con un CUI que no está en Fiscus, no aparecen en los rankings ni en el mapa.',
           'Algunos costos actualizados publicados por el MEF son valores de relleno o truncados: si son menores que S/ 1,000 o que el 1 % del monto viable, Fiscus los marca como no válidos y no calcula aumento ni porcentaje gastado.',
+          'INFOBRAS publica algunos montos de contrato sin el separador decimal (por ejemplo, 113862565000 por S/ 113,862,565.00): si un monto es mayor a 10 veces el costo del expediente técnico de la misma obra, Fiscus no lo muestra ni lo suma en los totales de los contratistas.',
         ]}
       />
     ),

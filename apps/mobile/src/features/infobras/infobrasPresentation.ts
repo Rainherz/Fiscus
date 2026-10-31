@@ -47,6 +47,17 @@ export function partyText(party: Party): string | null {
 export interface InfobrasFact {
   label: string;
   value: string;
+  /** The source figure is not valid (Regla de Fiscus): value is a notice, shown muted. */
+  invalid?: true;
+}
+
+/** Shown instead of a contract amount above 10 times the expediente cost of the same obra. */
+export const INVALID_CONTRACT_AMOUNT_TEXT = 'Monto de contrato no válido en la fuente INFOBRAS';
+
+/** "3 montos no válidos excluidos": the contract amounts a total leaves out; null for none. */
+export function invalidContractsText(count: number): string | null {
+  if (count <= 0) return null;
+  return count === 1 ? '1 monto no válido excluido' : `${formatInteger(count)} montos no válidos excluidos`;
 }
 
 function progressText(work: InfobrasWork): string | null {
@@ -78,7 +89,11 @@ export function infobrasObraFacts(work: InfobrasWork): InfobrasFact[] {
   add('Estado de ejecución', work.executionStatus);
   add('Avance físico', progressText(work));
   add('Contratista', partyText(work.contractor));
-  add('Monto de contrato', work.contractAmount === null ? null : formatSoles(work.contractAmount));
+  if (work.contractAmount !== null && !work.contractAmountValid) {
+    facts.push({ label: 'Monto de contrato', value: INVALID_CONTRACT_AMOUNT_TEXT, invalid: true });
+  } else {
+    add('Monto de contrato', work.contractAmount === null ? null : formatSoles(work.contractAmount));
+  }
   add('Supervisión', partyText(work.supervisor));
   add('Adicionales de obra', work.additionalWorksAmount === null ? null : formatSoles(work.additionalWorksAmount));
   add('Deductivos', work.deductionsAmount === null ? null : formatSoles(work.deductionsAmount));
@@ -125,8 +140,12 @@ export function contractorSortValue(sort: ContractorSort, item: ContractorRankin
 
 const obras = (count: number) => `${formatInteger(count)} ${count === 1 ? 'obra' : 'obras'}`;
 
-/** "Empresa · RUC … · 12 obras · S/ 2.5 M en adicionales · 1 paralizada (Contraloría)". */
+/**
+ * "Empresa · RUC … · 12 obras · S/ 2.5 M en adicionales · 1 paralizada (Contraloría) · 2 montos no
+ * válidos excluidos".
+ */
 export function contractorRowDetail(item: ContractorRankingItem): string {
+  const excluded = invalidContractsText(item.invalidContractCount);
   return [
     contractorKindLabel(item.kind),
     identifierText(item.ruc),
@@ -135,6 +154,7 @@ export function contractorRowDetail(item: ContractorRankingItem): string {
     ...(item.contraloriaParalyzedCount > 0
       ? [`${formatInteger(item.contraloriaParalyzedCount)} ${item.contraloriaParalyzedCount === 1 ? 'paralizada' : 'paralizadas'} (Contraloría)`]
       : []),
+    ...(excluded ? [excluded] : []),
   ].join(' · ');
 }
 
@@ -142,7 +162,8 @@ export function contractorRowDetail(item: ContractorRankingItem): string {
 export function contractorsNote(dataAsOf: string | null): string {
   return (
     'Empresas y consorcios con obras registradas en INFOBRAS; no incluye personas naturales. ' +
-    `La región, el nivel y el estado son los del proyecto de cada obra. ${infobrasDataAsOfText(dataAsOf)}`
+    'La región, el nivel y el estado son los del proyecto de cada obra. ' +
+    `Los montos de contrato no válidos en la fuente no se suman. ${infobrasDataAsOfText(dataAsOf)}`
   );
 }
 
@@ -167,7 +188,11 @@ export function contractorWorkRow(work: ContractorWork): { name: string; detail:
     : `Sin CUI en Fiscus${work.cui ? ` (CUI ${work.cui})` : ''} · ver ficha en INFOBRAS`;
   const facts = [
     work.executionStatus ?? 'Estado no informado',
-    ...(work.contractAmount === null ? [] : [`contrato ${formatSoles(work.contractAmount)}`]),
+    ...(work.contractAmount === null
+      ? []
+      : work.contractAmountValid
+        ? [`contrato ${formatSoles(work.contractAmount)}`]
+        : ['monto de contrato no válido en la fuente INFOBRAS']),
     ...(work.contraloriaParalyzed ? ['en el informe de obras paralizadas'] : []),
   ];
   return { name: known ? work.investmentName! : `Obra ${work.infobrasCode} en INFOBRAS`, detail: [where, facts.join(' · ')] };

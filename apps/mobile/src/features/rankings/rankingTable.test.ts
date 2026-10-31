@@ -139,7 +139,13 @@ describe('rankingTable: contractors (INFOBRAS)', () => {
     totalContractAmount: 48_000_000,
     totalAdditionalWorks: 2_500_000,
     contraloriaParalyzedCount: 1,
+    invalidContractCount: 0,
   };
+
+  it('says under the name how many invalid contract amounts the total leaves out', () => {
+    const table = rankingTable({ kind: 'contractors', items: [{ ...item, invalidContractCount: 2 }], dataAsOf: null }, NOW);
+    expect(table.rows[0]?.sub).toBe('Empresa · RUC 20100000001 · 2 montos no válidos excluidos');
+  });
 
   it('shows obras, contract amount, additional works and paralyzed obras, the sort marked', () => {
     const table = rankingTable({ kind: 'contractors', items: [item], dataAsOf: '2026-03-31' }, NOW, { contractorSort: 'additional' });

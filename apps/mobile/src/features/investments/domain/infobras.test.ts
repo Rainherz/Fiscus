@@ -58,6 +58,7 @@ describe('mapInfobrasWorkRow', () => {
       physicalProgressActual: 62.5,
       progressPeriod: '2025-12-01',
       contractAmount: 3158683.99,
+      contractAmountValid: true,
       contractor: { kind: 'consorcio', ruc: 'C0003136723', name: 'CONSORCIO VIAL' },
       supervisor: { kind: 'persona_natural', ruc: null, name: null },
       additionalWorksAmount: 159570.06,
@@ -67,6 +68,13 @@ describe('mapInfobrasWorkRow', () => {
       liquidationDate: null,
       modality: 'Contrata',
     });
+  });
+
+  it('reads contract_amount_valid; only an explicit false marks the amount as invalid', () => {
+    expect(
+      mapInfobrasWorkRow({ infobras_code: 507248, contract_amount: '113862565000', contract_amount_valid: false }),
+    ).toMatchObject({ contractAmount: 113862565000, contractAmountValid: false });
+    expect(mapInfobrasWorkRow({ infobras_code: 1, contract_amount: 5 }).contractAmountValid).toBe(true);
   });
 
   it('keeps unknown statuses and kinds out', () => {
@@ -95,6 +103,7 @@ describe('contractor rows', () => {
           total_contract_amount: '1000',
           total_additional_works: 0,
           contraloria_paralyzed_count: 1,
+          invalid_contract_count: 2,
           total_count: 42,
           data_as_of: '2026-03-31',
         },
@@ -109,6 +118,7 @@ describe('contractor rows', () => {
           totalContractAmount: 1000,
           totalAdditionalWorks: 0,
           contraloriaParalyzedCount: 1,
+          invalidContractCount: 2,
         },
       ],
       total: 42,
@@ -133,7 +143,7 @@ describe('contractor rows', () => {
         infobras_paralyzed_count: 0,
         data_as_of: '2026-03-31',
       }),
-    ).toMatchObject({ ruc: 'C0003136723', finishedCount: 1, inProgressCount: 1, dataAsOf: '2026-03-31' });
+    ).toMatchObject({ ruc: 'C0003136723', finishedCount: 1, inProgressCount: 1, dataAsOf: '2026-03-31', invalidContractCount: 0 });
     expect(
       mapContractorWorkRow({
         infobras_code: 7,
@@ -149,7 +159,24 @@ describe('contractor rows', () => {
         investment_status: null,
         contraloria_paralyzed: null,
       }),
-    ).toMatchObject({ infobrasCode: 7, cui: null, executionStatus: 'Finalizado', contraloriaParalyzed: false });
+    ).toMatchObject({ infobrasCode: 7, cui: null, executionStatus: 'Finalizado', contraloriaParalyzed: false, contractAmountValid: true });
+    expect(
+      mapContractorWorkRow({
+        infobras_code: 507248,
+        cui: '2499886',
+        execution_status: 'Paralizada',
+        contract_amount: '113862565000',
+        additional_works_amount: null,
+        physical_progress_actual: 97.37,
+        investment_name: null,
+        entity: null,
+        department_code: null,
+        government_level: null,
+        investment_status: null,
+        contraloria_paralyzed: true,
+        contract_amount_valid: false,
+      }),
+    ).toMatchObject({ contractAmount: 113862565000, contractAmountValid: false });
   });
 });
 
@@ -197,6 +224,18 @@ describe('rankContractors', () => {
       expect.objectContaining({ ruc: '20100000001', obraCount: 1, totalContractAmount: 300 }),
     ]);
     expect(rankContractors(WORKS, scopeOf, new Set(), { sort: 'contract', level: 'GN', page: 0 }).total).toBe(0);
+  });
+
+  it('sums only valid contract amounts and counts the invalid ones (Regla de Fiscus)', () => {
+    const works = [
+      ...WORKS,
+      work(6, { cui: '1', contractAmount: 113_862_565_000, contractAmountValid: false }),
+    ];
+    const { items } = rankContractors(works, scopeOf, new Set(), { sort: 'contract', page: 0 });
+    expect(items[0]).toEqual(
+      expect.objectContaining({ ruc: '20100000001', obraCount: 3, totalContractAmount: 400, invalidContractCount: 1 }),
+    );
+    expect(items[1]).toEqual(expect.objectContaining({ ruc: 'C0000000002', invalidContractCount: 0 }));
   });
 
   it('pages', () => {

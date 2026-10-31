@@ -52,6 +52,19 @@ describe('InfobrasBlock', () => {
     expect(screen.queryByRole('button', { name: /Ver más/ })).toBeNull();
   });
 
+  it('shows an invalid contract amount as such, with its glossary hint, instead of the figure', async () => {
+    await render(
+      <InfobrasBlock
+        works={[work(507248, { contractAmount: 113_862_565_000, contractAmountValid: false })]}
+        dataAsOf={null}
+        onOpenUrl={() => {}}
+      />,
+    );
+    expect(screen.getByText('Monto de contrato no válido en la fuente INFOBRAS')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /Monto de contrato no válido/ })).toBeOnTheScreen();
+    expect(screen.queryByText(/S\/ 113/)).toBeNull();
+  });
+
   it('says how many obras the CUI has in INFOBRAS when there are several', async () => {
     await render(<InfobrasBlock works={[work(1), work(2)]} dataAsOf={null} onOpenUrl={() => {}} />);
     expect(screen.getByText('2 obras registradas para este CUI')).toBeOnTheScreen();
