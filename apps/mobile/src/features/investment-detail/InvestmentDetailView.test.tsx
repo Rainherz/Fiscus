@@ -202,6 +202,13 @@ describe('InvestmentDetailView', () => {
     }
   });
 
+  it('reads the MEF "- TODOS -" province and district as several of them', async () => {
+    await render(<InvestmentDetailView investment={{ ...full, province: '- TODOS -', district: '-TODOS-' }} now={NOW} />);
+    expect(screen.getByLabelText('Provincia: Varias provincias')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Distrito: Varios distritos')).toBeOnTheScreen();
+    expect(screen.queryByText(/TODOS/)).toBeNull();
+  });
+
   it('shows the canonical function and the original MEF classification when they differ', async () => {
     await render(
       <InvestmentDetailView
