@@ -46,6 +46,14 @@ describe('ranking presentation', () => {
     expect(isActiveOnlyTab('paralyzed', 'CLOSED')).toBe(false);
   });
 
+  it('adds "Contratistas" before "Entidades" on the Rankings screen only, for every status', () => {
+    const labels = RANKINGS_SCREEN_OPTIONS.map((o) => o.label);
+    expect(labels.indexOf('Contratistas')).toBe(labels.indexOf('Entidades') - 1);
+    expect(isRankingTab('contractors')).toBe(true);
+    expect(isProjectTab('contractors')).toBe(false);
+    expect(isActiveOnlyTab('contractors', 'CLOSED')).toBe(false);
+  });
+
   it('adds "Entidades" as the last tab of the Rankings screen only', () => {
     expect(RANKINGS_SCREEN_OPTIONS.map((o) => o.label).at(-1)).toBe('Entidades');
     expect(RANKINGS_SCREEN_OPTIONS.map((o) => o.key)).toEqual(RANKING_TABS);

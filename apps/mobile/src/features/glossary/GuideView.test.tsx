@@ -18,6 +18,7 @@ describe('GuideView', () => {
       'Qué es Fiscus',
       'De dónde salen los datos',
       'Obras paralizadas según la Contraloría',
+      'Obras y contratistas en INFOBRAS',
       'Cómo leer un proyecto',
       'Clasificación por función',
       'Glosario',
@@ -35,6 +36,15 @@ describe('GuideView', () => {
     expect(within(section).getByText(/cada semana/)).toBeOnTheScreen();
     expect(within(section).getByText(/«Sin gasto reciente» es una regla de Fiscus/)).toBeOnTheScreen();
     expect(within(section).getByText(/ficha pública en INFOBRAS/)).toBeOnTheScreen();
+  });
+
+  it('explains INFOBRAS, the date of its data and that natural persons are not named', async () => {
+    await render(<GuideView />);
+    const section = screen.getByTestId('guide-infobras');
+    expect(within(section).getByText(/sistema de información de obras públicas/)).toBeOnTheScreen();
+    expect(within(section).getByText(/fecha de los datos/)).toBeOnTheScreen();
+    expect(within(section).getByText(/es una persona natural, Fiscus no guarda ni muestra su nombre ni su RUC/)).toBeOnTheScreen();
+    expect(within(section).getByText(/informe de obras paralizadas de la Contraloría sigue siendo/)).toBeOnTheScreen();
   });
 
   it('defines every official term in the glossary and every Fiscus rule in its own section', async () => {

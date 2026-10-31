@@ -28,6 +28,21 @@ import {
   type StalledInvestmentRow,
 } from '../domain/mappers';
 import { mapDataFreshnessRows, type DataFreshnessRow } from '../domain/freshness';
+import {
+  CONTRACTOR_SUMMARY_COLUMNS,
+  CONTRACTOR_WORK_COLUMNS,
+  INFOBRAS_FRESHNESS_SOURCE,
+  INFOBRAS_WORK_COLUMNS,
+  INFOBRAS_WORKS_LIMIT,
+  mapContractorRankingRows,
+  mapContractorSummaryRow,
+  mapContractorWorkRow,
+  mapInfobrasWorkRow,
+  type ContractorRankingRow,
+  type ContractorSummaryRow,
+  type ContractorWorkRow,
+  type InfobrasWorkRow,
+} from '../domain/infobras';
 import type { LevelFilter } from '../domain/governmentLevel';
 import { statusValueOf, type StatusFilter } from '../domain/investmentStatus';
 import { MAP_LIST_PAGE_SIZE, type MapFilter } from '../domain/mapPoints';
@@ -42,7 +57,14 @@ import {
   type ParalyzedSummaryRow,
   type ParalyzedWorkRow,
 } from '../domain/paralyzed';
-import { buildEntityQuery, buildParalyzedQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
+import {
+  PAGE_SIZE,
+  buildEntityQuery,
+  buildParalyzedQuery,
+  buildStalledQuery,
+  type Filter,
+  type InvestmentQuery,
+} from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
 /** Minimal structural view of a PostgREST filter builder, so filters compose without generics noise. */
@@ -321,6 +343,53 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
           .maybeSingle<{ edition_cutoff: string | null; published_at: string | null }>(),
       );
       return row?.edition_cutoff ? { editionCutoff: row.edition_cutoff, publishedAt: row.published_at ?? null } : null;
+    },
+    async getInfobrasWorks(cui) {
+      const rows = unwrap(
+        (await (client.from('infobras_works').select(INFOBRAS_WORK_COLUMNS) as unknown as FilterBuilder)
+          .eq('cui', cui)
+          .order('contract_amount', { ascending: false, nullsFirst: false })
+          .order('infobras_code', { ascending: true, nullsFirst: false })
+          .limit(INFOBRAS_WORKS_LIMIT)) as Result<InfobrasWorkRow[]>,
+      );
+      return (rows ?? []).map(mapInfobrasWorkRow);
+    },
+    async getInfobrasDataAsOf() {
+      const row = unwrap(
+        await (client.from('data_freshness').select('data_as_of') as unknown as FilterBuilder)
+          .eq('source', INFOBRAS_FRESHNESS_SOURCE)
+          .maybeSingle<{ data_as_of: string | null }>(),
+      );
+      return row?.data_as_of ?? null;
+    },
+    async getContractorRanking({ sort, departmentCode, level = 'ALL', status = 'ALL', page, pageSize = PAGE_SIZE }) {
+      const result = (await client.rpc('contractor_ranking', {
+        level,
+        department: departmentCode ?? null,
+        status_filter: status,
+        sort_by: sort,
+        page_limit: pageSize,
+        page_offset: page * pageSize,
+      })) as Result<ContractorRankingRow[]>;
+      return mapContractorRankingRows(unwrap(result) ?? []);
+    },
+    async getContractorSummary(ruc) {
+      const row = unwrap(
+        await (client.from('contractor_summary').select(CONTRACTOR_SUMMARY_COLUMNS) as unknown as FilterBuilder)
+          .eq('contractor_ruc', ruc)
+          .maybeSingle<ContractorSummaryRow>(),
+      );
+      return row ? mapContractorSummaryRow(row) : null;
+    },
+    async getContractorWorks({ ruc, page, pageSize = PAGE_SIZE }) {
+      const rows = unwrap(
+        (await (client.from('contractor_works').select(CONTRACTOR_WORK_COLUMNS) as unknown as FilterBuilder)
+          .eq('contractor_ruc', ruc)
+          .order('contract_amount', { ascending: false, nullsFirst: false })
+          .order('infobras_code', { ascending: true, nullsFirst: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1)) as Result<ContractorWorkRow[]>,
+      );
+      return (rows ?? []).map(mapContractorWorkRow);
     },
   };
 }

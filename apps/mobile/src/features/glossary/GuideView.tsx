@@ -125,6 +125,36 @@ export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: Re
     ),
   },
   {
+    title: 'Obras y contratistas en INFOBRAS',
+    testID: 'guide-infobras',
+    body: (
+      <>
+        <Paragraph>
+          INFOBRAS es el sistema de información de obras públicas de la Contraloría General de la República. Las
+          entidades registran allí cada obra: el estado de ejecución, el avance físico, el contrato, el contratista, la
+          supervisión, los adicionales y deductivos, las ampliaciones de plazo y las fechas de recepción y liquidación.
+          Fiscus carga su archivo de datos abiertos cada semana.
+        </Paragraph>
+        <Paragraph>
+          El archivo se publica cada día, pero su contenido puede ser de meses atrás. Por eso Fiscus muestra siempre la
+          fecha de los datos (el último registro de avance del archivo) y advierte que el estado puede haber cambiado.
+          Para saber si una obra está paralizada, el informe de obras paralizadas de la Contraloría sigue siendo la
+          referencia; INFOBRAS solo complementa ese dato.
+        </Paragraph>
+        <Paragraph>
+          De las empresas y consorcios se muestran el nombre y el RUC (o el código del consorcio). Cuando el contratista
+          o la supervisión es una persona natural, Fiscus no guarda ni muestra su nombre ni su RUC, que contiene su DNI:
+          solo indica «Persona natural». Tampoco guarda los nombres de los residentes ni de los supervisores.
+        </Paragraph>
+        <Paragraph>
+          La pestaña «Contratistas» del ranking suma, por empresa o consorcio, sus obras, los montos contratados, los
+          adicionales y las obras que figuran en el último informe de obras paralizadas. Son datos registrados por las
+          entidades, sin valoración de Fiscus. Fuente: Contraloría General de la República, INFOBRAS.
+        </Paragraph>
+      </>
+    ),
+  },
+  {
     title: 'Cómo leer un proyecto',
     body: (
       <Bullets

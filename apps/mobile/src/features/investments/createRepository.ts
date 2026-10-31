@@ -2,7 +2,13 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 
 import { createInMemoryInvestmentsRepository } from './adapters/inMemoryInvestmentsRepository';
-import { MOCK_COST_CHANGES, MOCK_PARALYZED_WORKS, MOCK_ROWS } from './adapters/sampleData';
+import {
+  MOCK_COST_CHANGES,
+  MOCK_INFOBRAS_DATA_AS_OF,
+  MOCK_INFOBRAS_WORKS,
+  MOCK_PARALYZED_WORKS,
+  MOCK_ROWS,
+} from './adapters/sampleData';
 import { createSupabaseInvestmentsRepository } from './adapters/supabaseInvestmentsRepository';
 import type { DataSource } from './dataSource';
 import type { InvestmentsRepository } from './ports/InvestmentsRepository';
@@ -23,6 +29,8 @@ export function createRepository(
       rows: MOCK_ROWS,
       costChanges: MOCK_COST_CHANGES,
       paralyzedWorks: MOCK_PARALYZED_WORKS,
+      infobrasWorks: MOCK_INFOBRAS_WORKS,
+      infobrasDataAsOf: MOCK_INFOBRAS_DATA_AS_OF,
       lastRun: { startedAt: '2026-10-26T05:00:00Z', finishedAt: '2026-10-26T05:30:00Z' },
       freshness: {
         ssiLastSuccessAt: source.staleData ? STALE_SAMPLE_UPDATE : recent,

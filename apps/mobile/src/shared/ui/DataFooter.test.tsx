@@ -27,7 +27,8 @@ describe('DataFooter', () => {
     expect(
       screen.getByText(
         'Fuentes: MEF – Sistema de Seguimiento de Inversiones; MEF – Datos Abiertos, Detalle de inversiones; ' +
-          'MEF – Datos Abiertos, Cierre de inversiones; Contraloría – Informe de obras paralizadas',
+          'MEF – Datos Abiertos, Cierre de inversiones; Contraloría – Informe de obras paralizadas; ' +
+          'Contraloría – INFOBRAS',
       ),
     ).toBeOnTheScreen();
   });
@@ -40,7 +41,14 @@ describe('DataFooter', () => {
         paralyzedSource="Contraloría – Informe de obras paralizadas (corte junio 2026)"
       />,
     );
-    expect(screen.getByText(/; Contraloría – Informe de obras paralizadas \(corte junio 2026\)$/)).toBeOnTheScreen();
+    expect(screen.getByText(/; Contraloría – Informe de obras paralizadas \(corte junio 2026\);/)).toBeOnTheScreen();
+  });
+
+  it('names the date of the INFOBRAS data it is given', async () => {
+    await render(
+      <DataFooter finishedAt={null} isDemo={false} infobrasSource="Contraloría – INFOBRAS (datos al 31/03/2026)" />,
+    );
+    expect(screen.getByText(/; Contraloría – INFOBRAS \(datos al 31\/03\/2026\)$/)).toBeOnTheScreen();
   });
 
   it('shows when the open data was last checked', async () => {
