@@ -290,6 +290,9 @@ export const LEVELS_DEMO_SAMPLE: InvestmentRow[] = [
     lastAccrualMonth: '2026-09-01',
     departmentCode: null,
     departmentName: null,
+    // As MEF writes it for a project spanning several provinces and districts.
+    province: '- TODOS -',
+    district: '- TODOS -',
     dataSource: 'open_data',
   }),
   sampleRow({
