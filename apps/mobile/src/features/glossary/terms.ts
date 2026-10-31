@@ -21,6 +21,7 @@ export const TERM_IDS = [
   'estado',
   'cierre',
   'liquidacion',
+  'obra-paralizada',
   'sin-gasto-reciente',
   'costo-no-valido',
   'dato-inusual',
@@ -38,8 +39,11 @@ export interface GlossaryTerm {
   definition: string;
   /** An optional second sentence. */
   extra?: string;
-  /** 'mef': MEF / Invierte.pe terminology. 'fiscus': a rule or record of Fiscus. */
-  kind: 'mef' | 'fiscus';
+  /**
+   * 'mef': MEF / Invierte.pe terminology. 'contraloria': an official record of the Contraloría.
+   * 'fiscus': a rule or record of Fiscus.
+   */
+  kind: 'mef' | 'contraloria' | 'fiscus';
 }
 
 export const TERMS: Record<TermId, GlossaryTerm> = {
@@ -144,11 +148,18 @@ export const TERMS: Record<TermId, GlossaryTerm> = {
     extra: 'Puede ser distinto del costo actualizado; Fiscus lo muestra tal como lo publica el MEF.',
     kind: 'mef',
   },
+  'obra-paralizada': {
+    id: 'obra-paralizada',
+    term: 'Obra paralizada (Contraloría)',
+    definition: 'Obra pública que la Contraloría General de la República registra como paralizada en su informe trimestral de obras paralizadas, con la causal, el avance físico y el saldo de obra a una fecha de corte.',
+    extra: 'Es un dato oficial, no una regla de Fiscus, y no equivale a «Sin gasto reciente», que solo mira el gasto registrado en el MEF.',
+    kind: 'contraloria',
+  },
   'sin-gasto-reciente': {
     id: 'sin-gasto-reciente',
     term: 'Sin gasto reciente',
     definition: 'Regla de Fiscus: proyecto activo, con costo actualizado válido, que gastó entre el 5 % y el 95 % de su costo y no registra devengado en los 12 meses previos al último mes con datos.',
-    extra: 'No significa que la obra esté paralizada, solo que no hay gasto registrado.',
+    extra: 'No significa que la obra esté paralizada: la lista oficial de obras paralizadas es la de la Contraloría, que Fiscus muestra aparte.',
     kind: 'fiscus',
   },
   'costo-no-valido': {

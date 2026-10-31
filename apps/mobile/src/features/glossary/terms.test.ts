@@ -51,6 +51,7 @@ describe('glossary terms', () => {
       'Estado y situación',
       'Cierre de la inversión',
       'Liquidación',
+      'Obra paralizada (Contraloría)',
       'Sin gasto reciente',
       'Costo actualizado no válido',
       'Dato inusual',
@@ -61,6 +62,16 @@ describe('glossary terms', () => {
 
   it('points the function term to the crosswalk in the guide', () => {
     expect(termById('funcion').extra).toBe('Fiscus agrupa la clasificación anterior del MEF en la vigente; ver la guía.');
+  });
+
+  it('keeps the official list of paralyzed works and the Fiscus rule apart, in both definitions', () => {
+    const official = termById('obra-paralizada');
+    const rule = termById('sin-gasto-reciente');
+    expect(official.kind).toBe('contraloria');
+    expect(official.definition).toMatch(/Contraloría General de la República/);
+    expect(official.extra).toMatch(/«Sin gasto reciente»/);
+    expect(rule.kind).toBe('fiscus');
+    expect(rule.extra).toMatch(/Contraloría/);
   });
 
   it('keys every term by its id', () => {
@@ -77,7 +88,7 @@ describe('glossary terms', () => {
   it('says so when a definition is a rule of Fiscus', () => {
     expect(FISCUS_RULES.map((t) => t.id)).toEqual(['sin-gasto-reciente', 'costo-no-valido', 'dato-inusual', 'historial']);
     for (const term of FISCUS_RULES) expect(term.definition.startsWith('Regla de Fiscus: ')).toBe(true);
-    for (const term of GLOSSARY.filter((t) => t.kind === 'mef')) expect(term.definition).not.toMatch(/Regla de Fiscus/);
+    for (const term of GLOSSARY.filter((t) => t.kind !== 'fiscus')) expect(term.definition).not.toMatch(/Regla de Fiscus/);
   });
 
   it('defines every term the app refers to', () => {

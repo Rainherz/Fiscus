@@ -13,6 +13,8 @@ export interface TableColumn {
   sorted: boolean;
   /** Glossary term of the column, explained by `renderHint` in the header. */
   term?: string;
+  /** A short text instead of a figure (a causal): wider and left-aligned. */
+  text?: boolean;
 }
 
 export interface TableRowData {
@@ -68,11 +70,22 @@ export function TableHeader({
         </MonoText>
       ) : null}
       {columns.map((column) => (
-        <View key={column.key} style={[styles.figure, styles.figureHead, column.sorted && styles.sortedHead]}>
+        <View
+          key={column.key}
+          style={[
+            styles.figure,
+            styles.figureHead,
+            column.text && styles.textColumn,
+            column.text && styles.textHead,
+            column.sorted && styles.sortedHead,
+          ]}>
           <MonoText
             bold
             size={11}
-            style={[styles.figureText, column.sorted ? styles.sortedHeadText : styles.headText]}
+            style={[
+              column.text ? styles.textCell : styles.figureText,
+              column.sorted ? styles.sortedHeadText : styles.headText,
+            ]}
             {...hiddenFromReaders}>
             {column.label.toUpperCase()}
           </MonoText>
@@ -132,8 +145,12 @@ export function TableRow({ rank, row, columns, spread, national, onPress }: RowP
         </MonoText>
       ) : null}
       {columns.map((column, index) => (
-        <View key={column.key} style={styles.figure}>
-          <MonoText bold={column.sorted} size={13} style={styles.figureText}>
+        <View key={column.key} style={[styles.figure, column.text && styles.textColumn]}>
+          <MonoText
+            bold={column.sorted}
+            size={column.text ? 12 : 13}
+            style={column.text ? styles.textCell : styles.figureText}
+            numberOfLines={column.text ? 2 : undefined}>
             {row.cells[index]}
           </MonoText>
         </View>
@@ -169,6 +186,9 @@ const styles = StyleSheet.create({
   region: { flex: 1.1, alignSelf: 'center' },
   figure: { flex: 1, minWidth: 84, justifyContent: 'center', paddingHorizontal: space.xs },
   figureText: { textAlign: 'right' },
+  textColumn: { flex: 2, minWidth: 160 },
+  textHead: { justifyContent: 'flex-start' },
+  textCell: { textAlign: 'left' },
   figureHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.xs },
   headText: { color: colors.muted },
   sortedHead: { backgroundColor: colors.ink, paddingVertical: space.sm },

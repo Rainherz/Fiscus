@@ -2,6 +2,7 @@ import { canonicalFunction } from '../domain/functionCrosswalk';
 import type { GovernmentLevel } from '../domain/governmentLevel';
 import type { InvestmentClosure } from '../domain/investment';
 import type { CostChangeRow, InvestmentRow } from '../domain/mappers';
+import type { ParalyzedWork } from '../domain/paralyzed';
 
 interface SampleInput {
   cui: string;
@@ -472,6 +473,76 @@ export const MOCK_ROWS: InvestmentRow[] = [
   ...LEVELS_DEMO_SAMPLE,
   ...CLOSED_DEMO_SAMPLE,
 ].map(withDemoCoordinates);
+
+const DEMO_EDITION = { editionCutoff: '2026-06-30', publishedAt: '2026-08-17' };
+
+function demoWork(work: Omit<ParalyzedWork, 'editionCutoff' | 'publishedAt' | 'mefReportUrl'>): ParalyzedWork {
+  return { ...DEMO_EDITION, mefReportUrl: null, ...work };
+}
+
+/**
+ * DEMO ONLY, not Contraloría data: invented obras of the paralyzed-works report, linked to demo CUIs,
+ * so the demo mode shows the Contraloría block, ranking, home block and map ring. One project has two
+ * obras and also meets "Sin gasto reciente" (the two are independent); one is closed, so it only
+ * shows with the "Todos" status. INFOBRAS codes are made up (above any real ObraId seen) and no MEF
+ * report is linked.
+ */
+export const MOCK_PARALYZED_WORKS: ParalyzedWork[] = [
+  demoWork({
+    infobrasCode: 990001,
+    cui: '9900001',
+    obraDescription: 'Planta de tratamiento, primera etapa (demo)',
+    causalCode: 2,
+    causalLabel: 'INCUMPLIMIENTO DE CONTRATO',
+    physicalProgress: 38.5,
+    remainingWorkBalance: 61_250_000,
+  }),
+  demoWork({
+    infobrasCode: 990002,
+    cui: '9900001',
+    obraDescription: 'Planta de tratamiento, emisor (demo)',
+    causalCode: 10,
+    causalLabel: 'FALTA DE RECURSOS FINANCIEROS Y LIQUIDEZ',
+    physicalProgress: 52,
+    remainingWorkBalance: 18_400_000,
+  }),
+  demoWork({
+    infobrasCode: 990003,
+    cui: '9900102',
+    obraDescription: 'Puente vehicular sobre el río Chili (demo)',
+    causalCode: 5,
+    causalLabel: 'DEFICIENCIA EN EL EXPEDIENTE TÉCNICO',
+    physicalProgress: 57,
+    remainingWorkBalance: 94_000_000,
+  }),
+  demoWork({
+    infobrasCode: 990004,
+    cui: '9900203',
+    obraDescription: 'Mercado de abastos de San Jerónimo (demo)',
+    causalCode: 10,
+    causalLabel: 'FALTA DE RECURSOS FINANCIEROS Y LIQUIDEZ',
+    physicalProgress: 41,
+    remainingWorkBalance: 9_800_000,
+  }),
+  demoWork({
+    infobrasCode: 990005,
+    cui: '9900003',
+    obraDescription: 'Institución educativa secundaria (demo)',
+    causalCode: 3,
+    causalLabel: 'DISCREPANCIAS, CONTROVERSIAS Y ARBITRAJE',
+    physicalProgress: 74,
+    remainingWorkBalance: 4_100_000,
+  }),
+  demoWork({
+    infobrasCode: 990006,
+    cui: '9900302',
+    obraDescription: 'Sistema de riego en Chiguata (demo)',
+    causalCode: 1,
+    causalLabel: 'ABANDONO DE OBRA',
+    physicalProgress: 40,
+    remainingWorkBalance: 1_750_000,
+  }),
+];
 
 type Amount = number | string | null | undefined;
 const amount = (value: Amount): number | null => (value === null || value === undefined ? null : Number(value));

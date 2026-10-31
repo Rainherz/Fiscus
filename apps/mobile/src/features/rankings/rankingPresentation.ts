@@ -10,6 +10,8 @@ import {
 
 import { withRegion } from '../department/scope';
 import type { EntityComparison } from '../investments/domain/entityComparison';
+import type { ParalyzedInvestment } from '../investments/domain/paralyzed';
+import { PARALYZED_RULE_NOTE } from '../paralyzed/paralyzedPresentation';
 import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 import type { Investment, RankingKind } from '../investments/domain/investment';
 import type { StatusFilter } from '../investments/domain/investmentStatus';
@@ -24,11 +26,12 @@ import type { StalledInvestment } from '../investments/domain/stalled';
  * it opens the default one. The entity drill-down (`/entity`) has the project tabs only.
  */
 export type ProjectTab = RankingKind | 'stalled';
-export type RankingTab = ProjectTab | 'entities';
+/** 'paralyzed': the Contraloría's official list (Rankings screen only: it has no entity filter). */
+export type RankingTab = ProjectTab | 'paralyzed' | 'entities';
 
 export const PROJECT_TABS: readonly ProjectTab[] = ['increase-amount', 'increase-pct', 'cost', 'duration', 'stalled'];
 
-export const RANKING_TABS: readonly RankingTab[] = [...PROJECT_TABS, 'entities'];
+export const RANKING_TABS: readonly RankingTab[] = [...PROJECT_TABS, 'paralyzed', 'entities'];
 
 export function isRankingTab(value: unknown): value is RankingTab {
   return typeof value === 'string' && (RANKING_TABS as readonly string[]).includes(value);
@@ -42,6 +45,7 @@ export function isProjectTab(value: unknown): value is ProjectTab {
 export type RankingList =
   | { kind: RankingKind; items: Investment[] }
   | { kind: 'stalled'; items: StalledInvestment[] }
+  | { kind: 'paralyzed'; items: ParalyzedInvestment[] }
   | { kind: 'entities'; items: EntityComparison[] };
 
 export const RANKING_OPTIONS: readonly { key: ProjectTab; label: string }[] = [
@@ -54,6 +58,7 @@ export const RANKING_OPTIONS: readonly { key: ProjectTab; label: string }[] = [
 
 export const RANKINGS_SCREEN_OPTIONS: readonly { key: RankingTab; label: string }[] = [
   ...RANKING_OPTIONS,
+  { key: 'paralyzed', label: 'Paralizadas (Contraloría)' },
   { key: 'entities', label: 'Entidades' },
 ];
 
@@ -93,6 +98,8 @@ export function rankingNote(kind: RankingTab): string | null {
   switch (kind) {
     case 'stalled':
       return STALLED_RULE_NOTE;
+    case 'paralyzed':
+      return PARALYZED_RULE_NOTE;
     case 'increase-pct':
       return 'Solo proyectos aprobados por más de S/ 1 M.';
     case 'duration':

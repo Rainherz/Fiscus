@@ -16,8 +16,15 @@ import {
   type StalledInvestmentRow,
 } from '../domain/mappers';
 import {
+  mapParalyzedInvestmentRow,
+  summarizeParalyzedWorks,
+  type ParalyzedInvestmentRow,
+  type ParalyzedWork,
+} from '../domain/paralyzed';
+import {
   NATIONAL_SCOPE_CODE,
   buildEntityQuery,
+  buildParalyzedQuery,
   buildStalledQuery,
   type Filter,
   type InvestmentQuery,
@@ -155,9 +162,45 @@ export function createInMemoryInvestmentsRepository(seed: {
   costChanges?: CostChangeRow[];
   /** Defaults to the last run as the last SSI success and no open-data check. */
   freshness?: DataFreshness;
+  /** Obras of the latest Contraloría edition of paralyzed works; none by default. */
+  paralyzedWorks?: ParalyzedWork[];
 }): InvestmentsRepository {
   const rows = seed.rows;
   const changes = (seed.costChanges ?? []).map(mapCostChangeRow);
+  const works = seed.paralyzedWorks ?? [];
+  const paralyzedCuis = new Set(works.flatMap((work) => (work.cui === null ? [] : [work.cui])));
+  /** The obras of one CUI, largest remaining balance first (like the Supabase read). */
+  const worksOf = (cui: string) =>
+    works
+      .filter((work) => work.cui === cui)
+      .sort(
+        (a, b) =>
+          (b.remainingWorkBalance ?? -Infinity) - (a.remainingWorkBalance ?? -Infinity) || a.infobrasCode - b.infobrasCode,
+      );
+  /** Rows of the `paralyzed_investments` view: the paralyzed CUIs Fiscus has. */
+  const paralyzedRows = (): ParalyzedInvestmentRow[] =>
+    rows.flatMap((row) => {
+      const summary = paralyzedCuis.has(row.cui) ? summarizeParalyzedWorks(worksOf(row.cui)) : null;
+      if (!summary) return [];
+      return [
+        {
+          cui: row.cui,
+          edition_cutoff: summary.editionCutoff,
+          published_at: summary.publishedAt,
+          obra_count: summary.obraCount,
+          main_causal_label: summary.mainCausalLabel,
+          min_physical_progress: summary.minPhysicalProgress,
+          max_physical_progress: summary.maxPhysicalProgress,
+          total_remaining_work_balance: summary.totalRemainingWorkBalance,
+          infobras_codes: summary.infobrasCodes,
+          name: row.name,
+          entity: row.entity,
+          department_code: row.department_code,
+          government_level: row.government_level,
+          status: row.status,
+        },
+      ];
+    });
   return {
     async findMany(query: InvestmentQuery) {
       return runQuery(rows, query).map(mapInvestmentRow);
@@ -256,10 +299,29 @@ export function createInMemoryInvestmentsRepository(seed: {
       ).map(mapEntityComparisonRow);
     },
     async getMapPoints(request) {
-      return computeMapPoints(rows.map(mapInvestmentRow), request);
+      return computeMapPoints(rows.map(mapInvestmentRow), request, paralyzedCuis);
     },
     async getMapList(request) {
-      return computeMapList(rows.map(mapInvestmentRow), request);
+      return computeMapList(rows.map(mapInvestmentRow), request, paralyzedCuis);
+    },
+    async getParalyzedDetail(cui) {
+      const own = worksOf(cui);
+      const summary = summarizeParalyzedWorks(own);
+      return summary ? { summary, works: own } : null;
+    },
+    async getParalyzedInvestments(params) {
+      return runQuery(paralyzedRows(), buildParalyzedQuery(params)).map(mapParalyzedInvestmentRow);
+    },
+    async countParalyzedInvestments(departmentCode, level, status) {
+      const { filters } = buildParalyzedQuery({ departmentCode, level, status, page: 0 });
+      return paralyzedRows().filter((row) => filters.every((filter) => matches(row, filter))).length;
+    },
+    async getParalyzedEdition() {
+      const latest = works.reduce<ParalyzedWork | null>(
+        (best, work) => (best === null || work.editionCutoff > best.editionCutoff ? work : best),
+        null,
+      );
+      return latest ? { editionCutoff: latest.editionCutoff, publishedAt: latest.publishedAt } : null;
     },
   };
 }

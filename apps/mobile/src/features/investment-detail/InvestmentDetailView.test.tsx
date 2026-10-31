@@ -262,6 +262,14 @@ describe('InvestmentDetailView', () => {
     expect(screen.getByLabelText('Beneficiarios: —')).toBeOnTheScreen();
   });
 
+  it('shows the Contraloría block it is given under the name, before the cost figures', async () => {
+    await render(<InvestmentDetailView investment={full} now={NOW} paralyzed={<Text>contraloria</Text>} />);
+    const text = JSON.stringify(screen.toJSON());
+    expect(screen.getByText('contraloria')).toBeOnTheScreen();
+    expect(text.indexOf('contraloria')).toBeGreaterThan(text.indexOf('Majes Siguas II etapa'));
+    expect(text.indexOf('contraloria')).toBeLessThan(text.indexOf('APROBADO (MONTO VIABLE)'));
+  });
+
   it('renders the cost history it is given', async () => {
     await render(<InvestmentDetailView investment={full} now={NOW} costHistory={<Text>historial</Text>} />);
     expect(screen.getByText('historial')).toBeOnTheScreen();

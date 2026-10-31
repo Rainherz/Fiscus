@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccrualReferenceMonth, useInvestment } from '@/features/investments/hooks/queries';
+import { ParalyzedBlockContainer } from '@/features/paralyzed/ParalyzedBlockContainer';
 import { ShareCardContainer } from '@/features/share-card/ShareCardContainer';
 import { colors } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
@@ -39,6 +40,7 @@ export function InvestmentDetailContainer() {
             now={new Date()}
             referenceMonth={referenceMonth.data ?? null}
             costHistory={<CostHistoryContainer cui={cui} />}
+            paralyzed={<ParalyzedBlockContainer cui={cui} />}
             onShare={() => setSharing(true)}
             onOpenMap={() => router.push({ pathname: '/map', params: { cui } })}
           />

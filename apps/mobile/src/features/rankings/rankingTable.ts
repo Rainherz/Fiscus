@@ -3,7 +3,9 @@ import type { TermId } from '@/features/glossary/terms';
 import { levelTag, projectTag } from '@/features/government-level/levelPresentation';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import type { Investment, RankingKind } from '@/features/investments/domain/investment';
+import type { ParalyzedInvestment } from '@/features/investments/domain/paralyzed';
 import type { StalledInvestment } from '@/features/investments/domain/stalled';
+import { paralyzedCausal, paralyzedProgressText } from '@/features/paralyzed/paralyzedPresentation';
 import {
   formatInteger,
   formatMonthShort,
@@ -44,6 +46,8 @@ interface ColumnSpec<T> {
   label: string;
   /** Glossary term explained by a hint in the desktop header. */
   term?: TermId;
+  /** A short text (left-aligned, wider) instead of a figure. */
+  text?: boolean;
   compact: boolean;
   value: (item: T) => string;
 }
@@ -61,6 +65,7 @@ function build<T>(
     label: spec.label,
     sorted: spec.key === sortedKey,
     ...(spec.term ? { term: spec.term } : {}),
+    ...(spec.text ? { text: true } : {}),
   }));
   const rows = items.map((item, index) => {
     const base = row(item, index);
@@ -135,6 +140,13 @@ const STALLED_SPECS: ColumnSpec<StalledInvestment>[] = [
   { key: 'current', label: 'Costo actual', term: 'costo-actualizado', compact: false, value: (item) => formatSoles(item.updatedCost) },
 ];
 
+const PARALYZED_SPECS: ColumnSpec<ParalyzedInvestment>[] = [
+  { key: 'causal', label: 'Causal', term: 'obra-paralizada', text: true, compact: true, value: (item) => paralyzedCausal(item.mainCausalLabel) },
+  { key: 'progress', label: 'Avance físico', term: 'avance-fisico', compact: true, value: paralyzedProgressText },
+  { key: 'balance', label: 'Saldo de obra', compact: true, value: (item) => formatSoles(item.totalRemainingWorkBalance) },
+  { key: 'obras', label: 'Obras', compact: false, value: (item) => formatInteger(item.obraCount) },
+];
+
 const ENTITY_SPECS: ColumnSpec<EntityComparison>[] = [
   { key: 'projects', label: 'Proyectos', compact: true, value: (item) => formatInteger(item.projectCount) },
   { key: 'with-increase', label: 'Con aumento', compact: false, value: (item) => formatInteger(item.projectsWithIncrease) },
@@ -173,6 +185,21 @@ export function rankingTable(list: RankingList, now: Date, options: Options = {}
       );
     case 'stalled':
       return build(STALLED_SPECS, 'since', list.items, projectRow, options);
+    case 'paralyzed':
+      return build(
+        PARALYZED_SPECS,
+        'balance',
+        list.items,
+        (item) => ({
+          key: item.cui,
+          name: item.name ?? 'Sin nombre',
+          sub: item.entity,
+          tag: projectTag(item),
+          region: regionLabel(item.departmentCode),
+          target: { kind: 'investment', cui: item.cui },
+        }),
+        options,
+      );
     default: {
       const { specs, sorted } = projectSpecs(list.kind, now);
       return build(specs, sorted, list.items, projectRow, options);

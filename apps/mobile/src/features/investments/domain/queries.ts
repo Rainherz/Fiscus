@@ -243,6 +243,30 @@ export function buildStalledQuery(params: {
   };
 }
 
+/** Columns of the `paralyzed_investments` view used by its query spec. */
+export type ParalyzedColumn = 'cui' | 'department_code' | 'government_level' | 'status' | 'total_remaining_work_balance';
+
+/**
+ * "Paralizadas (Contraloría)": the CUIs of the latest Contraloría edition that Fiscus has, within the
+ * scope, level and status, largest remaining balance (saldo de obra) first.
+ */
+export function buildParalyzedQuery(params: {
+  departmentCode?: number;
+  level?: LevelFilter;
+  status?: StatusFilter;
+  page: number;
+  pageSize?: number;
+}): InvestmentQuery<ParalyzedColumn> {
+  return {
+    filters: inReadScope<ParalyzedColumn>({ departmentCode: params.departmentCode, level: params.level, status: params.status }),
+    order: [
+      { column: 'total_remaining_work_balance', ascending: false },
+      { column: 'cui', ascending: true },
+    ],
+    range: pageRange(params.page, params.pageSize ?? PAGE_SIZE),
+  };
+}
+
 const ENTITY_SORTS: Record<RegionSort, { filters: Filter<EntityColumn>[]; order: Order<EntityColumn>[] }> = {
   'increase-amount': {
     filters: [{ column: 'total_cost_increase', op: 'gt', value: 0 }],

@@ -14,6 +14,8 @@ interface Props {
   isDemo: boolean;
   /** Opens the guide ("Cómo leer estos datos"); the link is hidden when absent. */
   onPressGuide?: () => void;
+  /** The Contraloría report with its edition, e.g. "(corte junio 2026)"; the plain name by default. */
+  paralyzedSource?: string;
 }
 
 export const SOURCE_NAME = 'MEF – Sistema de Seguimiento de Inversiones';
@@ -21,6 +23,8 @@ export const SOURCE_NAME = 'MEF – Sistema de Seguimiento de Inversiones';
 export const OPEN_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Detalle de inversiones';
 /** Closed investments of every level that only the closed-investments file has (CIERRE_INVERSIONES.csv). */
 export const CLOSED_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Cierre de inversiones';
+/** The official list of paralyzed works (Contraloría General de la República). */
+export const PARALYZED_DATA_SOURCE_NAME = 'Contraloría – Informe de obras paralizadas';
 
 /** The source a project's figures come from (`investments.data_source`). */
 export function sourceNameOf(dataSource: 'ssi' | 'open_data' | 'open_data_closed'): string {
@@ -33,7 +37,13 @@ export function sourceNameOf(dataSource: 'ssi' | 'open_data' | 'open_data_closed
  * Demo notice, last SSI update, last open-data check and sources. Phones show it as the last block of the screen; tablet
  * and desktop as a page footer: a full-width rule, sources on the left and the date on the right.
  */
-export function DataFooter({ finishedAt, openDataCheckedAt = null, isDemo, onPressGuide }: Props) {
+export function DataFooter({
+  finishedAt,
+  openDataCheckedAt = null,
+  isDemo,
+  onPressGuide,
+  paralyzedSource = PARALYZED_DATA_SOURCE_NAME,
+}: Props) {
   const breakpoint = useBreakpoint();
   const demo = isDemo ? (
     <MonoText bold size={11}>
@@ -57,7 +67,11 @@ export function DataFooter({ finishedAt, openDataCheckedAt = null, isDemo, onPre
       </MonoText>
     </Pressable>
   ) : null;
-  const sources = <MonoText size={11} muted>{`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}; ${CLOSED_DATA_SOURCE_NAME}`}</MonoText>;
+  const sources = (
+    <MonoText size={11} muted>
+      {`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}; ${CLOSED_DATA_SOURCE_NAME}; ${paralyzedSource}`}
+    </MonoText>
+  );
 
   if (isWide(breakpoint)) {
     return (

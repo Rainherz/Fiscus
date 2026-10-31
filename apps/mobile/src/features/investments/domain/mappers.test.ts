@@ -553,6 +553,7 @@ describe('mapMapListRows', () => {
           physicalProgress: 42,
           lastAccrualMonth: '2026-10-01',
           stalled: false,
+          paralyzed: false,
         },
       ],
     });

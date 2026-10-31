@@ -75,6 +75,12 @@ describe('toMapFeatures', () => {
     ]);
   });
 
+  it('marks projects in the Contraloría report, which the page rings in signal yellow', () => {
+    expect(toMapFeatures({ kind: 'points', points: [{ ...point, paralyzed: true }] })).toEqual([
+      expect.objectContaining({ id: '2088142', paralyzed: true }),
+    ]);
+  });
+
   it('marks closed projects, which the page draws hollow', () => {
     expect(toMapFeatures({ kind: 'points', points: [{ ...point, closed: true }] })).toEqual([
       expect.objectContaining({ id: '2088142', increased: true, closed: true }),
@@ -109,6 +115,7 @@ const item: MapListItem = {
   physicalProgress: null,
   lastAccrualMonth: '2026-10-01',
   stalled: false,
+  paralyzed: false,
 };
 
 describe('withSelected', () => {
@@ -173,6 +180,17 @@ describe('pointCardFacts', () => {
 
   it('leaves out the cost figures when the cost is not valid', () => {
     expect(pointCardFacts({ ...item, updatedCostValid: false, physicalProgress: 5 })).toEqual(['AVANCE FÍSICO 5 %']);
+  });
+
+  it('states that the Contraloría lists it as paralyzed, apart from the stalled line', () => {
+    const both = { ...item, stalled: true, lastAccrualMonth: '2025-02-01', paralyzed: true };
+    expect(pointCardFacts(both)).toEqual([
+      'COSTO ACTUAL S/ 5,148 M',
+      'GASTADO 18 % DEL COSTO',
+      'Sin gasto desde feb 2025',
+      'Paralizada según la Contraloría',
+    ]);
+    expect(pointCardFactTerms(both)).toEqual(['costo-actualizado', 'gastado', 'sin-gasto-reciente', 'obra-paralizada']);
   });
 });
 

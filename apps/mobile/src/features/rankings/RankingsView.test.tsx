@@ -29,7 +29,7 @@ describe('RankingsView', () => {
 
   it('only ranks projects of the selected region: the region comparison lives in the region picker', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: arequipa }} />);
-    expect(screen.getAllByRole('tab')).toHaveLength(6);
+    expect(screen.getAllByRole('tab')).toHaveLength(7);
     expect(screen.getByRole('tab', { name: 'Entidades' })).toBeOnTheScreen();
     expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
   });
@@ -101,6 +101,42 @@ describe('RankingsView', () => {
       }),
     );
     expect(onPressInvestment).toHaveBeenCalledWith('7');
+  });
+
+  it('lists the projects in the Contraloría report of paralyzed works with its note', async () => {
+    const onPressInvestment = jest.fn();
+    const item = {
+      cui: '2151761',
+      editionCutoff: '2026-06-30',
+      publishedAt: '2026-08-17',
+      obraCount: 1,
+      mainCausalLabel: 'ABANDONO DE OBRA',
+      minPhysicalProgress: 12,
+      maxPhysicalProgress: 12,
+      totalRemainingWorkBalance: 4_500_000,
+      infobrasCodes: [81],
+      name: 'Agua Muñapata',
+      entity: null,
+      departmentCode: 8,
+      governmentLevel: 'GL' as const,
+      status: 'ACTIVO',
+    };
+    await render(
+      <RankingsView {...baseProps} list={{ kind: 'paralyzed', items: [item] }} onPressInvestment={onPressInvestment} />,
+    );
+    expect(screen.getByRole('tab', { name: 'Paralizadas (Contraloría)' })).toBeSelected();
+    expect(screen.getByText(/informe trimestral de obras paralizadas de la Contraloría/)).toBeOnTheScreen();
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: '1. Agua Muñapata, Gobierno local, Abandono de obra, Avance físico 12 % · S/ 4.5 M saldo de obra',
+      }),
+    );
+    expect(onPressInvestment).toHaveBeenCalledWith('2151761');
+  });
+
+  it('states when no project of the scope is in the Contraloría report', async () => {
+    await render(<RankingsView {...baseProps} list={{ kind: 'paralyzed', items: [] }} />);
+    expect(screen.getByText('Ningún proyecto de este ámbito figura en el último informe de obras paralizadas.')).toBeOnTheScreen();
   });
 
   it('keeps the other rankings and states when no project lacks recent spending', async () => {

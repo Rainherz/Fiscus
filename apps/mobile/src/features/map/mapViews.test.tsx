@@ -44,6 +44,7 @@ const item = (cui: string, extra: Partial<MapListItem> = {}): MapListItem => ({
   physicalProgress: null,
   lastAccrualMonth: '2026-10-01',
   stalled: false,
+  paralyzed: false,
   ...extra,
 });
 

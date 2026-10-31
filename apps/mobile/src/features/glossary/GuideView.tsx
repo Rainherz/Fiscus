@@ -98,6 +98,33 @@ export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: Re
     ),
   },
   {
+    title: 'Obras paralizadas según la Contraloría',
+    testID: 'guide-paralyzed',
+    body: (
+      <>
+        <Paragraph>
+          La Contraloría General de la República publica un informe trimestral de obras paralizadas en el territorio
+          nacional, con una base de datos de cada obra registrada en INFOBRAS: la causal de la paralización, el avance
+          físico, el saldo de obra y si está en el inventario de obras paralizadas del MEF.
+        </Paragraph>
+        <Paragraph>
+          Fiscus revisa el informe cada semana y carga la nueva edición cuando aparece. Cada edición tiene una fecha de
+          corte; la app la muestra junto con la fecha de publicación. Un proyecto se marca como paralizado cuando su CUI
+          figura en la última edición; un mismo CUI puede tener varias obras.
+        </Paragraph>
+        <Paragraph>
+          «Sin gasto reciente» es una regla de Fiscus que solo mira el gasto registrado en el MEF; la lista de obras
+          paralizadas es un dato oficial de la Contraloría. Un proyecto puede estar en una, en la otra, en ambas o en
+          ninguna.
+        </Paragraph>
+        <Paragraph>
+          Cada obra enlaza a su ficha pública en INFOBRAS y, cuando existe, al informe situacional registrado en el MEF.
+          Fuente: Contraloría General de la República.
+        </Paragraph>
+      </>
+    ),
+  },
+  {
     title: 'Cómo leer un proyecto',
     body: (
       <Bullets
@@ -133,7 +160,7 @@ export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: Re
   {
     title: 'Glosario',
     testID: 'guide-glossary',
-    body: GLOSSARY.filter((term) => term.kind === 'mef').map((term) => <TermEntry key={term.id} term={term} />),
+    body: GLOSSARY.filter((term) => term.kind !== 'fiscus').map((term) => <TermEntry key={term.id} term={term} />),
   },
   {
     title: 'Reglas de Fiscus',
@@ -156,6 +183,7 @@ export const GUIDE_SECTIONS: readonly { title: string; testID?: string; body: Re
           'SSI y Datos Abiertos no cubren lo mismo: el SSI trae solo gobiernos regionales, incluidos proyectos cerrados; Datos Abiertos trae los tres niveles, pero solo proyectos activos. Los proyectos cerrados del Gobierno Nacional y de gobiernos locales no están en Fiscus.',
           'El mapa muestra solo los proyectos con coordenadas registradas en el MEF (≈77 %).',
           'El historial del costo empieza el 27/10/2026; los cambios anteriores no se conocen.',
+          'Las obras paralizadas se enlazan por CUI: las obras sin CUI en el informe de la Contraloría, o con un CUI que no está en Fiscus, no aparecen en los rankings ni en el mapa.',
           'Algunos costos actualizados publicados por el MEF son valores de relleno o truncados: si son menores que S/ 1,000 o que el 1 % del monto viable, Fiscus los marca como no válidos y no calcula aumento ni porcentaje gastado.',
         ]}
       />

@@ -10,7 +10,8 @@
     "typecheck": "pnpm -r typecheck",
     "ingest": "pnpm --filter @fiscus/ingest ingest",
     "ingest:open-data": "pnpm --filter @fiscus/ingest ingest:open-data",
-    "ingest:open-data-closed": "pnpm --filter @fiscus/ingest ingest:open-data-closed"
+    "ingest:open-data-closed": "pnpm --filter @fiscus/ingest ingest:open-data-closed",
+    "ingest:paralyzed": "pnpm --filter @fiscus/ingest ingest:paralyzed"
   },
   "devDependencies": {
     "supabase": "^2.122.0"

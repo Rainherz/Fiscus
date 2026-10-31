@@ -36,6 +36,16 @@ describe('ranking presentation', () => {
     expect(RANKING_OPTIONS.map((o) => o.key)).toEqual(PROJECT_TABS);
   });
 
+  it('adds "Paralizadas (Contraloría)" after "Sin gasto reciente" on the Rankings screen only', () => {
+    const labels = RANKINGS_SCREEN_OPTIONS.map((o) => o.label);
+    expect(labels.indexOf('Paralizadas (Contraloría)')).toBe(labels.indexOf('Sin gasto reciente') + 1);
+    expect(isRankingTab('paralyzed')).toBe(true);
+    expect(isProjectTab('paralyzed')).toBe(false);
+    expect(rankingNote('paralyzed')).toMatch(/Contraloría/);
+    // An official list, shown for every status like the other project rankings.
+    expect(isActiveOnlyTab('paralyzed', 'CLOSED')).toBe(false);
+  });
+
   it('adds "Entidades" as the last tab of the Rankings screen only', () => {
     expect(RANKINGS_SCREEN_OPTIONS.map((o) => o.label).at(-1)).toBe('Entidades');
     expect(RANKINGS_SCREEN_OPTIONS.map((o) => o.key)).toEqual(RANKING_TABS);

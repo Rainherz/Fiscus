@@ -42,6 +42,7 @@ const toPointFeature = (p: MapPoint): MapFeature => ({
   longitude: p.longitude,
   increased: hasValidIncrease(p),
   closed: p.closed === true,
+  ...(p.paralyzed === true ? { paralyzed: true } : {}),
 });
 
 export function toMapFeatures(result: MapPoints): MapFeature[] {
@@ -83,6 +84,7 @@ export function pointCardFacts(item: MapListItem): string[] {
   }
   if (item.physicalProgress !== null) facts.push(`AVANCE FÍSICO ${formatProgress(item.physicalProgress / 100)}`);
   if (item.stalled) facts.push(`Sin gasto desde ${formatMonthShort(item.lastAccrualMonth)}`);
+  if (item.paralyzed) facts.push('Paralizada según la Contraloría');
   return facts;
 }
 
@@ -97,6 +99,7 @@ export function pointCardFactTerms(item: MapListItem): TermId[] {
   if (item.updatedCostValid) terms.push('costo-actualizado', 'gastado');
   if (item.physicalProgress !== null) terms.push('avance-fisico');
   if (item.stalled) terms.push('sin-gasto-reciente');
+  if (item.paralyzed) terms.push('obra-paralizada');
   return terms;
 }
 

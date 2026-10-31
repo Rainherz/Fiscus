@@ -1,6 +1,6 @@
 import { mapCostChangeRow, mapInvestmentRow } from '../domain/mappers';
 import { createInMemoryInvestmentsRepository } from './inMemoryInvestmentsRepository';
-import { MOCK_COST_CHANGES, MOCK_ROWS, sampleRow } from './sampleData';
+import { MOCK_COST_CHANGES, MOCK_PARALYZED_WORKS, MOCK_ROWS, sampleRow } from './sampleData';
 
 const mock = MOCK_ROWS.map(mapInvestmentRow);
 
@@ -172,5 +172,25 @@ describe('MOCK_COST_CHANGES', () => {
 
   it('has unique ids', () => {
     expect(new Set(changes.map((c) => c.id)).size).toBe(changes.length);
+  });
+});
+
+describe('MOCK_PARALYZED_WORKS', () => {
+  it('links every demo obra to a demo project, with unique INFOBRAS codes', () => {
+    const cuis = new Set(MOCK_ROWS.map((r) => r.cui));
+    for (const work of MOCK_PARALYZED_WORKS) expect([work.cui, cuis.has(work.cui!)]).toEqual([work.cui, true]);
+    expect(new Set(MOCK_PARALYZED_WORKS.map((w) => w.infobrasCode)).size).toBe(MOCK_PARALYZED_WORKS.length);
+    expect(MOCK_PARALYZED_WORKS.every((w) => w.obraDescription?.endsWith('(demo)'))).toBe(true);
+  });
+
+  it('includes a project that is both paralyzed and without recent spending, with two obras', async () => {
+    const repo = createInMemoryInvestmentsRepository({ rows: MOCK_ROWS, lastRun: null, paralyzedWorks: MOCK_PARALYZED_WORKS });
+    const detail = await repo.getParalyzedDetail('9900001');
+    expect(detail?.works).toHaveLength(2);
+    const stalled = await repo.getStalledInvestments({ page: 0 });
+    expect(stalled.map((s) => s.cui)).toContain('9900001');
+    // The closed one only counts with every status.
+    expect(await repo.countParalyzedInvestments(undefined, 'ALL', 'ACTIVE')).toBe(4);
+    expect(await repo.countParalyzedInvestments(undefined, 'ALL', 'ALL')).toBe(5);
   });
 });

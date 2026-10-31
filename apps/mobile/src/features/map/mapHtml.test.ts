@@ -46,6 +46,13 @@ describe('buildMapHtml', () => {
     expect(html).toContain("'circle-opacity': ['case', CLOSED, 0, 1]");
   });
 
+  it('rings projects in the Contraloría report in signal yellow, under the point', () => {
+    expect(html).toContain('paralyzed: f.paralyzed === true');
+    expect(html).toContain("var PARALYZED = ['==', ['get', 'paralyzed'], true];");
+    expect(html).toContain("id: 'point-paralyzed'");
+    expect(html.indexOf("id: 'point-paralyzed'")).toBeLessThan(html.indexOf("id: 'points'"));
+  });
+
   it('embeds the initial view', () => {
     expect(html).toContain('"kind":"bounds"');
     const centered = buildMapHtml({ kind: 'center', latitude: -16.4, longitude: -71.5, zoom: 14 });

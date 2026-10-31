@@ -17,6 +17,7 @@ describe('GuideView', () => {
     expect(GUIDE_SECTIONS.map((section) => section.title)).toEqual([
       'Qué es Fiscus',
       'De dónde salen los datos',
+      'Obras paralizadas según la Contraloría',
       'Cómo leer un proyecto',
       'Clasificación por función',
       'Glosario',
@@ -27,10 +28,20 @@ describe('GuideView', () => {
     expect(headers.slice(1)).toEqual(GUIDE_SECTIONS.map((section) => section.title));
   });
 
-  it('defines every MEF term in the glossary and every Fiscus rule in its own section', async () => {
+  it('explains the Contraloría report, its cadence and how it differs from "Sin gasto reciente"', async () => {
+    await render(<GuideView />);
+    const section = screen.getByTestId('guide-paralyzed');
+    expect(within(section).getByText(/informe trimestral/)).toBeOnTheScreen();
+    expect(within(section).getByText(/cada semana/)).toBeOnTheScreen();
+    expect(within(section).getByText(/«Sin gasto reciente» es una regla de Fiscus/)).toBeOnTheScreen();
+    expect(within(section).getByText(/ficha pública en INFOBRAS/)).toBeOnTheScreen();
+  });
+
+  it('defines every official term in the glossary and every Fiscus rule in its own section', async () => {
     await render(<GuideView />);
     const glossary = screen.getByTestId('guide-glossary');
-    for (const term of GLOSSARY.filter((t) => t.kind === 'mef')) {
+    expect(within(glossary).getByText('Obra paralizada (Contraloría)')).toBeOnTheScreen();
+    for (const term of GLOSSARY.filter((t) => t.kind !== 'fiscus')) {
       expect(within(glossary).getByText(term.term)).toBeOnTheScreen();
       expect(within(glossary).getByText(term.definition)).toBeOnTheScreen();
     }

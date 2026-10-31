@@ -46,6 +46,8 @@ interface Props {
   recentIncreases?: ReactNode;
   /** "Sin gasto reciente": after the recent increases (region) or the regions block (national). */
   stalled?: ReactNode;
+  /** "Paralizadas según la Contraloría": right before the stalled block, so the two read side by side. */
+  paralyzed?: ReactNode;
   footer?: ReactNode;
   /** Opens the guide; phones show the link on Inicio (wide screens have it in the header and footer). */
   onPressGuide?: () => void;
@@ -63,6 +65,7 @@ export function HomeView({
   regions,
   recentIncreases,
   stalled,
+  paralyzed,
   footer,
   onPressGuide,
 }: Props) {
@@ -109,7 +112,9 @@ export function HomeView({
       </Pressable>
     ) : null;
 
-  const blockList = (national ? [regions, stalled, recentIncreases] : [recentIncreases, stalled]).filter(
+  const blockList = (
+    national ? [regions, paralyzed, stalled, recentIncreases] : [recentIncreases, paralyzed, stalled]
+  ).filter(
     (block): block is NonNullable<ReactNode> => block !== undefined && block !== null && block !== false,
   );
   const blocks = <>{blockList}</>;
@@ -117,7 +122,7 @@ export function HomeView({
   const columnStyle = wide
     ? [styles.content, styles.wideColumn, { paddingHorizontal: homeColumnPadding(breakpoint) }]
     : styles.content;
-  const columns = homeGridColumns(breakpoint);
+  const columns = homeGridColumns(breakpoint, blockList.length);
   const grid = (
     <>
       <View style={styles.gridRule} />
