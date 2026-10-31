@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { department } from '@/features/department/scope';
 import { arequipa } from '@/test/fixtures';
+import { TestScope } from '@/test/scope';
 
 import { SearchView } from './SearchView';
 
@@ -57,6 +59,20 @@ describe('SearchView', () => {
   it('says when nothing matched', async () => {
     await render(<SearchView {...base} text="xyz" status="success" results={[]} />);
     expect(screen.getByText('Sin resultados para “xyz”.')).toBeOnTheScreen();
+    expect(screen.getByText('Revisa la ortografía o busca por CUI.')).toBeOnTheScreen();
+  });
+
+  it('names the scope searched and only offers to search all of Peru', async () => {
+    await render(
+      <TestScope preset={{ scope: department(4), level: 'GL', status: 'CLOSED' }}>
+        <SearchView {...base} text="xyz" status="success" results={[]} />
+      </TestScope>,
+    );
+    expect(screen.getByText('Sin resultados para “xyz” en Arequipa · Gobiernos locales · Proyectos cerrados.')).toBeOnTheScreen();
+    expect(screen.getByText('Revisa la ortografía o busca por CUI.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver proyectos de todo el Perú' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Ver proyectos activos y cerrados' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ver todos los niveles de gobierno' })).toBeNull();
   });
 
   it('tags results with their level and names the level searched', async () => {

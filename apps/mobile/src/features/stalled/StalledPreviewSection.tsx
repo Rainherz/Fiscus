@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import type { StalledInvestment } from '@/features/investments/domain/stalled';
-import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
+import { colors, minTouch, space } from '@/shared/theme/tokens';
 import { levelTag } from '@/features/government-level/levelPresentation';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
@@ -38,9 +39,7 @@ export function StalledPreviewSection({ state, national = false, onPressInvestme
           onRetry={state.onRetry}
         />
       ) : state.total === 0 ? (
-        <View style={styles.empty}>
-          <MonoText size={12}>{STALLED_EMPTY}</MonoText>
-        </View>
+        <FilteredEmptyState what={STALLED_EMPTY} variant="ruled" />
       ) : (
         <>
           <MonoText bold size={12} style={styles.count}>
@@ -73,13 +72,6 @@ const styles = StyleSheet.create({
   section: { marginTop: space.xl, paddingHorizontal: space.lg },
   title: { marginBottom: 2 },
   count: { marginBottom: 6 },
-  empty: {
-    borderTopWidth: rule,
-    borderTopColor: colors.ink,
-    borderBottomWidth: rule,
-    borderBottomColor: colors.ink,
-    paddingVertical: space.md,
-  },
   seeAll: {
     minHeight: minTouch,
     justifyContent: 'center',

@@ -77,7 +77,7 @@ describe('ParalyzedPreviewSection', () => {
         onPressSeeAll={jest.fn()}
       />,
     );
-    expect(screen.getByText('Ningún proyecto de este ámbito figura en el último informe de obras paralizadas.')).toBeOnTheScreen();
+    expect(screen.getByText('Ningún proyecto figura en el último informe de obras paralizadas.')).toBeOnTheScreen();
     expect(screen.getByText(/^Corte: junio 2026/)).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /Ver todas/ })).toBeNull();
   });

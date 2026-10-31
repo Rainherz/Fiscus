@@ -16,7 +16,8 @@ export const PARALYZED_ATTRIBUTION = 'Fuente: Contraloría General de la Repúbl
 export const PARALYZED_RULE_NOTE =
   'Proyectos con obras en el informe trimestral de obras paralizadas de la Contraloría, por saldo de obra. ' +
   'Es un dato oficial, distinto de «Sin gasto reciente».';
-export const PARALYZED_EMPTY = 'Ningún proyecto de este ámbito figura en el último informe de obras paralizadas.';
+/** Without the final period: the empty state adds the filters that are on. */
+export const PARALYZED_EMPTY = 'Ningún proyecto figura en el último informe de obras paralizadas';
 
 const monthIndex = (value: string): number | null => {
   const match = /^(\d{4})-(\d{2})/.exec(value);

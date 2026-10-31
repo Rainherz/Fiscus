@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { NOW, arequipa, majes } from '@/test/fixtures';
+import { TestScope } from '@/test/scope';
 
 import { HomeView } from './HomeView';
 
@@ -132,7 +133,7 @@ describe('HomeView', () => {
     await render(
       <HomeView hero={null} ranking={[]} now={NOW} onPressInvestment={() => {}} onPressSeeAll={() => {}} />,
     );
-    expect(screen.getByText('No hay proyectos con aumento de costo en esta región.')).toBeOnTheScreen();
+    expect(screen.getByText('No hay proyectos con aumento de costo.')).toBeOnTheScreen();
   });
 
   it('renders the recent increases it is given, with or without a hero', async () => {
@@ -250,8 +251,13 @@ describe('HomeView', () => {
     });
 
     it('says so when the country has no cost increases', async () => {
-      await render(<HomeView {...props} hero={null} ranking={[]} />);
-      expect(screen.getByText('No hay proyectos con aumento de costo en el país.')).toBeOnTheScreen();
+      await render(
+        <TestScope preset={{ level: 'GN' }}>
+          <HomeView {...props} hero={null} ranking={[]} />
+        </TestScope>,
+      );
+      expect(screen.getByText('No hay proyectos con aumento de costo en todo el Perú · Gobierno nacional.')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Ver todos los niveles de gobierno' })).toBeOnTheScreen();
     });
   });
 

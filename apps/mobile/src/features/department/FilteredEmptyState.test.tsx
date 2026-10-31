@@ -1,36 +1,18 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import type { ReactElement } from 'react';
 
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { ScopeProbe, TestScope, type ScopePreset } from '@/test/scope';
 
 import { FilteredEmptyState } from './FilteredEmptyState';
-import type { LevelFilter } from '../investments/domain/governmentLevel';
-import type { StatusFilter } from '../investments/domain/investmentStatus';
-import { department, NATIONAL, type Scope } from './scope';
-import { ScopeProvider, useScope } from './ScopeContext';
-import type { LevelStorage, ScopeStorage, StatusStorage } from './scopeStorage';
+import { department } from './scope';
 
-const noStorage = { load: async () => null, save: async () => {} };
-
-function Probe() {
-  const { label, levelLabel, statusLabel } = useScope();
-  return <Text testID="probe">{`${label} | ${levelLabel} | ${statusLabel}`}</Text>;
-}
-
-function renderInScope(
-  ui: React.ReactElement,
-  preset: { initialScope?: Scope; initialLevel?: LevelFilter; initialStatus?: StatusFilter },
-) {
+function renderInScope(ui: ReactElement, preset: ScopePreset) {
   return render(
-    <ScopeProvider
-      storage={noStorage as ScopeStorage}
-      levelStorage={noStorage as LevelStorage}
-      statusStorage={noStorage as StatusStorage}
-      initialScope={NATIONAL}
-      {...preset}>
+    <TestScope preset={preset}>
       {ui}
-      <Probe />
-    </ScopeProvider>,
+      <ScopeProbe />
+    </TestScope>,
   );
 }
 
@@ -56,8 +38,8 @@ describe('EmptyState', () => {
 describe('FilteredEmptyState', () => {
   it('names the filters, hints that paralyzed works are active and offers shortcuts', async () => {
     await renderInScope(<FilteredEmptyState what="Ningún proyecto figura en el informe" list="paralyzed" />, {
-      initialScope: department(4),
-      initialStatus: 'CLOSED',
+      scope: department(4),
+      status: 'CLOSED',
     });
     expect(screen.getByText('Ningún proyecto figura en el informe en Arequipa · Proyectos cerrados.')).toBeOnTheScreen();
     expect(screen.getByText('Las obras paralizadas suelen ser proyectos activos.')).toBeOnTheScreen();
@@ -67,23 +49,23 @@ describe('FilteredEmptyState', () => {
 
   it('relaxes the global filters when a shortcut is pressed', async () => {
     await renderInScope(<FilteredEmptyState what="No hay proyectos" />, {
-      initialScope: department(4),
-      initialLevel: 'GL',
-      initialStatus: 'CLOSED',
+      scope: department(4),
+      level: 'GL',
+      status: 'CLOSED',
     });
     await fireEvent.press(screen.getByRole('button', { name: 'Ver proyectos activos y cerrados' }));
-    expect(screen.getByTestId('probe')).toHaveTextContent('Arequipa | Gobiernos locales | Activos y cerrados');
+    expect(screen.getByTestId('scope-probe')).toHaveTextContent('Arequipa | Gobiernos locales | Activos y cerrados');
     await fireEvent.press(screen.getByRole('button', { name: 'Ver todos los niveles de gobierno' }));
-    expect(screen.getByTestId('probe')).toHaveTextContent('Arequipa | Todos los niveles | Activos y cerrados');
+    expect(screen.getByTestId('scope-probe')).toHaveTextContent('Arequipa | Todos los niveles | Activos y cerrados');
     await fireEvent.press(screen.getByRole('button', { name: 'Ver proyectos de todo el Perú' }));
-    expect(screen.getByTestId('probe')).toHaveTextContent('Todo el Perú | Todos los niveles | Activos y cerrados');
+    expect(screen.getByTestId('scope-probe')).toHaveTextContent('Todo el Perú | Todos los niveles | Activos y cerrados');
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.getByText('No hay proyectos en todo el Perú · Activos y cerrados.')).toBeOnTheScreen();
   });
 
   it('keeps a full sentence verbatim and only adds the shortcuts', async () => {
     await renderInScope(<FilteredEmptyState what="Este criterio es solo para activos." describeFilters={false} />, {
-      initialStatus: 'CLOSED',
+      status: 'CLOSED',
     });
     expect(screen.getByText('Este criterio es solo para activos.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Ver proyectos activos y cerrados' })).toBeOnTheScreen();

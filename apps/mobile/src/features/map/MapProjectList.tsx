@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { projectTag } from '@/features/government-level/levelPresentation';
 import type { MapListItem } from '@/features/investments/domain/mapPoints';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
@@ -27,8 +28,9 @@ interface Props {
   onRetry: () => void;
 }
 
-export const MAP_LIST_EMPTY = 'No hay proyectos con coordenadas en esta zona.';
-export const MAP_LIST_EMPTY_FILTERED = 'No hay proyectos que cumplan los filtros en esta zona.';
+/** Without the final period: the empty state adds the level and status that are on. */
+export const MAP_LIST_EMPTY = 'No hay proyectos con coordenadas en esta zona';
+export const MAP_LIST_EMPTY_FILTERED = 'No hay proyectos que cumplan los filtros en esta zona';
 
 /** The projects in view, largest cost increase first; refreshed when the map stops moving. */
 export function MapProjectList({ list, filtered, selectedCui, showCount = true, onPressItem, onLoadMore, onRetry }: Props) {
@@ -64,7 +66,8 @@ export function MapProjectList({ list, filtered, selectedCui, showCount = true, 
         </MonoText>
       </View>
       {list.items.length === 0 ? (
-        <StateMessage kind="empty" message={filtered ? MAP_LIST_EMPTY_FILTERED : MAP_LIST_EMPTY} />
+        // The zone is the visible area, so the region is not named nor relaxed here.
+        <FilteredEmptyState what={filtered ? MAP_LIST_EMPTY_FILTERED : MAP_LIST_EMPTY} followsScope={false} />
       ) : null}
       <View style={styles.rows}>
       {list.items.map((item, index) => {

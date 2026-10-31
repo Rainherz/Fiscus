@@ -33,6 +33,10 @@ describe('describeActiveFilters', () => {
     expect(describeActiveFilters(null, 'GR', 'CLOSED')).toBe('Gobiernos regionales · Proyectos cerrados');
     expect(describeActiveFilters(null, 'ALL', 'ACTIVE')).toBe('');
   });
+
+  it('leaves the level out when it does not apply (null)', () => {
+    expect(describeActiveFilters(AREQUIPA, null, 'CLOSED')).toBe('en Arequipa · Proyectos cerrados');
+  });
 });
 
 describe('filteredEmptyMessage', () => {
@@ -89,6 +93,10 @@ describe('emptyShortcuts', () => {
 
   it('never offers the scope when it does not apply (null)', () => {
     expect(ids({ scope: null, level: 'GL', status: 'ACTIVE' })).toEqual(['level']);
+  });
+
+  it('never offers the level when it does not apply (null)', () => {
+    expect(ids({ scope: AREQUIPA, level: null, status: 'ACTIVE' })).toEqual(['scope']);
   });
 });
 

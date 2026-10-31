@@ -14,7 +14,8 @@ export function isEntitySort(value: unknown): value is EntitySort {
   return typeof value === 'string' && (REGION_SORTS as readonly string[]).includes(value);
 }
 
-export const ENTITIES_EMPTY = 'No hay entidades con este dato en el ámbito elegido.';
+/** Without the final period: the empty state adds the filters that are on. */
+export const ENTITIES_EMPTY = 'No hay entidades con este dato';
 
 /** Entity names repeat across levels only in theory; the level makes the key unique. */
 export function entityKey(entity: EntityComparison): string {

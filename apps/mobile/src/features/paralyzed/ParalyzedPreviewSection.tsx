@@ -1,9 +1,10 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { TermHint } from '@/features/glossary/TermHint';
 import { projectTag } from '@/features/government-level/levelPresentation';
 import type { ParalyzedEdition, ParalyzedInvestment } from '@/features/investments/domain/paralyzed';
-import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
+import { colors, minTouch, space } from '@/shared/theme/tokens';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
@@ -51,9 +52,7 @@ export function ParalyzedPreviewSection({ state, now, national = false, onPressI
       ) : (
         <>
           {state.total === 0 ? (
-            <View style={styles.empty}>
-              <MonoText size={12}>{PARALYZED_EMPTY}</MonoText>
-            </View>
+            <FilteredEmptyState what={PARALYZED_EMPTY} list="paralyzed" variant="ruled" />
           ) : (
             <>
               <MonoText bold size={12} style={styles.count}>
@@ -94,13 +93,6 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: 2 },
   title: { flexShrink: 1 },
   count: { marginBottom: 6 },
-  empty: {
-    borderTopWidth: rule,
-    borderTopColor: colors.ink,
-    borderBottomWidth: rule,
-    borderBottomColor: colors.ink,
-    paddingVertical: space.md,
-  },
   seeAll: {
     minHeight: minTouch,
     justifyContent: 'center',

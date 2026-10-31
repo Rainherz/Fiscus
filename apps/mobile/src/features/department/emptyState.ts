@@ -31,17 +31,18 @@ const STATUS_DESCRIPTIONS: Record<StatusFilter, string | null> = {
 
 /**
  * "en Arequipa · Gobiernos locales · Proyectos cerrados". Defaults (every level, active projects)
- * are left out; all of Peru is "en todo el Perú". `scope` null: the list does not follow the scope
- * (region comparisons).
+ * are left out; all of Peru is "en todo el Perú". `scope` or `level` null: the list does not follow
+ * that global filter (region comparisons, an entity's own level).
  */
 export function describeActiveFilters(
   scope: Scope | null,
-  level: LevelFilter,
+  level: LevelFilter | null,
   status: StatusFilter,
   extra: readonly string[] = [],
 ): string {
   const where = scope === null ? null : scope.kind === 'national' ? 'en todo el Perú' : `en ${departmentName(scope.code)}`;
-  const parts = [where, level === 'ALL' ? null : levelFilterLabel(level), STATUS_DESCRIPTIONS[status], ...extra];
+  const levelPart = level === null || level === 'ALL' ? null : levelFilterLabel(level);
+  const parts = [where, levelPart, STATUS_DESCRIPTIONS[status], ...extra];
   return parts.filter((part): part is string => Boolean(part)).join(' · ');
 }
 
@@ -65,7 +66,7 @@ const MAX_SHORTCUTS = 2;
  */
 export function emptyShortcuts(input: {
   scope: Scope | null;
-  level: LevelFilter;
+  level: LevelFilter | null;
   status: StatusFilter;
   list?: EmptyListKind;
 }): EmptyShortcut[] {
@@ -78,7 +79,7 @@ export function emptyShortcuts(input: {
         : []
       : [
           ...(status === 'CLOSED' ? (['status'] as const) : []),
-          ...(level !== 'ALL' ? (['level'] as const) : []),
+          ...(level !== null && level !== 'ALL' ? (['level'] as const) : []),
           ...(inDepartment ? (['scope'] as const) : []),
         ];
   return ids.slice(0, MAX_SHORTCUTS).map((id) => SHORTCUTS[id]);

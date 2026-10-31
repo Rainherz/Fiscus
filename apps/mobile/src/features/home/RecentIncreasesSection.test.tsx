@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { department } from '@/features/department/scope';
 import type { RecentCostIncrease } from '@/features/investments/domain/costChange';
+import { TestScope } from '@/test/scope';
 
 import { RecentIncreasesSection } from './RecentIncreasesSection';
 
@@ -26,8 +28,8 @@ const items = [
   increase({ id: 1, cui: '1', name: null, observedAt: '2026-11-01T10:00:00Z', updatedCostDelta: 950_000 }),
 ];
 
-const EMPTY =
-  'Aún no hay cambios registrados. Fiscus revisa los costos todos los días desde el 27/10/2026.';
+const EMPTY = 'Aún no hay cambios registrados.';
+const SINCE = 'Fiscus revisa los costos todos los días desde el 27/10/2026.';
 
 describe('RecentIncreasesSection', () => {
   it('lists recent increases with name, date and signed delta', async () => {
@@ -67,7 +69,19 @@ describe('RecentIncreasesSection', () => {
   it('states that no changes have been recorded yet', async () => {
     await render(<RecentIncreasesSection state={{ status: 'success', items: [] }} onPressInvestment={jest.fn()} />);
     expect(screen.getByText(EMPTY)).toBeOnTheScreen();
+    expect(screen.getByText(SINCE)).toBeOnTheScreen();
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('names the filters when no change was recorded in them', async () => {
+    await render(
+      <TestScope preset={{ scope: department(4), status: 'CLOSED' }}>
+        <RecentIncreasesSection state={{ status: 'success', items: [] }} onPressInvestment={jest.fn()} />
+      </TestScope>,
+    );
+    expect(screen.getByText('Aún no hay cambios registrados en Arequipa · Proyectos cerrados.')).toBeOnTheScreen();
+    expect(screen.getByText(SINCE)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver proyectos activos y cerrados' })).toBeOnTheScreen();
   });
 
   it('shows loading and error states with a retry', async () => {

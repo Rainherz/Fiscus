@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { useReadScope, useScope } from '@/features/department/ScopeContext';
 import { levelFilterLabel, projectTag } from '@/features/government-level/levelPresentation';
 import { useFunctionInvestments } from '@/features/investments/hooks/queries';
@@ -70,7 +71,7 @@ export function CategoryInvestmentsContainer() {
           ) : list.status === 'error' ? (
             <StateMessage kind="error" onRetry={() => list.refetch()} />
           ) : (
-            <StateMessage kind="empty" message="No hay proyectos en esta categoría." />
+            <FilteredEmptyState what="No hay proyectos en esta categoría" />
           )
         }
         ListFooterComponent={

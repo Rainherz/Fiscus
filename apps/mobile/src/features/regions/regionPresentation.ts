@@ -4,7 +4,8 @@ import { DEPARTMENTS, departmentName, type Department } from '../department/depa
 import { REGION_SORTS, type RegionComparison, type RegionSort } from '../investments/domain/regionComparison';
 import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
 
-export const REGIONS_EMPTY = 'No hay datos de regiones.';
+/** Without the final period: the empty state adds the level and status that are on. */
+export const REGIONS_EMPTY = 'No hay datos de regiones';
 
 export const REGION_SORT_OPTIONS: readonly { key: RegionSort; label: string }[] = [
   { key: 'increase-amount', label: 'Mayor aumento (S/)' },

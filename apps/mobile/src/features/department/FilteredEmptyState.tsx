@@ -1,5 +1,6 @@
 import { EmptyState, type EmptyStateAction } from '@/shared/ui/EmptyState';
 
+import { DEFAULT_STATUS } from '../investment-status/status';
 import {
   describeActiveFilters,
   emptyHint,
@@ -19,6 +20,8 @@ interface Props {
   describeFilters?: boolean;
   /** False: the list does not follow the scope (region comparisons). */
   followsScope?: boolean;
+  /** False: the list has its own level (an entity's projects). */
+  followsLevel?: boolean;
   /** Filters of the screen itself (the map chips), named after the global ones. */
   extraFilters?: readonly string[];
   /** Overrides the hint of the list kind. */
@@ -36,16 +39,19 @@ export function FilteredEmptyState({
   list = 'default',
   describeFilters = true,
   followsScope = true,
+  followsLevel = true,
   extraFilters = [],
   hint,
   variant,
 }: Props) {
   const context = useOptionalScope();
   if (!context) {
-    return <EmptyState message={describeFilters ? `${what}.` : what} hint={hint} variant={variant} />;
+    const fallbackHint = hint === undefined ? emptyHint(list, DEFAULT_STATUS) : hint;
+    return <EmptyState message={describeFilters ? `${what}.` : what} hint={fallbackHint} variant={variant} />;
   }
-  const { level, status, setScope, setLevel, setStatus } = context;
+  const { status, setScope, setLevel, setStatus } = context;
   const scope = followsScope ? context.scope : null;
+  const level = followsLevel ? context.level : null;
   const relax: Record<EmptyShortcutId, () => void> = {
     status: () => setStatus('ALL'),
     level: () => setLevel('ALL'),

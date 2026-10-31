@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import { gutterFor, isWide, LAYOUT_MAX_WIDTH } from '@/shared/layout/breakpoints';
 import { useBreakpoint } from '@/shared/layout/useBreakpoint';
@@ -96,11 +97,12 @@ function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySor
   }
 }
 
-function emptyMessage(kind: RankingTab, national: boolean): string {
+/** What an empty tab lacks; FilteredEmptyState adds the filters that are on. */
+function emptyWhat(kind: RankingTab): string {
   if (kind === 'stalled') return STALLED_EMPTY;
   if (kind === 'paralyzed') return PARALYZED_EMPTY;
   if (kind === 'entities') return ENTITIES_EMPTY;
-  return `No hay proyectos para este ranking ${national ? 'en el país' : 'en esta región'}.`;
+  return 'No hay proyectos para este ranking';
 }
 
 interface Props {
@@ -127,6 +129,8 @@ interface Props {
    * (isActiveOnlyTab): the list is replaced by a note.
    */
   activeOnlyHidden?: boolean;
+  /** False where the list has its own level (an entity's projects): the empty state ignores the global one. */
+  emptyFollowsLevel?: boolean;
 }
 
 export function RankingsView({
@@ -145,6 +149,7 @@ export function RankingsView({
   onPressEntity = () => {},
   header,
   activeOnlyHidden = false,
+  emptyFollowsLevel = true,
 }: Props) {
   const { kind } = list;
   const note = activeOnlyHidden
@@ -161,13 +166,17 @@ export function RankingsView({
   const gutter = wide ? { paddingHorizontal: gutterFor(breakpoint) } : null;
 
   const empty = activeOnlyHidden ? (
-    <StateMessage kind="empty" message={ACTIVE_ONLY_NOTE} />
+    <FilteredEmptyState what={ACTIVE_ONLY_NOTE} describeFilters={false} followsLevel={emptyFollowsLevel} />
   ) : status === 'pending' ? (
       <StateMessage kind="loading" />
     ) : status === 'error' ? (
       <StateMessage kind="error" onRetry={onRetry} />
     ) : (
-      <StateMessage kind="empty" message={emptyMessage(kind, national)} />
+      <FilteredEmptyState
+        what={emptyWhat(kind)}
+        list={kind === 'paralyzed' ? 'paralyzed' : 'default'}
+        followsLevel={emptyFollowsLevel}
+      />
     );
   const more = isFetchingMore ? <ActivityIndicator color={colors.ink} style={styles.more} /> : undefined;
 

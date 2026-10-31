@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { regionLabel } from '@/features/department/departments';
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { levelTag } from '@/features/government-level/levelPresentation';
 import { LevelTag } from '@/shared/ui/LevelTag';
 import { withRegion } from '@/features/department/scope';
@@ -22,9 +23,8 @@ interface Props {
   onPressInvestment: (cui: string) => void;
 }
 
-const EMPTY =
-  'Aún no hay cambios registrados. Fiscus revisa los costos todos los días desde el ' +
-  `${formatDate(COST_HISTORY_START)}.`;
+const EMPTY = 'Aún no hay cambios registrados';
+const EMPTY_HINT = `Fiscus revisa los costos todos los días desde el ${formatDate(COST_HISTORY_START)}.`;
 
 function IncreaseRow({
   item,
@@ -80,9 +80,7 @@ export function RecentIncreasesSection({ state, national = false, onPressInvestm
           onRetry={state.onRetry}
         />
       ) : state.items.length === 0 ? (
-        <View style={styles.empty}>
-          <MonoText size={12}>{EMPTY}</MonoText>
-        </View>
+        <FilteredEmptyState what={EMPTY} hint={EMPTY_HINT} variant="ruled" />
       ) : (
         state.items.map((item) => (
           <IncreaseRow key={item.id} item={item} national={national} onPress={() => onPressInvestment(item.cui)} />
@@ -114,12 +112,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.signal,
     paddingHorizontal: 6,
     paddingVertical: 1,
-  },
-  empty: {
-    borderTopWidth: rule,
-    borderTopColor: colors.ink,
-    borderBottomWidth: rule,
-    borderBottomColor: colors.ink,
-    paddingVertical: space.md,
   },
 });

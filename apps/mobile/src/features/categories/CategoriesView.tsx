@@ -5,14 +5,13 @@ import { formatInteger, formatSignedSoles, formatSoles } from '@/shared/format';
 import { gutterFor, isWide, LAYOUT_MAX_WIDTH, type Breakpoint } from '@/shared/layout/breakpoints';
 import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 
 interface Props {
   summaries: FunctionSummary[];
   status: 'pending' | 'error' | 'success';
-  /** Summaries of all of Peru. */
-  national?: boolean;
   /** Which government levels the totals cover (see levelScopeNote). */
   levelNote?: string;
   onRetry: () => void;
@@ -111,7 +110,7 @@ function CategoryRow({ summary, onPress }: { summary: FunctionSummary; onPress: 
   );
 }
 
-export function CategoriesView({ summaries, status, national = false, levelNote, onRetry, onPressCategory }: Props) {
+export function CategoriesView({ summaries, status, levelNote, onRetry, onPressCategory }: Props) {
   const breakpoint = useBreakpoint();
   const header = (
     <View style={styles.header}>
@@ -131,10 +130,7 @@ export function CategoriesView({ summaries, status, national = false, levelNote,
     ) : status === 'error' ? (
       <StateMessage kind="error" onRetry={onRetry} />
     ) : (
-      <StateMessage
-        kind="empty"
-        message={`No hay proyectos registrados ${national ? 'en el país' : 'en esta región'}.`}
-      />
+      <FilteredEmptyState what="No hay proyectos registrados" />
     );
 
   if (isWide(breakpoint)) {

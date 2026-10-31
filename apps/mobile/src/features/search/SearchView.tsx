@@ -1,5 +1,6 @@
 import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { withRegion } from '@/features/department/scope';
 import { projectTag } from '@/features/government-level/levelPresentation';
 import type { Investment } from '@/features/investments/domain/investment';
@@ -81,7 +82,7 @@ export function SearchView({
     ) : status === 'error' ? (
       <StateMessage kind="error" onRetry={onRetry} />
     ) : status === 'success' ? (
-      <StateMessage kind="empty" message={`Sin resultados para “${text.trim()}”.`} />
+      <FilteredEmptyState what={`Sin resultados para “${text.trim()}”`} list="search" />
     ) : undefined;
 
   if (wide) {

@@ -6,7 +6,8 @@ export const STALLED_TITLE = 'SIN GASTO RECIENTE';
 export const STALLED_RULE_NOTE =
   'Proyectos activos que gastaron entre 5 % y 95 % de su costo y no registran gasto en los ' +
   'últimos 12 meses de datos del MEF.';
-export const STALLED_EMPTY = 'No hay proyectos activos sin gasto en los últimos 12 meses.';
+/** Without the final period: the empty state adds the filters that are on. */
+export const STALLED_EMPTY = 'No hay proyectos activos sin gasto en los últimos 12 meses';
 
 /**
  * Two factual lines under the project name: since when, how much was spent and how much is left.
