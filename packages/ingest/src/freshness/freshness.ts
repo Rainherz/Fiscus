@@ -24,6 +24,14 @@ export const DEFAULT_MAX_AGE_HOURS = 36;
  */
 export const PARALYZED_MAX_AGE_HOURS = 9 * 24;
 
+/** data_freshness.source of the INFOBRAS obras dataset (source_snapshots). */
+export const INFOBRAS_FRESHNESS_SOURCE = "infobras_obras";
+/**
+ * The INFOBRAS ingest runs weekly: 9 days, like the paralyzed-works run. Its content lags the file
+ * by months (data_as_of); that age is shown in the app, never judged here.
+ */
+export const INFOBRAS_MAX_AGE_HOURS = 9 * 24;
+
 export interface FreshnessRow {
   source: string;
   lastSuccessAt: string | null;
@@ -31,7 +39,7 @@ export interface FreshnessRow {
 }
 
 export interface FreshnessCheck {
-  key: "ssi" | "open-data" | "closed-data" | "paralyzed";
+  key: "ssi" | "open-data" | "closed-data" | "paralyzed" | "infobras";
   label: string;
   /** The timestamp judged; null when the source has none. */
   at: string | null;
@@ -85,8 +93,8 @@ function check(
  * The SSI is judged by its last successful ingest (a run with at least one department ingested).
  * Both open-data files (active and closed investments) by their last check: MEF refreshes them
  * rarely, so an old ingest is expected; what must not stop is the daily run that compares each
- * file. The Contraloría report likewise by the last check of its weekly run, with its own 9-day
- * threshold. A missing source is stale.
+ * file. The Contraloría report and the INFOBRAS dataset likewise by the last check of their weekly
+ * runs, with their own 9-day threshold. A missing source is stale.
  */
 export function evaluateFreshness(
   rows: readonly FreshnessRow[],
@@ -117,6 +125,13 @@ export function evaluateFreshness(
       now,
       PARALYZED_MAX_AGE_HOURS,
     ),
+    check(
+      "infobras",
+      "Contraloría, INFOBRAS: última revisión",
+      find(INFOBRAS_FRESHNESS_SOURCE)?.lastCheckedAt ?? null,
+      now,
+      INFOBRAS_MAX_AGE_HOURS,
+    ),
   ];
   return { stale: checks.some((c) => c.stale), maxAgeHours, checks };
 }
@@ -144,7 +159,7 @@ export function renderStaleIssueBody(evaluation: FreshnessEvaluation, { runUrl }
   );
   return [
     "Una fuente se considera desactualizada cuando su última actualización supera su umbral: las fuentes diarias, " +
-      `${evaluation.maxAgeHours} h; la revisión semanal del informe de la Contraloría, ${PARALYZED_MAX_AGE_HOURS} h.`,
+      `${evaluation.maxAgeHours} h; las revisiones semanales (Contraloría, obras paralizadas e INFOBRAS), ${PARALYZED_MAX_AGE_HOURS} h.`,
     "",
     "| Fuente | Fecha (hora de Lima) | Antigüedad | Umbral | Estado |",
     "|---|---|---|---|---|",
