@@ -1,9 +1,13 @@
 import { breakpointFor, gutterFor, isWide, maxWidthFor, type Breakpoint } from '@/shared/layout/breakpoints';
 import { space } from '@/shared/theme/tokens';
 
-/** Columns of the block grid under the hero (regions, stalled, recent increases). */
-export function homeGridColumns(breakpoint: Breakpoint): number {
-  return breakpoint === 'desktop' ? 3 : breakpoint === 'tablet' ? 2 : 1;
+/**
+ * Columns of the block grid under the hero (regions, paralyzed works, stalled, recent increases).
+ * Four blocks on desktop go two by two instead of three and a lone one.
+ */
+export function homeGridColumns(breakpoint: Breakpoint, blockCount = 3): number {
+  if (breakpoint === 'desktop') return blockCount === 4 ? 2 : 3;
+  return breakpoint === 'tablet' ? 2 : 1;
 }
 
 /** Parts of the hero row (out of 12) taken by the hero; the ranking takes the rest. */

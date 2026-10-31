@@ -210,20 +210,38 @@ describe('HomeView', () => {
       expect(screen.queryByText('AREQUIPA')).toBeNull();
     });
 
-    it('shows the regions block, then the stalled block, then the recent increases', async () => {
+    it('shows the regions block, the paralyzed works, the stalled block, then the recent increases', async () => {
       const blocks = {
         regions: <Text>regiones</Text>,
         recentIncreases: <Text>recientes</Text>,
+        paralyzed: <Text>paralizadas</Text>,
         stalled: <Text>sin gasto</Text>,
         footer: <Text>pie</Text>,
       };
       const order = () =>
-        screen.getAllByText(/^(regiones|recientes|sin gasto|pie)$/).map((node) => node.props.children as string);
+        screen
+          .getAllByText(/^(regiones|recientes|paralizadas|sin gasto|pie)$/)
+          .map((node) => node.props.children as string);
 
       const { rerender } = await render(<HomeView {...props} {...blocks} />);
-      expect(order()).toEqual(['regiones', 'sin gasto', 'recientes', 'pie']);
+      expect(order()).toEqual(['regiones', 'paralizadas', 'sin gasto', 'recientes', 'pie']);
       await rerender(<HomeView {...props} {...blocks} hero={null} ranking={[]} />);
-      expect(order()).toEqual(['regiones', 'sin gasto', 'recientes', 'pie']);
+      expect(order()).toEqual(['regiones', 'paralizadas', 'sin gasto', 'recientes', 'pie']);
+    });
+
+    it('shows the paralyzed works before the stalled block on a region home', async () => {
+      await render(
+        <HomeView
+          {...props}
+          national={false}
+          recentIncreases={<Text>recientes</Text>}
+          paralyzed={<Text>paralizadas</Text>}
+          stalled={<Text>sin gasto</Text>}
+        />,
+      );
+      expect(
+        screen.getAllByText(/^(recientes|paralizadas|sin gasto)$/).map((node) => node.props.children as string),
+      ).toEqual(['recientes', 'paralizadas', 'sin gasto']);
     });
 
     it('does not offer the region comparison link on the national home', async () => {

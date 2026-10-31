@@ -151,6 +151,67 @@ export function useStalledPreview(read: ReadScope, count: number) {
   });
 }
 
+/** The project in the latest Contraloría edition of paralyzed works (null when absent). */
+export function useParalyzedDetail(cui: string, options: { enabled?: boolean } = {}) {
+  const { repository } = useRepository();
+  return useQuery({
+    enabled: options.enabled,
+    queryKey: ['paralyzed-detail', cui],
+    queryFn: () => repository.getParalyzedDetail(cui),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** "Paralizadas (Contraloría)" ranking, paged. */
+export function useParalyzedInvestments(read: ReadScope, options: { enabled?: boolean } = {}) {
+  const { repository } = useRepository();
+  return useInfiniteQuery({
+    enabled: options.enabled,
+    queryKey: ['paralyzed-investments', read],
+    queryFn: ({ pageParam }) =>
+      repository.getParalyzedInvestments({
+        departmentCode: read.departmentCode,
+        level: read.level,
+        status: read.status,
+        page: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
+  });
+}
+
+/** "Paralizadas según la Contraloría" on the home screen: how many, the first few and the edition. */
+export function useParalyzedPreview(read: ReadScope, count: number) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['paralyzed-preview', read, count],
+    queryFn: async () => {
+      const [total, items, edition] = await Promise.all([
+        repository.countParalyzedInvestments(read.departmentCode, read.level, read.status),
+        repository.getParalyzedInvestments({
+          departmentCode: read.departmentCode,
+          level: read.level,
+          status: read.status,
+          page: 0,
+          pageSize: count,
+        }),
+        repository.getParalyzedEdition(),
+      ]);
+      return { total, items, edition };
+    },
+  });
+}
+
+/** Cut-off of the latest Contraloría edition (the footer's source line). */
+export function useParalyzedEdition() {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['paralyzed-edition'],
+    queryFn: () => repository.getParalyzedEdition(),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 /** Latest accrual month of the dataset: the end of the "Sin gasto reciente" window. */
 export function useAccrualReferenceMonth() {
   const { repository } = useRepository();

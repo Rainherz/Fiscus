@@ -16,6 +16,7 @@ import { MonoText } from '@/shared/ui/typography';
 
 import { levelTag, projectTag } from '../government-level/levelPresentation';
 import { ACTIVE_ONLY_NOTE } from '../investment-status/statusPresentation';
+import { PARALYZED_EMPTY, paralyzedRowDetail } from '../paralyzed/paralyzedPresentation';
 import { STALLED_EMPTY, stalledRowDetail } from '../stalled/stalledPresentation';
 import {
   ENTITIES_EMPTY,
@@ -73,6 +74,14 @@ function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySor
         tag: projectTag(item),
         onPress: () => actions.onPressInvestment(item.cui),
       }));
+    case 'paralyzed':
+      return list.items.map((item) => ({
+        key: item.cui,
+        name: item.name,
+        detail: paralyzedRowDetail(item, { national }),
+        tag: projectTag(item),
+        onPress: () => actions.onPressInvestment(item.cui),
+      }));
     default: {
       const { kind } = list;
       return list.items.map((item) => ({
@@ -89,6 +98,7 @@ function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySor
 
 function emptyMessage(kind: RankingTab, national: boolean): string {
   if (kind === 'stalled') return STALLED_EMPTY;
+  if (kind === 'paralyzed') return PARALYZED_EMPTY;
   if (kind === 'entities') return ENTITIES_EMPTY;
   return `No hay proyectos para este ranking ${national ? 'en el país' : 'en esta región'}.`;
 }

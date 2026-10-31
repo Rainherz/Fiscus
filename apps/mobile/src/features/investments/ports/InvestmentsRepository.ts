@@ -5,6 +5,7 @@ import type { LevelFilter } from '../domain/governmentLevel';
 import type { FunctionSummary, IngestRun, Investment } from '../domain/investment';
 import type { StatusFilter } from '../domain/investmentStatus';
 import type { MapListPage, MapListRequest, MapPoints, MapPointsRequest } from '../domain/mapPoints';
+import type { ParalyzedDetail, ParalyzedEdition, ParalyzedInvestment } from '../domain/paralyzed';
 import type { InvestmentQuery } from '../domain/queries';
 import type { RegionComparison, RegionSort } from '../domain/regionComparison';
 import type { StalledInvestment } from '../domain/stalled';
@@ -60,4 +61,17 @@ export interface InvestmentsRepository {
   getMapPoints(request: MapPointsRequest): Promise<MapPoints>;
   /** A page of the projects in the map view that match its filters, largest increase first. */
   getMapList(request: MapListRequest): Promise<MapListPage>;
+  /** The CUI in the latest Contraloría edition of paralyzed works, with its obras; null when absent. */
+  getParalyzedDetail(cui: string): Promise<ParalyzedDetail | null>;
+  /** "Paralizadas (Contraloría)": a page of the paralyzed CUIs Fiscus has, largest remaining balance first. */
+  getParalyzedInvestments(params: {
+    departmentCode?: number;
+    level?: LevelFilter;
+    status?: StatusFilter;
+    page: number;
+    pageSize?: number;
+  }): Promise<ParalyzedInvestment[]>;
+  countParalyzedInvestments(departmentCode?: number, level?: LevelFilter, status?: StatusFilter): Promise<number>;
+  /** Cut-off and publication of the latest Contraloría edition; null before the first ingest. */
+  getParalyzedEdition(): Promise<ParalyzedEdition | null>;
 }

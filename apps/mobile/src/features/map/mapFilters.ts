@@ -10,6 +10,7 @@ export const MAP_FILTER_OPTIONS: readonly { key: MapFilter; label: string }[] = 
   { key: 'increase', label: 'Con aumento' },
   { key: 'stalled', label: 'Sin gasto reciente' },
   { key: 'overspent', label: 'Gastó más que su costo' },
+  { key: 'paralyzed', label: 'Paralizada (Contraloría)' },
 ];
 
 const canonical = (filters: Iterable<string>): MapFilter[] => {

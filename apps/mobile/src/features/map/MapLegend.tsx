@@ -6,16 +6,24 @@ import { MonoText } from '@/shared/ui/typography';
 
 /**
  * Same marks as the map page (mapHtml.ts): signal dot outlined in ink, ink dot, hollow ink ring
- * (closed project), ink cluster.
+ * (closed project), signal ring around the dot (paralyzed according to the Contraloría), ink cluster.
  */
 const ITEMS = [
   { key: 'increased', label: 'Con aumento de costo' },
   { key: 'flat', label: 'Sin aumento' },
   { key: 'closed', label: 'Proyecto cerrado (círculo hueco)' },
+  { key: 'paralyzed', label: 'Paralizada según la Contraloría (aro amarillo)' },
   { key: 'cluster', label: 'Grupo de proyectos (toca para acercar)' },
 ] as const;
 
 function Mark({ kind }: { kind: (typeof ITEMS)[number]['key'] }) {
+  if (kind === 'paralyzed') {
+    return (
+      <View style={styles.paralyzed}>
+        <View style={styles.flat} />
+      </View>
+    );
+  }
   if (kind === 'cluster') {
     return (
       <View style={styles.cluster}>
@@ -92,6 +100,16 @@ const styles = StyleSheet.create({
   },
   flat: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.ink },
   closed: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.ink },
+  paralyzed: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.signal,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cluster: {
     width: 18,
     height: 18,

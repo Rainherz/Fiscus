@@ -184,6 +184,8 @@ export interface MapPointRow {
   increased_count: Numeric;
   /** Project status (points only; absent before the status migration). */
   status?: Text;
+  /** In the latest Contraloría edition (points only; absent before the paralyzed-works migration). */
+  paralyzed?: boolean | null;
 }
 
 /** Clusters when the function returned clusters (it never mixes kinds); points otherwise. */
@@ -220,6 +222,7 @@ export function mapMapPointRows(rows: MapPointRow[]): MapPoints {
               costIncreasePct: toNumber(row.cost_increase_pct),
               updatedCostValid: row.updated_cost_valid === true,
               closed: isClosed({ status: toText(row.status) }),
+              ...(row.paralyzed === true ? { paralyzed: true } : {}),
             },
           ]
         : [],
@@ -248,6 +251,8 @@ export interface MapListRow {
   stalled: boolean | null | undefined;
   /** count(*) over (): the matching projects in the view, on every row. */
   total_count: Numeric;
+  /** Absent before the paralyzed-works migration. */
+  paralyzed?: boolean | null;
 }
 
 export function mapMapListRows(rows: MapListRow[]): MapListPage {
@@ -273,6 +278,7 @@ export function mapMapListRows(rows: MapListRow[]): MapListPage {
         physicalProgress: toNumber(row.physical_progress),
         lastAccrualMonth: toText(row.last_accrual_month),
         stalled: row.stalled === true,
+        paralyzed: row.paralyzed === true,
       },
     ];
   });

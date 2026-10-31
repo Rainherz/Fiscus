@@ -27,9 +27,20 @@ describe('DataFooter', () => {
     expect(
       screen.getByText(
         'Fuentes: MEF – Sistema de Seguimiento de Inversiones; MEF – Datos Abiertos, Detalle de inversiones; ' +
-          'MEF – Datos Abiertos, Cierre de inversiones',
+          'MEF – Datos Abiertos, Cierre de inversiones; Contraloría – Informe de obras paralizadas',
       ),
     ).toBeOnTheScreen();
+  });
+
+  it('names the edition of the Contraloría report it is given', async () => {
+    await render(
+      <DataFooter
+        finishedAt={null}
+        isDemo={false}
+        paralyzedSource="Contraloría – Informe de obras paralizadas (corte junio 2026)"
+      />,
+    );
+    expect(screen.getByText(/; Contraloría – Informe de obras paralizadas \(corte junio 2026\)$/)).toBeOnTheScreen();
   });
 
   it('shows when the open data was last checked', async () => {

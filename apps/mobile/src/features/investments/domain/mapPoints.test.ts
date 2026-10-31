@@ -214,6 +214,7 @@ describe('computeMapList', () => {
       physicalProgress: 10,
       lastAccrualMonth: '2024-01-01',
       stalled: true,
+      paralyzed: false,
       closed: false,
     });
   });

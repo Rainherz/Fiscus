@@ -63,6 +63,28 @@ describe('HomeView layout', () => {
     expect(StyleSheet.flatten(cells[0].props.style)).toMatchObject({ flexBasis: `${100 / 3}%` });
   });
 
+  it('lays four blocks out two by two on desktop', async () => {
+    windowWidth(1440);
+    await render(
+      <HomeView
+        hero={majes}
+        ranking={arequipa.slice(1)}
+        now={NOW}
+        national
+        onPressInvestment={jest.fn()}
+        onPressSeeAll={jest.fn()}
+        regions={<Text>Bloque regiones</Text>}
+        paralyzed={<Text>Bloque paralizadas</Text>}
+        stalled={<Text>Bloque sin gasto</Text>}
+        recentIncreases={<Text>Bloque recientes</Text>}
+      />,
+    );
+    const cells = screen.getAllByTestId('home-grid-cell');
+    expect(cells).toHaveLength(4);
+    expect(within(cells[1]).getByText('Bloque paralizadas')).toBeOnTheScreen();
+    expect(StyleSheet.flatten(cells[0].props.style)).toMatchObject({ flexBasis: '50%' });
+  });
+
   it('uses two columns on tablets', async () => {
     windowWidth(1024);
     await renderHome();

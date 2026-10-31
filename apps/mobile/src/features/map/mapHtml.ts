@@ -116,6 +116,7 @@ const SCRIPT = `
   var IS_POINT = ['==', ['get', 'kind'], 'point'];
   var INCREASED = ['==', ['get', 'increased'], true];
   var CLOSED = ['==', ['get', 'closed'], true];
+  var PARALYZED = ['==', ['get', 'paralyzed'], true];
   var loaded = false;
   var pending = [];
 
@@ -126,7 +127,7 @@ const SCRIPT = `
       if (!f || !isFinite(f.latitude) || !isFinite(f.longitude) || typeof f.id !== 'string') continue;
       var properties;
       if (f.kind === 'cluster') properties = { kind: 'cluster', id: f.id, label: String(f.label), radius: Number(f.radius) || 14 };
-      else if (f.kind === 'point') properties = { kind: 'point', id: f.id, increased: f.increased === true, closed: f.closed === true };
+      else if (f.kind === 'point') properties = { kind: 'point', id: f.id, increased: f.increased === true, closed: f.closed === true, paralyzed: f.paralyzed === true };
       else continue;
       out.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.longitude, f.latitude] }, properties: properties });
     }
@@ -181,6 +182,20 @@ const SCRIPT = `
         'text-ignore-placement': true
       },
       paint: { 'text-color': SIGNAL }
+    });
+    // Projects in the Contraloría report of paralyzed works: a signal disc with an ink edge behind
+    // the point, so the point keeps its own mark (increase, closed) inside the ring.
+    map.addLayer({
+      id: 'point-paralyzed',
+      type: 'circle',
+      source: 'features',
+      filter: ['all', IS_POINT, PARALYZED],
+      paint: {
+        'circle-radius': ['case', INCREASED, 12, 10],
+        'circle-color': SIGNAL,
+        'circle-stroke-color': INK,
+        'circle-stroke-width': 2
+      }
     });
     // Closed projects: the same sizes, but hollow (no fill, a thicker ink ring).
     map.addLayer({

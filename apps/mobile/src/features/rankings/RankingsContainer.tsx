@@ -4,6 +4,7 @@ import { useReadScope } from '@/features/department/ScopeContext';
 import type { RankingKind } from '@/features/investments/domain/investment';
 import {
   useEntityComparison,
+  useParalyzedInvestments,
   useRanking,
   useStalledInvestments,
   type ReadScope,
@@ -25,11 +26,11 @@ const DEFAULT_ENTITY_SORT: EntitySort = 'increase-amount';
  */
 export function useRankingList(tab: RankingTab, read: ReadScope, entitySort: EntitySort = DEFAULT_ENTITY_SORT) {
   const activeOnlyHidden = isActiveOnlyTab(tab, read.status, entitySort);
-  const rankingKind: RankingKind = tab === 'stalled' || tab === 'entities' ? DEFAULT_TAB : tab;
-  const ranking = useRanking(rankingKind, read, {
-    enabled: tab !== 'stalled' && tab !== 'entities' && !activeOnlyHidden,
-  });
+  const isInvestmentRanking = tab !== 'stalled' && tab !== 'entities' && tab !== 'paralyzed';
+  const rankingKind: RankingKind = isInvestmentRanking ? tab : DEFAULT_TAB;
+  const ranking = useRanking(rankingKind, read, { enabled: isInvestmentRanking && !activeOnlyHidden });
   const stalled = useStalledInvestments(read, { enabled: tab === 'stalled' && !activeOnlyHidden });
+  const paralyzed = useParalyzedInvestments(read, { enabled: tab === 'paralyzed' });
   const entities = useEntityComparison(entitySort, read, { enabled: tab === 'entities' && !activeOnlyHidden });
 
   const list: RankingList = activeOnlyHidden
@@ -40,10 +41,13 @@ export function useRankingList(tab: RankingTab, read: ReadScope, entitySort: Ent
         : { kind: rankingKind, items: [] }
     : tab === 'stalled'
       ? { kind: 'stalled', items: stalled.data?.pages.flat() ?? [] }
-      : tab === 'entities'
-        ? { kind: 'entities', items: entities.data?.pages.flat() ?? [] }
-        : { kind: rankingKind, items: ranking.data?.pages.flat() ?? [] };
-  const query = tab === 'stalled' ? stalled : tab === 'entities' ? entities : ranking;
+      : tab === 'paralyzed'
+        ? { kind: 'paralyzed', items: paralyzed.data?.pages.flat() ?? [] }
+        : tab === 'entities'
+          ? { kind: 'entities', items: entities.data?.pages.flat() ?? [] }
+          : { kind: rankingKind, items: ranking.data?.pages.flat() ?? [] };
+  const query =
+    tab === 'stalled' ? stalled : tab === 'paralyzed' ? paralyzed : tab === 'entities' ? entities : ranking;
   return {
     list,
     activeOnlyHidden,

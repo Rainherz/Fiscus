@@ -6,6 +6,7 @@ import { useReadScope, useScope } from '@/features/department/ScopeContext';
 import { DataFooterContainer } from '@/features/investments/DataFooterContainer';
 import { useTopIncreases } from '@/features/investments/hooks/queries';
 import { isActiveOnlyHidden } from '@/features/investment-status/statusPresentation';
+import { ParalyzedPreviewContainer } from '@/features/paralyzed/ParalyzedPreviewContainer';
 import { StalledPreviewContainer } from '@/features/stalled/StalledPreviewContainer';
 import { compareHref } from '@/features/compare/compareSelection';
 import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
@@ -91,6 +92,13 @@ export function HomeContainer() {
             onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'stalled' } })}
           />
         )
+      }
+      paralyzed={
+        <ParalyzedPreviewContainer
+          read={read}
+          onPressInvestment={openInvestment}
+          onPressSeeAll={() => router.navigate({ pathname: '/rankings', params: { tab: 'paralyzed' } })}
+        />
       }
       footer={<DataFooterContainer />}
     />

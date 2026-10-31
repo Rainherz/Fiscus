@@ -45,6 +45,8 @@ interface Props {
   onShare?: () => void;
   /** Opens the map centered on the project; shown only when it has coordinates. */
   onOpenMap?: () => void;
+  /** "Paralizada según la Contraloría", shown under the name, before the figures. */
+  paralyzed?: ReactNode;
 }
 
 const DASH = '—';
@@ -181,6 +183,7 @@ export function InvestmentDetailView({
   referenceMonth = null,
   onShare,
   onOpenMap,
+  paralyzed,
 }: Props) {
   const invalidCost = hasInvalidUpdatedCost(inv);
   const stalled = stalledStatus(inv, referenceMonth);
@@ -268,6 +271,8 @@ export function InvestmentDetailView({
           ) : null}
         </View>
       </View>
+
+      {paralyzed}
 
       <View style={styles.costs}>
         <View style={styles.costRow}>

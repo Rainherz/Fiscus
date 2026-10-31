@@ -12,7 +12,13 @@ import {
   type MapListPage,
   type MapPoint,
 } from '@/features/investments/domain/mapPoints';
-import { useAccrualReferenceMonth, useInvestment, useMapList, useMapPoints } from '@/features/investments/hooks/queries';
+import {
+  useAccrualReferenceMonth,
+  useInvestment,
+  useMapList,
+  useMapPoints,
+  useParalyzedDetail,
+} from '@/features/investments/hooks/queries';
 import { useDebouncedValue } from '@/features/search/useDebouncedValue';
 import { blurActiveElement } from '@/shared/navigation/blurActiveElement';
 import { colors } from '@/shared/theme/tokens';
@@ -55,13 +61,14 @@ export function MapContainer() {
   const onBack = useBack();
   const { cui } = useLocalSearchParams<{ cui?: string }>();
   const focus = useInvestment(cui ?? '', { enabled: Boolean(cui) });
+  const paralyzed = useParalyzedDetail(cui ?? '', { enabled: Boolean(cui) });
   const referenceMonth = useAccrualReferenceMonth();
   const { departmentCode } = useReadScope();
   // The focus belongs to the scope the map was opened in: a new region from the picker frames the
   // region instead.
   const [openedIn] = useState(departmentCode);
 
-  if (cui && (focus.status === 'pending' || referenceMonth.status === 'pending')) {
+  if (cui && (focus.status === 'pending' || referenceMonth.status === 'pending' || paralyzed.status === 'pending')) {
     return (
       <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
         <BackHeader title="MAPA" topInset={insets.top} onBack={onBack} />
@@ -70,7 +77,9 @@ export function MapContainer() {
     );
   }
   const focusItem =
-    cui && focus.data && departmentCode === openedIn ? toMapListItem(focus.data, referenceMonth.data ?? null) : null;
+    cui && focus.data && departmentCode === openedIn
+      ? toMapListItem(focus.data, referenceMonth.data ?? null, Boolean(paralyzed.data))
+      : null;
   // The page is built once per scope (a new string reloads the WebView), so a new region remounts it.
   return <MapScreen key={departmentCode ?? 'all'} focus={focusItem} />;
 }
@@ -156,7 +165,9 @@ function MapScreen({ focus }: { focus: MapListItem | null }) {
           };
 
   const fetchedDetails =
-    needsDetails && detailsQuery.data ? toMapListItem(detailsQuery.data, referenceMonth.data ?? null) : null;
+    needsDetails && detailsQuery.data
+      ? toMapListItem(detailsQuery.data, referenceMonth.data ?? null, selected?.point.paralyzed === true)
+      : null;
   const selection: MapSelection | null = selected
     ? {
         point: selected.point,

@@ -6,6 +6,14 @@ describe('homeGridColumns', () => {
     expect(homeGridColumns('tablet')).toBe(2);
     expect(homeGridColumns('desktop')).toBe(3);
   });
+
+  it('lays four blocks out two by two on desktop, so no row holds a lone block', () => {
+    expect(homeGridColumns('desktop', 4)).toBe(2);
+    expect(homeGridColumns('desktop', 3)).toBe(3);
+    expect(homeGridColumns('desktop', 2)).toBe(3);
+    expect(homeGridColumns('tablet', 4)).toBe(2);
+    expect(homeGridColumns('phone', 4)).toBe(1);
+  });
 });
 
 describe('heroFigureWidth', () => {

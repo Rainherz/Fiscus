@@ -1,6 +1,7 @@
 import { mapInvestmentRow } from '@/features/investments/domain/mappers';
 import { sampleRow } from '@/features/investments/adapters/sampleData';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
+import type { ParalyzedInvestment } from '@/features/investments/domain/paralyzed';
 import { toStalledInvestment } from '@/features/investments/domain/stalled';
 import { NOW, majes } from '@/test/fixtures';
 
@@ -85,6 +86,46 @@ describe('rankingTable: stalled', () => {
       'Sin gasto desde',
       'Gastado',
       'Por ejecutar',
+    ]);
+  });
+});
+
+describe('rankingTable: paralyzed (Contraloría)', () => {
+  const item: ParalyzedInvestment = {
+    cui: '2151761',
+    editionCutoff: '2026-06-30',
+    publishedAt: '2026-08-17',
+    obraCount: 2,
+    mainCausalLabel: 'INCUMPLIMIENTO DE CONTRATO',
+    minPhysicalProgress: 31,
+    maxPhysicalProgress: 60,
+    totalRemainingWorkBalance: 2_000_000,
+    infobrasCodes: [45282, 45283],
+    name: 'Agua Muñapata',
+    entity: 'MUNICIPALIDAD PROVINCIAL DE QUISPICANCHI',
+    departmentCode: 8,
+    governmentLevel: 'GL',
+    status: 'ACTIVO',
+  };
+
+  it('shows the causal, the physical progress, the remaining balance (ranked) and the obras', () => {
+    const table = rankingTable({ kind: 'paralyzed', items: [item] }, NOW);
+    expect(labels(table)).toEqual(['Causal', 'Avance físico', 'Saldo de obra', 'Obras']);
+    expect(sortedLabel(table)).toEqual(['Saldo de obra']);
+    expect(table.columns[0]).toMatchObject({ term: 'obra-paralizada', text: true });
+    expect(table.columns[1]).not.toHaveProperty('text');
+    expect(table.rows[0]).toMatchObject({
+      key: '2151761',
+      name: 'Agua Muñapata',
+      sub: 'MUNICIPALIDAD PROVINCIAL DE QUISPICANCHI',
+      region: 'Cusco',
+      cells: ['Incumplimiento de contrato', '31–60 %', 'S/ 2.0 M', '2'],
+      target: { kind: 'investment', cui: '2151761' },
+    });
+    expect(labels(rankingTable({ kind: 'paralyzed', items: [item] }, NOW, { compact: true }))).toEqual([
+      'Causal',
+      'Avance físico',
+      'Saldo de obra',
     ]);
   });
 });

@@ -41,6 +41,11 @@ describe('MAP_FILTER_OPTIONS', () => {
       ['increase', 'Con aumento'],
       ['stalled', 'Sin gasto reciente'],
       ['overspent', 'Gastó más que su costo'],
+      ['paralyzed', 'Paralizada (Contraloría)'],
     ]);
+  });
+
+  it('reads the paralyzed-works filter from the URL, last', () => {
+    expect(parseMapFilters('paralyzed,increase')).toEqual(['increase', 'paralyzed']);
   });
 });

@@ -31,7 +31,18 @@ import { mapDataFreshnessRows, type DataFreshnessRow } from '../domain/freshness
 import type { LevelFilter } from '../domain/governmentLevel';
 import { statusValueOf, type StatusFilter } from '../domain/investmentStatus';
 import { MAP_LIST_PAGE_SIZE, type MapFilter } from '../domain/mapPoints';
-import { buildEntityQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
+import {
+  PARALYZED_INVESTMENT_COLUMNS,
+  PARALYZED_SUMMARY_COLUMNS,
+  PARALYZED_WORK_COLUMNS,
+  mapParalyzedInvestmentRow,
+  mapParalyzedSummaryRow,
+  mapParalyzedWorkRow,
+  type ParalyzedInvestmentRow,
+  type ParalyzedSummaryRow,
+  type ParalyzedWorkRow,
+} from '../domain/paralyzed';
+import { buildEntityQuery, buildParalyzedQuery, buildStalledQuery, type Filter, type InvestmentQuery } from '../domain/queries';
 import type { InvestmentsRepository } from '../ports/InvestmentsRepository';
 
 /** Minimal structural view of a PostgREST filter builder, so filters compose without generics noise. */
@@ -61,12 +72,16 @@ function statusArgument(status: StatusFilter | undefined) {
   return status === undefined ? {} : { status_filter: status };
 }
 
-/** The `only_*` arguments of map_points and map_list. */
+/**
+ * The `only_*` arguments of map_points and map_list. only_paralyzed is sent only when on, so calls
+ * without it match the functions of deployments before the paralyzed-works migration.
+ */
 function filterArguments(filters: readonly MapFilter[]) {
   return {
     only_increase: filters.includes('increase'),
     only_stalled: filters.includes('stalled'),
     only_overspent: filters.includes('overspent'),
+    ...(filters.includes('paralyzed') ? { only_paralyzed: true } : {}),
   };
 }
 
@@ -271,6 +286,41 @@ export function createSupabaseInvestmentsRepository(client: SupabaseClient): Inv
         ...statusArgument(status),
       })) as Result<MapListRow[]>;
       return mapMapListRows(unwrap(result) ?? []);
+    },
+    async getParalyzedDetail(cui) {
+      const summary = unwrap(
+        await (client.from('paralyzed_by_cui').select(PARALYZED_SUMMARY_COLUMNS) as unknown as FilterBuilder)
+          .eq('cui', cui)
+          .maybeSingle<ParalyzedSummaryRow>(),
+      );
+      if (!summary) return null;
+      const works = unwrap(
+        (await (client.from('latest_paralyzed_works').select(PARALYZED_WORK_COLUMNS) as unknown as FilterBuilder)
+          .eq('cui', cui)
+          .order('remaining_work_balance', { ascending: false, nullsFirst: false })
+          .order('infobras_code', { ascending: true, nullsFirst: false })) as Result<ParalyzedWorkRow[]>,
+      );
+      return { summary: mapParalyzedSummaryRow(summary), works: (works ?? []).map(mapParalyzedWorkRow) };
+    },
+    async getParalyzedInvestments(params) {
+      const source = client.from('paralyzed_investments').select(PARALYZED_INVESTMENT_COLUMNS) as unknown as FilterBuilder;
+      const rows = unwrap((await applyQuery(source, buildParalyzedQuery(params))) as Result<ParalyzedInvestmentRow[]>);
+      return (rows ?? []).map(mapParalyzedInvestmentRow);
+    },
+    async countParalyzedInvestments(departmentCode, level, status) {
+      const head = client.from('paralyzed_investments').select('cui', { count: 'exact', head: true }) as unknown as FilterBuilder;
+      const { filters } = buildParalyzedQuery({ departmentCode, level, status, page: 0 });
+      const result = (await filters.reduce(applyFilter, head)) as Result<unknown>;
+      unwrap(result);
+      return result.count ?? 0;
+    },
+    async getParalyzedEdition() {
+      const row = unwrap(
+        await (client.from('latest_paralyzed_works').select('edition_cutoff,published_at') as unknown as FilterBuilder)
+          .limit(1)
+          .maybeSingle<{ edition_cutoff: string | null; published_at: string | null }>(),
+      );
+      return row?.edition_cutoff ? { editionCutoff: row.edition_cutoff, publishedAt: row.published_at ?? null } : null;
     },
   };
 }
