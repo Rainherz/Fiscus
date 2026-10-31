@@ -9,6 +9,7 @@
     "ingest": "NODE_EXTRA_CA_CERTS=./certs/entrust-ov-tls-issuing-rsa-ca2.pem tsx src/cli.ts",
     "ingest:open-data": "tsx src/openDataCli.ts",
     "ingest:open-data-closed": "tsx src/openDataCli.ts --dataset closed",
+    "ingest:paralyzed": "tsx src/paralyzedCli.ts",
     "freshness": "tsx src/freshness/cli.ts"
   },
   "dependencies": {
