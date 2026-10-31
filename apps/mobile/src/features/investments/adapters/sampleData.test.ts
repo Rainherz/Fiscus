@@ -1,6 +1,13 @@
 import { mapCostChangeRow, mapInvestmentRow } from '../domain/mappers';
 import { createInMemoryInvestmentsRepository } from './inMemoryInvestmentsRepository';
-import { MOCK_COST_CHANGES, MOCK_PARALYZED_WORKS, MOCK_ROWS, sampleRow } from './sampleData';
+import {
+  MOCK_COST_CHANGES,
+  MOCK_INFOBRAS_DATA_AS_OF,
+  MOCK_INFOBRAS_WORKS,
+  MOCK_PARALYZED_WORKS,
+  MOCK_ROWS,
+  sampleRow,
+} from './sampleData';
 
 const mock = MOCK_ROWS.map(mapInvestmentRow);
 
@@ -192,5 +199,45 @@ describe('MOCK_PARALYZED_WORKS', () => {
     // The closed one only counts with every status.
     expect(await repo.countParalyzedInvestments(undefined, 'ALL', 'ACTIVE')).toBe(4);
     expect(await repo.countParalyzedInvestments(undefined, 'ALL', 'ALL')).toBe(5);
+  });
+});
+
+/** SUNAT RUC check digit (weights 5,4,3,2,7,6,5,4,3,2 over the first ten digits). */
+function rucCheckDigit(ruc: string): number {
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((total, weight, i) => total + weight * Number(ruc[i]), 0);
+  const check = 11 - (sum % 11);
+  return check === 10 ? 0 : check === 11 ? 1 : check;
+}
+
+describe('MOCK_INFOBRAS_WORKS', () => {
+  const parties = MOCK_INFOBRAS_WORKS.flatMap((w) => [w.contractor, w.supervisor]);
+
+  it('links every demo obra to a demo project, with unique codes', () => {
+    const demoCuis = new Set(MOCK_ROWS.filter((r) => r.name?.endsWith('(demo)')).map((r) => r.cui));
+    for (const work of MOCK_INFOBRAS_WORKS) expect([work.cui, demoCuis.has(work.cui!)]).toEqual([work.cui, true]);
+    expect(new Set(MOCK_INFOBRAS_WORKS.map((w) => w.infobrasCode)).size).toBe(MOCK_INFOBRAS_WORKS.length);
+  });
+
+  it('marks every company as demo, with RUCs that fail the SUNAT check digit, and includes a natural person', () => {
+    for (const party of parties.filter((p) => p.kind === 'empresa' || p.kind === 'consorcio')) {
+      expect(party.name).toMatch(/\(demo\)$/);
+      if (/^20\d{9}$/.test(party.ruc!)) expect(rucCheckDigit(party.ruc!)).not.toBe(Number(party.ruc!.at(-1)));
+    }
+    expect(parties.some((p) => p.kind === 'persona_natural' && p.name === null && p.ruc === null)).toBe(true);
+  });
+
+  it('feeds the demo ranking, the contractor page and the detail block', async () => {
+    const repo = createInMemoryInvestmentsRepository({
+      rows: MOCK_ROWS,
+      lastRun: null,
+      paralyzedWorks: MOCK_PARALYZED_WORKS,
+      infobrasWorks: MOCK_INFOBRAS_WORKS,
+      infobrasDataAsOf: MOCK_INFOBRAS_DATA_AS_OF,
+    });
+    const ranking = await repo.getContractorRanking({ sort: 'contract', page: 0 });
+    expect(ranking.items[0]).toMatchObject({ name: 'CONSORCIO VIAL AREQUIPA (demo)', contraloriaParalyzedCount: 1 });
+    expect(ranking.items.every((item) => item.kind !== 'persona_natural')).toBe(true);
+    expect(await repo.getInfobrasWorks('9900001')).toHaveLength(2);
   });
 });

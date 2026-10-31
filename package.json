@@ -11,7 +11,8 @@
     "ingest": "pnpm --filter @fiscus/ingest ingest",
     "ingest:open-data": "pnpm --filter @fiscus/ingest ingest:open-data",
     "ingest:open-data-closed": "pnpm --filter @fiscus/ingest ingest:open-data-closed",
-    "ingest:paralyzed": "pnpm --filter @fiscus/ingest ingest:paralyzed"
+    "ingest:paralyzed": "pnpm --filter @fiscus/ingest ingest:paralyzed",
+    "ingest:infobras": "pnpm --filter @fiscus/ingest ingest:infobras"
   },
   "devDependencies": {
     "supabase": "^2.122.0"

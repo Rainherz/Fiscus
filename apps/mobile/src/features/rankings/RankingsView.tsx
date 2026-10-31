@@ -17,6 +17,14 @@ import { MonoText } from '@/shared/ui/typography';
 
 import { levelTag, projectTag } from '../government-level/levelPresentation';
 import { ACTIVE_ONLY_NOTE } from '../investment-status/statusPresentation';
+import {
+  CONTRACTORS_EMPTY,
+  CONTRACTOR_SORT_OPTIONS,
+  contractorRowDetail,
+  contractorSortValue,
+  contractorsNote,
+} from '../infobras/infobrasPresentation';
+import type { ContractorSort } from '../investments/domain/infobras';
 import { PARALYZED_EMPTY, paralyzedRowDetail } from '../paralyzed/paralyzedPresentation';
 import { STALLED_EMPTY, stalledRowDetail } from '../stalled/stalledPresentation';
 import {
@@ -53,10 +61,31 @@ interface Row {
 interface RowActions {
   onPressInvestment: (cui: string) => void;
   onPressEntity: (entity: EntityComparison) => void;
+  onPressContractor: (ruc: string) => void;
 }
 
-function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySort, actions: RowActions): Row[] {
+function toRows(
+  list: RankingList,
+  now: Date,
+  national: boolean,
+  sorts: { entity: EntitySort; contractor: ContractorSort },
+  actions: RowActions,
+): Row[] {
+  const sort = sorts.entity;
   switch (list.kind) {
+    case 'contractors':
+      return list.items.map((item) => {
+        const value = contractorSortValue(sorts.contractor, item);
+        const detail = contractorRowDetail(item);
+        return {
+          key: item.ruc,
+          name: item.name ?? item.ruc,
+          value,
+          detail,
+          summary: `${value}, ${detail}`,
+          onPress: () => actions.onPressContractor(item.ruc),
+        };
+      });
     case 'entities':
       return list.items.map((item) => ({
         key: entityKey(item),
@@ -101,6 +130,7 @@ function toRows(list: RankingList, now: Date, national: boolean, sort: EntitySor
 function emptyWhat(kind: RankingTab): string {
   if (kind === 'stalled') return STALLED_EMPTY;
   if (kind === 'paralyzed') return PARALYZED_EMPTY;
+  if (kind === 'contractors') return CONTRACTORS_EMPTY;
   if (kind === 'entities') return ENTITIES_EMPTY;
   return 'No hay proyectos para este ranking';
 }
@@ -122,6 +152,10 @@ interface Props {
   entitySort?: EntitySort;
   onSelectEntitySort?: (sort: EntitySort) => void;
   onPressEntity?: (entity: EntityComparison) => void;
+  /** Sort of the "Contratistas" tab. */
+  contractorSort?: ContractorSort;
+  onSelectContractorSort?: (sort: ContractorSort) => void;
+  onPressContractor?: (ruc: string) => void;
   /** Shown above the tabs (the entity drill-down names the entity). */
   header?: ReactNode;
   /**
@@ -147,6 +181,9 @@ export function RankingsView({
   entitySort = 'increase-amount',
   onSelectEntitySort = () => {},
   onPressEntity = () => {},
+  contractorSort = 'contract',
+  onSelectContractorSort = () => {},
+  onPressContractor = () => {},
   header,
   activeOnlyHidden = false,
   emptyFollowsLevel = true,
@@ -154,10 +191,37 @@ export function RankingsView({
   const { kind } = list;
   const note = activeOnlyHidden
     ? null
-    : kind === 'entities'
+    : list.kind === 'entities'
       ? entityNote(entitySort, { national })
-      : rankingNote(kind);
-  const rows = toRows(list, now, national, entitySort, { onPressInvestment, onPressEntity });
+      : list.kind === 'contractors'
+        ? contractorsNote(list.dataAsOf)
+        : rankingNote(kind);
+  const rows = toRows(
+    list,
+    now,
+    national,
+    { entity: entitySort, contractor: contractorSort },
+    { onPressInvestment, onPressEntity, onPressContractor },
+  );
+  /** The second row of tabs: how entities or contractors are sorted. */
+  const sortTabs = (gutterWidth?: number) =>
+    kind === 'entities' ? (
+      <SegmentedTabs
+        options={ENTITY_SORT_OPTIONS}
+        selected={entitySort}
+        onSelect={onSelectEntitySort}
+        accessibilityLabel="Ordenar entidades por"
+        gutter={gutterWidth}
+      />
+    ) : kind === 'contractors' ? (
+      <SegmentedTabs
+        options={CONTRACTOR_SORT_OPTIONS}
+        selected={contractorSort}
+        onSelect={onSelectContractorSort}
+        accessibilityLabel="Ordenar contratistas por"
+        gutter={gutterWidth}
+      />
+    ) : null;
   const tabs: readonly { key: RankingTab; label: string }[] =
     options === 'screen' ? RANKINGS_SCREEN_OPTIONS : RANKING_OPTIONS;
   const breakpoint = useBreakpoint();
@@ -184,15 +248,7 @@ export function RankingsView({
     <View testID="rankings-controls" style={[styles.tabs, column]}>
       {header ? <View style={[styles.header, gutter]}>{header}</View> : null}
       <SegmentedTabs options={tabs} selected={kind} onSelect={onSelectKind} gutter={wide ? gutterFor(breakpoint) : undefined} />
-      {kind === 'entities' ? (
-        <SegmentedTabs
-          options={ENTITY_SORT_OPTIONS}
-          selected={entitySort}
-          onSelect={onSelectEntitySort}
-          accessibilityLabel="Ordenar entidades por"
-          gutter={wide ? gutterFor(breakpoint) : undefined}
-        />
-      ) : null}
+      {sortTabs(wide ? gutterFor(breakpoint) : undefined)}
       {note ? (
         <MonoText size={11} muted style={[styles.note, gutter]}>
           {note}
@@ -203,8 +259,10 @@ export function RankingsView({
 
   if (wide) {
     const spread = breakpoint === 'desktop';
-    const table = rankingTable(list, now, { national, compact: !spread, entitySort });
-    const layout = { columns: table.columns, spread, national };
+    const table = rankingTable(list, now, { national, compact: !spread, entitySort, contractorSort });
+    // Contractors have no level or region.
+    const contractors = list.kind === 'contractors';
+    const layout = { columns: table.columns, spread, national: national && !contractors, levelColumn: !contractors };
     return (
       <View style={styles.screen}>
         {controls}
@@ -230,6 +288,7 @@ export function RankingsView({
               onPress={() => {
                 const { target } = row;
                 if (target.kind === 'investment') onPressInvestment(target.cui);
+                else if (target.kind === 'contractor') onPressContractor(target.ruc);
                 else if (list.kind === 'entities') onPressEntity(list.items[target.index]);
               }}
             />
@@ -248,14 +307,7 @@ export function RankingsView({
       <View style={styles.tabs}>
         {header ? <View style={styles.header}>{header}</View> : null}
         <SegmentedTabs options={tabs} selected={kind} onSelect={onSelectKind} />
-        {kind === 'entities' ? (
-          <SegmentedTabs
-            options={ENTITY_SORT_OPTIONS}
-            selected={entitySort}
-            onSelect={onSelectEntitySort}
-            accessibilityLabel="Ordenar entidades por"
-          />
-        ) : null}
+        {sortTabs()}
         {note ? (
           <MonoText size={11} muted style={styles.note}>
             {note}

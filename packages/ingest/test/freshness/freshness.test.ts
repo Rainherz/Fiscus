@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   CLOSED_DATA_FRESHNESS_SOURCE,
   evaluateFreshness,
+  INFOBRAS_FRESHNESS_SOURCE,
+  INFOBRAS_MAX_AGE_HOURS,
   OPEN_DATA_FRESHNESS_SOURCE,
   PARALYZED_FRESHNESS_SOURCE,
   PARALYZED_MAX_AGE_HOURS,
@@ -21,12 +23,21 @@ function rows({
   openData = hoursAgo(5),
   closedData = hoursAgo(5),
   paralyzed = hoursAgo(30),
-}: { ssi?: string | null; openData?: string | null; closedData?: string | null; paralyzed?: string | null } = {}) {
+  infobras = hoursAgo(28),
+}: {
+  ssi?: string | null;
+  openData?: string | null;
+  closedData?: string | null;
+  paralyzed?: string | null;
+  infobras?: string | null;
+} = {}) {
   const result: FreshnessRow[] = [
     { source: SSI_FRESHNESS_SOURCE, lastSuccessAt: ssi, lastCheckedAt: ssi },
     { source: OPEN_DATA_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(400), lastCheckedAt: openData },
     { source: CLOSED_DATA_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(400), lastCheckedAt: closedData },
     { source: PARALYZED_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(1800), lastCheckedAt: paralyzed },
+    // The INFOBRAS content is months old by design (data_as_of); only the weekly check is judged.
+    { source: INFOBRAS_FRESHNESS_SOURCE, lastSuccessAt: hoursAgo(5000), lastCheckedAt: infobras },
   ];
   return result;
 }
@@ -73,6 +84,14 @@ describe("evaluateFreshness", () => {
         maxAgeHours: 216,
         stale: false,
       },
+      {
+        key: "infobras",
+        label: "Contraloría, INFOBRAS: última revisión",
+        at: hoursAgo(28),
+        ageHours: 28,
+        maxAgeHours: 216,
+        stale: false,
+      },
     ]);
   });
 
@@ -80,14 +99,14 @@ describe("evaluateFreshness", () => {
     const result = evaluateFreshness(rows({ ssi: hoursAgo(36.1) }), NOW);
 
     expect(result.stale).toBe(true);
-    expect(result.checks.map((check) => check.stale)).toEqual([true, false, false, false]);
+    expect(result.checks.map((check) => check.stale)).toEqual([true, false, false, false, false]);
   });
 
   it("judges the closed-investments file by its own last check (36 h)", () => {
     expect(CLOSED_DATA_FRESHNESS_SOURCE).toBe("mef_cierre_inversiones");
     const late = evaluateFreshness(rows({ closedData: hoursAgo(36.5) }), NOW);
     expect(late.stale).toBe(true);
-    expect(late.checks.map((check) => check.stale)).toEqual([false, false, true, false]);
+    expect(late.checks.map((check) => check.stale)).toEqual([false, false, true, false, false]);
     expect(evaluateFreshness(rows({ closedData: null }), NOW).checks[2]).toMatchObject({ at: null, stale: true });
   });
 
@@ -114,8 +133,18 @@ describe("evaluateFreshness", () => {
     expect(evaluateFreshness(rows({ paralyzed: hoursAgo(215) }), NOW).stale).toBe(false);
     const late = evaluateFreshness(rows({ paralyzed: hoursAgo(217) }), NOW);
     expect(late.stale).toBe(true);
-    expect(late.checks.map((check) => check.stale)).toEqual([false, false, false, true]);
+    expect(late.checks.map((check) => check.stale)).toEqual([false, false, false, true, false]);
     expect(evaluateFreshness(rows({ paralyzed: null }), NOW).checks[3]).toMatchObject({ at: null, stale: true });
+  });
+
+  it("judges the weekly INFOBRAS run by its last check within 9 days, never by the data date", () => {
+    expect(INFOBRAS_FRESHNESS_SOURCE).toBe("infobras_obras");
+    expect(INFOBRAS_MAX_AGE_HOURS).toBe(216);
+    expect(evaluateFreshness(rows({ infobras: hoursAgo(215) }), NOW).stale).toBe(false);
+    const late = evaluateFreshness(rows({ infobras: hoursAgo(217) }), NOW);
+    expect(late.stale).toBe(true);
+    expect(late.checks.map((check) => check.stale)).toEqual([false, false, false, false, true]);
+    expect(evaluateFreshness(rows({ infobras: null }), NOW).checks[4]).toMatchObject({ at: null, stale: true });
   });
 
   it("keeps the 9-day threshold of the weekly run under a custom daily threshold", () => {
@@ -140,6 +169,8 @@ describe("renderStaleIssueBody", () => {
     expect(body).toContain("| Datos abiertos: última revisión | sin registro | — | 36 h | Desactualizado |");
     expect(body).toContain("| Datos abiertos de cierres: última revisión | 28/10/2026 05:00 | 5 h | 36 h | Al día |");
     expect(body).toContain("| Contraloría, obras paralizadas: última revisión | 27/10/2026 04:00 | 30 h | 216 h | Al día |");
+    expect(body).toContain("| Contraloría, INFOBRAS: última revisión | 27/10/2026 06:00 | 28 h | 216 h | Al día |");
+    expect(body).toContain("las revisiones semanales (Contraloría, obras paralizadas e INFOBRAS), 216 h");
     expect(body).toContain("| Fuente | Fecha (hora de Lima) | Antigüedad | Umbral | Estado |");
     expect(body).toContain("https://github.com/o/r/actions/runs/1");
   });

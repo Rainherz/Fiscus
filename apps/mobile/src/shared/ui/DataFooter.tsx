@@ -16,6 +16,8 @@ interface Props {
   onPressGuide?: () => void;
   /** The Contraloría report with its edition, e.g. "(corte junio 2026)"; the plain name by default. */
   paralyzedSource?: string;
+  /** INFOBRAS with the date its data describes, e.g. "(datos al 31/03/2026)"; the plain name by default. */
+  infobrasSource?: string;
 }
 
 export const SOURCE_NAME = 'MEF – Sistema de Seguimiento de Inversiones';
@@ -25,6 +27,8 @@ export const OPEN_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Detalle de inversi
 export const CLOSED_DATA_SOURCE_NAME = 'MEF – Datos Abiertos, Cierre de inversiones';
 /** The official list of paralyzed works (Contraloría General de la República). */
 export const PARALYZED_DATA_SOURCE_NAME = 'Contraloría – Informe de obras paralizadas';
+/** The INFOBRAS open dataset of obras (Contraloría General de la República). */
+export const INFOBRAS_DATA_SOURCE_NAME = 'Contraloría – INFOBRAS';
 
 /** The source a project's figures come from (`investments.data_source`). */
 export function sourceNameOf(dataSource: 'ssi' | 'open_data' | 'open_data_closed'): string {
@@ -43,6 +47,7 @@ export function DataFooter({
   isDemo,
   onPressGuide,
   paralyzedSource = PARALYZED_DATA_SOURCE_NAME,
+  infobrasSource = INFOBRAS_DATA_SOURCE_NAME,
 }: Props) {
   const breakpoint = useBreakpoint();
   const demo = isDemo ? (
@@ -69,7 +74,7 @@ export function DataFooter({
   ) : null;
   const sources = (
     <MonoText size={11} muted>
-      {`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}; ${CLOSED_DATA_SOURCE_NAME}; ${paralyzedSource}`}
+      {`Fuentes: ${SOURCE_NAME}; ${OPEN_DATA_SOURCE_NAME}; ${CLOSED_DATA_SOURCE_NAME}; ${paralyzedSource}; ${infobrasSource}`}
     </MonoText>
   );
 

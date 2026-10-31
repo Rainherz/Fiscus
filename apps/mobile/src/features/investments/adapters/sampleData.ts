@@ -1,5 +1,6 @@
 import { canonicalFunction } from '../domain/functionCrosswalk';
 import type { GovernmentLevel } from '../domain/governmentLevel';
+import type { InfobrasWork } from '../domain/infobras';
 import type { InvestmentClosure } from '../domain/investment';
 import type { CostChangeRow, InvestmentRow } from '../domain/mappers';
 import type { ParalyzedWork } from '../domain/paralyzed';
@@ -544,6 +545,135 @@ export const MOCK_PARALYZED_WORKS: ParalyzedWork[] = [
     causalLabel: 'ABANDONO DE OBRA',
     physicalProgress: 40,
     remainingWorkBalance: 1_750_000,
+  }),
+];
+
+/** DEMO ONLY: the date the demo INFOBRAS data "describes". */
+export const MOCK_INFOBRAS_DATA_AS_OF = '2026-03-31';
+
+const DEMO_COMPANY_A = { kind: 'empresa' as const, ruc: '20999990008', name: 'CONSTRUCTORA ANDINA S.A.C. (demo)' };
+const DEMO_COMPANY_B = { kind: 'empresa' as const, ruc: '20999990016', name: 'INGENIERÍA DEL SUR E.I.R.L. (demo)' };
+const DEMO_CONSORTIUM = { kind: 'consorcio' as const, ruc: 'C9900000001', name: 'CONSORCIO VIAL AREQUIPA (demo)' };
+const DEMO_SUPERVISOR = { kind: 'consorcio' as const, ruc: '20999990025', name: 'CONSORCIO SUPERVISOR CHILI (demo)' };
+const NATURAL_PERSON = { kind: 'persona_natural' as const, ruc: null, name: null };
+const NONE = { kind: null, ruc: null, name: null };
+
+function demoInfobras(work: Partial<InfobrasWork> & Pick<InfobrasWork, 'infobrasCode' | 'cui'>): InfobrasWork {
+  return {
+    executionStatus: 'En Ejecución',
+    hasParalysis: false,
+    paralysisCause: null,
+    paralysisDate: null,
+    paralysisDays: null,
+    physicalProgressPlanned: null,
+    physicalProgressActual: null,
+    progressPeriod: null,
+    contractAmount: null,
+    contractor: NONE,
+    supervisor: NONE,
+    additionalWorksAmount: null,
+    deductionsAmount: null,
+    extensionDays: null,
+    receptionDate: null,
+    liquidationDate: null,
+    modality: 'Contrata',
+    ...work,
+  };
+}
+
+/**
+ * DEMO ONLY, not INFOBRAS data: invented obras linked to demo CUIs, so the demo mode shows the
+ * detail block, the "Contratistas" ranking and the contractor page. Companies and consortia are
+ * marked "(demo)" and their RUCs fail the SUNAT check digit on purpose, so none matches a real one.
+ * One contractor is a natural person (kind only, no name or RUC, like real data). The obras of
+ * 9900001 reuse the INFOBRAS codes of the demo paralyzed works, so the Contraloría count shows.
+ */
+export const MOCK_INFOBRAS_WORKS: InfobrasWork[] = [
+  demoInfobras({
+    infobrasCode: 990001,
+    cui: '9900001',
+    executionStatus: 'Paralizada',
+    hasParalysis: true,
+    paralysisCause: 'Incumplimiento de contrato',
+    paralysisDate: '2025-08-01',
+    paralysisDays: 212,
+    physicalProgressPlanned: 75,
+    physicalProgressActual: 38.5,
+    progressPeriod: '2026-02-01',
+    contractAmount: 98_600_000,
+    contractor: DEMO_CONSORTIUM,
+    supervisor: DEMO_SUPERVISOR,
+    additionalWorksAmount: 7_450_000,
+    extensionDays: 180,
+  }),
+  demoInfobras({
+    infobrasCode: 990002,
+    cui: '9900001',
+    executionStatus: 'Paralizada',
+    hasParalysis: true,
+    paralysisCause: 'Sin asignación presupuestal',
+    paralysisDate: '2025-11-15',
+    paralysisDays: 106,
+    physicalProgressPlanned: 60,
+    physicalProgressActual: 52,
+    progressPeriod: '2026-02-01',
+    contractAmount: 38_300_000,
+    contractor: DEMO_COMPANY_A,
+    supervisor: NATURAL_PERSON,
+    deductionsAmount: 420_000,
+  }),
+  demoInfobras({
+    infobrasCode: 990011,
+    cui: '9900102',
+    physicalProgressPlanned: 70,
+    physicalProgressActual: 57,
+    progressPeriod: '2026-03-01',
+    contractAmount: 182_000_000,
+    contractor: DEMO_CONSORTIUM,
+    supervisor: DEMO_SUPERVISOR,
+    additionalWorksAmount: 12_900_000,
+    extensionDays: 240,
+  }),
+  demoInfobras({
+    infobrasCode: 990012,
+    cui: '9900203',
+    physicalProgressPlanned: 55,
+    physicalProgressActual: 41,
+    progressPeriod: '2026-01-01',
+    contractAmount: 16_200_000,
+    contractor: DEMO_COMPANY_B,
+  }),
+  demoInfobras({
+    infobrasCode: 990013,
+    cui: '9900003',
+    physicalProgressPlanned: 100,
+    physicalProgressActual: 74,
+    progressPeriod: '2026-03-01',
+    contractAmount: 9_800_000,
+    contractor: DEMO_COMPANY_A,
+    additionalWorksAmount: 640_000,
+    extensionDays: 60,
+  }),
+  demoInfobras({
+    infobrasCode: 990014,
+    cui: '9900302',
+    executionStatus: 'Sin Ejecución',
+    contractAmount: 2_300_000,
+    contractor: NATURAL_PERSON,
+  }),
+  demoInfobras({
+    infobrasCode: 990015,
+    cui: '9900301',
+    executionStatus: 'Finalizado',
+    physicalProgressPlanned: 100,
+    physicalProgressActual: 100,
+    progressPeriod: '2024-11-01',
+    contractAmount: 24_700_000,
+    contractor: DEMO_COMPANY_B,
+    supervisor: DEMO_SUPERVISOR,
+    additionalWorksAmount: 1_150_000,
+    receptionDate: '2024-12-20',
+    liquidationDate: '2025-06-30',
   }),
 ];
 

@@ -52,6 +52,12 @@ describe('glossary terms', () => {
       'Cierre de la inversión',
       'Liquidación',
       'Obra paralizada (Contraloría)',
+      'INFOBRAS',
+      'Contratista',
+      'Supervisión',
+      'Adicional de obra',
+      'Deductivo',
+      'Ampliación de plazo',
       'Sin gasto reciente',
       'Costo actualizado no válido',
       'Dato inusual',
@@ -72,6 +78,14 @@ describe('glossary terms', () => {
     expect(official.extra).toMatch(/«Sin gasto reciente»/);
     expect(rule.kind).toBe('fiscus');
     expect(rule.extra).toMatch(/Contraloría/);
+  });
+
+  it('dates INFOBRAS and states that natural persons are not named', () => {
+    const infobras = termById('infobras');
+    expect(infobras.kind).toBe('contraloria');
+    expect(infobras.extra).toMatch(/fecha/);
+    expect(termById('contratista').extra).toMatch(/personas naturales/);
+    expect(termById('supervision').extra).toMatch(/personas naturales/);
   });
 
   it('keys every term by its id', () => {

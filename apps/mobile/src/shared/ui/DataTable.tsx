@@ -36,6 +36,8 @@ interface Layout {
   spread: boolean;
   /** Ranking all of Peru: the region is shown. */
   national: boolean;
+  /** The desktop level column; false for rows without a level (contractors). Defaults to true. */
+  levelColumn?: boolean;
 }
 
 /** Hidden from screen readers: every row announces its figures with their names. */
@@ -49,6 +51,7 @@ export function TableHeader({
   columns,
   spread,
   national,
+  levelColumn = true,
   renderHint,
 }: Layout & { renderHint?: (term: string, onInk: boolean) => ReactNode }) {
   return (
@@ -59,7 +62,7 @@ export function TableHeader({
       <MonoText bold size={11} muted style={styles.name} {...hiddenFromReaders}>
         NOMBRE
       </MonoText>
-      {spread ? (
+      {spread && levelColumn ? (
         <MonoText bold size={11} muted style={styles.level} {...hiddenFromReaders}>
           NIVEL
         </MonoText>
@@ -103,7 +106,7 @@ interface RowProps extends Layout {
 }
 
 /** One ranked row: rank, name (two lines at most) with its entity, level, region and figures. */
-export function TableRow({ rank, row, columns, spread, national, onPress }: RowProps) {
+export function TableRow({ rank, row, columns, spread, national, levelColumn = true, onPress }: RowProps) {
   const inline = !spread && (row.tag || national);
   return (
     <Pressable
@@ -138,7 +141,7 @@ export function TableRow({ rank, row, columns, spread, national, onPress }: RowP
           </View>
         ) : null}
       </View>
-      {spread ? <View style={styles.level}>{row.tag ? <LevelTag tag={row.tag} /> : null}</View> : null}
+      {spread && levelColumn ? <View style={styles.level}>{row.tag ? <LevelTag tag={row.tag} /> : null}</View> : null}
       {spread && national ? (
         <MonoText size={12} style={styles.region} numberOfLines={2}>
           {row.region}

@@ -1,8 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { contractorHref } from '@/features/contractor/contractorRoute';
 import { useReadScope } from '@/features/department/ScopeContext';
+import { isContractorSort, type ContractorSort } from '@/features/investments/domain/infobras';
 import type { RankingKind } from '@/features/investments/domain/investment';
 import {
+  useContractorRanking,
   useEntityComparison,
   useParalyzedInvestments,
   useRanking,
@@ -18,19 +21,26 @@ import { RankingsView } from './RankingsView';
 
 const DEFAULT_TAB: RankingKind = 'increase-amount';
 const DEFAULT_ENTITY_SORT: EntitySort = 'increase-amount';
+const DEFAULT_CONTRACTOR_SORT: ContractorSort = 'contract';
 
 /**
  * The rows and paging state of one ranking tab in a read scope; only the selected tab fetches. A
  * tab that only applies to active projects fetches nothing while only closed ones are shown
  * (`activeOnlyHidden`).
  */
-export function useRankingList(tab: RankingTab, read: ReadScope, entitySort: EntitySort = DEFAULT_ENTITY_SORT) {
+export function useRankingList(
+  tab: RankingTab,
+  read: ReadScope,
+  entitySort: EntitySort = DEFAULT_ENTITY_SORT,
+  contractorSort: ContractorSort = DEFAULT_CONTRACTOR_SORT,
+) {
   const activeOnlyHidden = isActiveOnlyTab(tab, read.status, entitySort);
-  const isInvestmentRanking = tab !== 'stalled' && tab !== 'entities' && tab !== 'paralyzed';
+  const isInvestmentRanking = tab !== 'stalled' && tab !== 'entities' && tab !== 'paralyzed' && tab !== 'contractors';
   const rankingKind: RankingKind = isInvestmentRanking ? tab : DEFAULT_TAB;
   const ranking = useRanking(rankingKind, read, { enabled: isInvestmentRanking && !activeOnlyHidden });
   const stalled = useStalledInvestments(read, { enabled: tab === 'stalled' && !activeOnlyHidden });
   const paralyzed = useParalyzedInvestments(read, { enabled: tab === 'paralyzed' });
+  const contractors = useContractorRanking(contractorSort, read, { enabled: tab === 'contractors' });
   const entities = useEntityComparison(entitySort, read, { enabled: tab === 'entities' && !activeOnlyHidden });
 
   const list: RankingList = activeOnlyHidden
@@ -43,11 +53,25 @@ export function useRankingList(tab: RankingTab, read: ReadScope, entitySort: Ent
       ? { kind: 'stalled', items: stalled.data?.pages.flat() ?? [] }
       : tab === 'paralyzed'
         ? { kind: 'paralyzed', items: paralyzed.data?.pages.flat() ?? [] }
-        : tab === 'entities'
-          ? { kind: 'entities', items: entities.data?.pages.flat() ?? [] }
-          : { kind: rankingKind, items: ranking.data?.pages.flat() ?? [] };
+        : tab === 'contractors'
+          ? {
+              kind: 'contractors',
+              items: contractors.data?.pages.flatMap((page) => page.items) ?? [],
+              dataAsOf: contractors.data?.pages[0]?.dataAsOf ?? null,
+            }
+          : tab === 'entities'
+            ? { kind: 'entities', items: entities.data?.pages.flat() ?? [] }
+            : { kind: rankingKind, items: ranking.data?.pages.flat() ?? [] };
   const query =
-    tab === 'stalled' ? stalled : tab === 'paralyzed' ? paralyzed : tab === 'entities' ? entities : ranking;
+    tab === 'stalled'
+      ? stalled
+      : tab === 'paralyzed'
+        ? paralyzed
+        : tab === 'contractors'
+          ? contractors
+          : tab === 'entities'
+            ? entities
+            : ranking;
   return {
     list,
     activeOnlyHidden,
@@ -70,7 +94,9 @@ export function RankingsContainer() {
   const params = useLocalSearchParams<{ tab?: string; sort?: string }>();
   const tab: RankingTab = isRankingTab(params.tab) ? params.tab : DEFAULT_TAB;
   const entitySort: EntitySort = isEntitySort(params.sort) ? params.sort : DEFAULT_ENTITY_SORT;
-  const ranking = useRankingList(tab, read, entitySort);
+  // `sort` serves both second rows of tabs: entity and contractor sorts have different names.
+  const contractorSort: ContractorSort = isContractorSort(params.sort) ? params.sort : DEFAULT_CONTRACTOR_SORT;
+  const ranking = useRankingList(tab, read, entitySort, contractorSort);
 
   return (
     <RankingsView
@@ -80,6 +106,12 @@ export function RankingsContainer() {
       entitySort={entitySort}
       onSelectKind={(next) => router.setParams({ tab: next })}
       onSelectEntitySort={(next) => router.setParams({ sort: next })}
+      contractorSort={contractorSort}
+      onSelectContractorSort={(next) => router.setParams({ sort: next })}
+      onPressContractor={(ruc) => {
+        blurActiveElement();
+        router.push(contractorHref(ruc));
+      }}
       onPressInvestment={(cui) => router.push({ pathname: '/investment/[cui]', params: { cui } })}
       onPressEntity={(entity) => {
         blurActiveElement();

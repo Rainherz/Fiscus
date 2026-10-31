@@ -31,7 +31,7 @@ describe('RankingsView', () => {
 
   it('only ranks projects of the selected region: the region comparison lives in the region picker', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'increase-amount', items: arequipa }} />);
-    expect(screen.getAllByRole('tab')).toHaveLength(7);
+    expect(screen.getAllByRole('tab')).toHaveLength(8);
     expect(screen.getByRole('tab', { name: 'Entidades' })).toBeOnTheScreen();
     expect(screen.queryByRole('tab', { name: 'Regiones' })).toBeNull();
   });
@@ -134,6 +134,45 @@ describe('RankingsView', () => {
       }),
     );
     expect(onPressInvestment).toHaveBeenCalledWith('2151761');
+  });
+
+  it('lists companies and consortia from INFOBRAS with their sorts, the dated note, and opens one', async () => {
+    const onPressContractor = jest.fn();
+    const onSelectContractorSort = jest.fn();
+    const item = {
+      ruc: 'C0000000002',
+      name: 'CONSORCIO VIAL DEL SUR (demo)',
+      kind: 'consorcio' as const,
+      obraCount: 2,
+      totalContractAmount: 30_000_000,
+      totalAdditionalWorks: 0,
+      contraloriaParalyzedCount: 0,
+    };
+    await render(
+      <RankingsView
+        {...baseProps}
+        list={{ kind: 'contractors', items: [item], dataAsOf: '2026-03-31' }}
+        contractorSort="contract"
+        onSelectContractorSort={onSelectContractorSort}
+        onPressContractor={onPressContractor}
+      />,
+    );
+    expect(screen.getByRole('tab', { name: 'Contratistas' })).toBeSelected();
+    expect(screen.getByRole('tab', { name: 'Monto contratado' })).toBeSelected();
+    expect(screen.getByText(/no incluye personas naturales.*Datos de INFOBRAS al 31\/03\/2026\./)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Obras paralizadas' }));
+    expect(onSelectContractorSort).toHaveBeenCalledWith('paralyzed');
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: '1. CONSORCIO VIAL DEL SUR (demo), S/ 30 M, Consorcio · código C0000000002 · 2 obras',
+      }),
+    );
+    expect(onPressContractor).toHaveBeenCalledWith('C0000000002');
+  });
+
+  it('states when no contractor of the scope has obras in INFOBRAS', async () => {
+    await render(<RankingsView {...baseProps} list={{ kind: 'contractors', items: [], dataAsOf: null }} />);
+    expect(screen.getByText('No hay empresas ni consorcios con obras en INFOBRAS.')).toBeOnTheScreen();
   });
 
   it('states when no project of the scope is in the Contraloría report', async () => {

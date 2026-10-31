@@ -10,6 +10,7 @@ import {
 
 import { withRegion } from '../department/scope';
 import type { EntityComparison } from '../investments/domain/entityComparison';
+import type { ContractorRankingItem } from '../investments/domain/infobras';
 import type { ParalyzedInvestment } from '../investments/domain/paralyzed';
 import { PARALYZED_RULE_NOTE } from '../paralyzed/paralyzedPresentation';
 import { STALLED_RULE_NOTE } from '../stalled/stalledPresentation';
@@ -26,12 +27,15 @@ import type { StalledInvestment } from '../investments/domain/stalled';
  * it opens the default one. The entity drill-down (`/entity`) has the project tabs only.
  */
 export type ProjectTab = RankingKind | 'stalled';
-/** 'paralyzed': the Contraloría's official list (Rankings screen only: it has no entity filter). */
-export type RankingTab = ProjectTab | 'paralyzed' | 'entities';
+/**
+ * 'paralyzed': the Contraloría's official list; 'contractors': companies and consortia from INFOBRAS.
+ * Rankings screen only: they have no entity filter.
+ */
+export type RankingTab = ProjectTab | 'paralyzed' | 'contractors' | 'entities';
 
 export const PROJECT_TABS: readonly ProjectTab[] = ['increase-amount', 'increase-pct', 'cost', 'duration', 'stalled'];
 
-export const RANKING_TABS: readonly RankingTab[] = [...PROJECT_TABS, 'paralyzed', 'entities'];
+export const RANKING_TABS: readonly RankingTab[] = [...PROJECT_TABS, 'paralyzed', 'contractors', 'entities'];
 
 export function isRankingTab(value: unknown): value is RankingTab {
   return typeof value === 'string' && (RANKING_TABS as readonly string[]).includes(value);
@@ -46,6 +50,7 @@ export type RankingList =
   | { kind: RankingKind; items: Investment[] }
   | { kind: 'stalled'; items: StalledInvestment[] }
   | { kind: 'paralyzed'; items: ParalyzedInvestment[] }
+  | { kind: 'contractors'; items: ContractorRankingItem[]; dataAsOf: string | null }
   | { kind: 'entities'; items: EntityComparison[] };
 
 export const RANKING_OPTIONS: readonly { key: ProjectTab; label: string }[] = [
@@ -59,6 +64,7 @@ export const RANKING_OPTIONS: readonly { key: ProjectTab; label: string }[] = [
 export const RANKINGS_SCREEN_OPTIONS: readonly { key: RankingTab; label: string }[] = [
   ...RANKING_OPTIONS,
   { key: 'paralyzed', label: 'Paralizadas (Contraloría)' },
+  { key: 'contractors', label: 'Contratistas' },
   { key: 'entities', label: 'Entidades' },
 ];
 

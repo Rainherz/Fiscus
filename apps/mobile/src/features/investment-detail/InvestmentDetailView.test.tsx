@@ -277,6 +277,22 @@ describe('InvestmentDetailView', () => {
     expect(text.indexOf('contraloria')).toBeLessThan(text.indexOf('APROBADO (MONTO VIABLE)'));
   });
 
+  it('shows the INFOBRAS block after the figures and before the cost history', async () => {
+    await render(
+      <InvestmentDetailView
+        investment={full}
+        now={NOW}
+        paralyzed={<Text>contraloria</Text>}
+        infobras={<Text>infobras</Text>}
+        costHistory={<Text>historial</Text>}
+      />,
+    );
+    const text = JSON.stringify(screen.toJSON());
+    expect(text.indexOf('infobras')).toBeGreaterThan(text.indexOf('contraloria'));
+    expect(text.indexOf('infobras')).toBeGreaterThan(text.indexOf('APROBADO (MONTO VIABLE)'));
+    expect(text.indexOf('infobras')).toBeLessThan(text.indexOf('historial'));
+  });
+
   it('renders the cost history it is given', async () => {
     await render(<InvestmentDetailView investment={full} now={NOW} costHistory={<Text>historial</Text>} />);
     expect(screen.getByText('historial')).toBeOnTheScreen();

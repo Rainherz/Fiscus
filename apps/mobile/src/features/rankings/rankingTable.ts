@@ -1,7 +1,9 @@
 import { regionLabel } from '@/features/department/departments';
 import type { TermId } from '@/features/glossary/terms';
 import { levelTag, projectTag } from '@/features/government-level/levelPresentation';
+import { contractorKindLabel, identifierText } from '@/features/infobras/infobrasPresentation';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
+import type { ContractorRankingItem, ContractorSort } from '@/features/investments/domain/infobras';
 import type { Investment, RankingKind } from '@/features/investments/domain/investment';
 import type { ParalyzedInvestment } from '@/features/investments/domain/paralyzed';
 import type { StalledInvestment } from '@/features/investments/domain/stalled';
@@ -21,7 +23,10 @@ import type { TableColumn, TableRowData } from '@/shared/ui/DataTable';
 import type { EntitySort } from './entityPresentation';
 import type { RankingList } from './rankingPresentation';
 
-export type TableTarget = { kind: 'investment'; cui: string } | { kind: 'entity'; index: number };
+export type TableTarget =
+  | { kind: 'investment'; cui: string }
+  | { kind: 'entity'; index: number }
+  | { kind: 'contractor'; ruc: string };
 
 export interface TableRow extends TableRowData {
   target: TableTarget;
@@ -38,6 +43,7 @@ interface Options {
   /** Tablet: only the essential figures. */
   compact?: boolean;
   entitySort?: EntitySort;
+  contractorSort?: ContractorSort;
 }
 
 /** A column definition: whether the compact table keeps it, and its value for one item. */
@@ -156,6 +162,25 @@ const ENTITY_SPECS: ColumnSpec<EntityComparison>[] = [
   { key: 'overspent', label: 'Gasto sobre costo', compact: false, value: (item) => formatInteger(item.overspentCount) },
 ];
 
+const CONTRACTOR_SPECS: ColumnSpec<ContractorRankingItem>[] = [
+  { key: 'obras', label: 'Obras', compact: true, value: (item) => formatInteger(item.obraCount) },
+  { key: 'contract', label: 'Monto contratado', compact: true, value: (item) => formatSoles(item.totalContractAmount) },
+  {
+    key: 'additional',
+    label: 'Adicionales',
+    term: 'adicional-de-obra',
+    compact: false,
+    value: (item) => formatSoles(item.totalAdditionalWorks),
+  },
+  {
+    key: 'paralyzed',
+    label: 'Paralizadas (Contraloría)',
+    term: 'obra-paralizada',
+    compact: false,
+    value: (item) => formatInteger(item.contraloriaParalyzedCount),
+  },
+];
+
 const projectRow = (item: Investment): Omit<TableRow, 'cells' | 'summary'> => ({
   key: item.cui,
   name: item.name ?? 'Sin nombre',
@@ -185,6 +210,21 @@ export function rankingTable(list: RankingList, now: Date, options: Options = {}
       );
     case 'stalled':
       return build(STALLED_SPECS, 'since', list.items, projectRow, options);
+    case 'contractors':
+      // Contractors have no level or region: the table is laid out without them (national: false).
+      return build(
+        CONTRACTOR_SPECS,
+        options.contractorSort ?? 'contract',
+        list.items,
+        (item) => ({
+          key: item.ruc,
+          name: item.name ?? item.ruc,
+          sub: `${contractorKindLabel(item.kind)} · ${identifierText(item.ruc)}`,
+          region: '',
+          target: { kind: 'contractor', ruc: item.ruc },
+        }),
+        { ...options, national: false },
+      );
     case 'paralyzed':
       return build(
         PARALYZED_SPECS,
