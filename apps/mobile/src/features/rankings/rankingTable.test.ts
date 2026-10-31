@@ -130,6 +130,37 @@ describe('rankingTable: paralyzed (Contraloría)', () => {
   });
 });
 
+describe('rankingTable: contractors (INFOBRAS)', () => {
+  const item = {
+    ruc: '20100000001',
+    name: 'CONSTRUCTORA ANDES S.A.C. (demo)',
+    kind: 'empresa' as const,
+    obraCount: 12,
+    totalContractAmount: 48_000_000,
+    totalAdditionalWorks: 2_500_000,
+    contraloriaParalyzedCount: 1,
+  };
+
+  it('shows obras, contract amount, additional works and paralyzed obras, the sort marked', () => {
+    const table = rankingTable({ kind: 'contractors', items: [item], dataAsOf: '2026-03-31' }, NOW, { contractorSort: 'additional' });
+    expect(labels(table)).toEqual(['Obras', 'Monto contratado', 'Adicionales', 'Paralizadas (Contraloría)']);
+    expect(sortedLabel(table)).toEqual(['Adicionales']);
+    expect(table.columns[2]).toMatchObject({ term: 'adicional-de-obra' });
+    expect(table.rows[0]).toMatchObject({
+      key: '20100000001',
+      name: 'CONSTRUCTORA ANDES S.A.C. (demo)',
+      sub: 'Empresa · RUC 20100000001',
+      region: '',
+      cells: ['12', 'S/ 48 M', 'S/ 2.5 M', '1'],
+      target: { kind: 'contractor', ruc: '20100000001' },
+    });
+    expect(labels(rankingTable({ kind: 'contractors', items: [item], dataAsOf: null }, NOW, { compact: true }))).toEqual([
+      'Obras',
+      'Monto contratado',
+    ]);
+  });
+});
+
 describe('rankingTable: entities', () => {
   const entity: EntityComparison = {
     entity: 'MUNICIPALIDAD PROVINCIAL DE AREQUIPA',

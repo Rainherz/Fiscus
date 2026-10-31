@@ -1,0 +1,81 @@
+name: Fiscus INFOBRAS ingest
+
+# Contraloría General de la República, INFOBRAS open data ("Dataset - Obras Públicas",
+# https://infobras.contraloria.gob.pe/InfobrasWeb/DataSets): one XLSX (~57 MB, ~191,000 obras)
+# regenerated daily under a new dated name. The ingest reads the DataSets page for the current link,
+# skips the file when its name or its Content-Length matches the last ingested one
+# (public.source_snapshots, source infobras_obras), otherwise streams it to a temporary file, parses
+# it row by row and upserts through upsert_infobras_works (unchanged obras are not rewritten). Two
+# GET requests per run. Person names are never read; natural-person contractors keep no name or RUC.
+#
+# Weekly on Tuesdays at 11:00 UTC = 06:00 Lima (the paralyzed-works run is on Mondays). Freshness
+# (a run that stops happening, 9 days) is data-freshness.yml; the age of the data itself
+# (data_as_of) is shown in the app, not alerted.
+#
+# Reachability of infobras.contraloria.gob.pe from GitHub-hosted runners is unverified: check the
+# first run. If it times out (like the MEF SSI host), run the same command from the PC timer instead
+# (README, "INFOBRAS").
+on:
+  schedule:
+    - cron: "0 11 * * 2"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ingest even if the file looks the same as the last one"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: fiscus-infobras-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Only for the failure alert below (an ingest-failure issue).
+  issues: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @fiscus/ingest test
+
+      - name: Ingest the INFOBRAS obras dataset into Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: pnpm ingest:infobras $FORCE
+
+      # Opens an ingest-failure issue, or comments on the open one with the same title, so repeated
+      # failures stay in one thread (same pattern as open-data-ingest.yml).
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Falló la ingesta de INFOBRAS"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="La ingesta del dataset de obras de INFOBRAS falló (${{ github.event_name }}). Ejecución: $RUN_URL"
+          gh label create ingest-failure --color B60205 --description "Falla de una ingesta" --force
+          number=$(gh issue list --state open --label ingest-failure --search "in:title \"$TITLE\"" \
+            --json number,title --jq "map(select(.title == \"$TITLE\")) | first | .number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$TITLE" --label ingest-failure --body "$body"
+          fi

@@ -10,12 +10,14 @@
     "ingest:open-data": "tsx src/openDataCli.ts",
     "ingest:open-data-closed": "tsx src/openDataCli.ts --dataset closed",
     "ingest:paralyzed": "tsx src/paralyzedCli.ts",
+    "ingest:infobras": "tsx src/infobrasCli.ts",
     "freshness": "tsx src/freshness/cli.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "csv-parse": "^7.0.3",
-    "exceljs": "^4.4.0"
+    "exceljs": "^4.4.0",
+    "saxes": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

@@ -48,6 +48,8 @@ interface Props {
   onOpenMap?: () => void;
   /** "Paralizada según la Contraloría", shown under the name, before the figures. */
   paralyzed?: ReactNode;
+  /** "Obras en INFOBRAS", shown after the figures (and the closure), before the cost history. */
+  infobras?: ReactNode;
 }
 
 const DASH = '—';
@@ -185,6 +187,7 @@ export function InvestmentDetailView({
   onShare,
   onOpenMap,
   paralyzed,
+  infobras,
 }: Props) {
   const invalidCost = hasInvalidUpdatedCost(inv);
   const stalled = stalledStatus(inv, referenceMonth);
@@ -363,6 +366,8 @@ export function InvestmentDetailView({
       {inv.physicalProgress !== null ? <PhysicalProgress percent={inv.physicalProgress} /> : null}
 
       {inv.closure && isClosed(inv) ? <ClosureSection closure={inv.closure} grid={wide} /> : null}
+
+      {infobras}
 
       {costHistory}
     </>

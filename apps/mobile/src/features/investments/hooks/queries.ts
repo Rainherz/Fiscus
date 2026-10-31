@@ -1,6 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import type { LevelFilter } from '../domain/governmentLevel';
+import type { ContractorSort } from '../domain/infobras';
 import type { RankingKind } from '../domain/investment';
 import type { StatusFilter } from '../domain/investmentStatus';
 import { MAP_LIST_PAGE_SIZE, type MapListRequest, type MapPointsRequest } from '../domain/mapPoints';
@@ -277,5 +278,67 @@ export function useMapList(request: Omit<MapListRequest, 'page' | 'pageSize'> | 
     initialPageParam: 0,
     getNextPageParam: (last, all) => (all.length * MAP_LIST_PAGE_SIZE < last.total ? all.length : undefined),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The obras of a CUI in INFOBRAS and the date that data describes (detail screen block). */
+export function useInfobrasDetail(cui: string) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['infobras-detail', cui],
+    queryFn: async () => {
+      const [works, dataAsOf] = await Promise.all([repository.getInfobrasWorks(cui), repository.getInfobrasDataAsOf()]);
+      return { works, dataAsOf };
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** The date the INFOBRAS data describes (the footer's source line). */
+export function useInfobrasDataAsOf() {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['infobras-data-as-of'],
+    queryFn: () => repository.getInfobrasDataAsOf(),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** "Contratistas" ranking in a read scope, paged. */
+export function useContractorRanking(sort: ContractorSort, read: ReadScope, options: { enabled?: boolean } = {}) {
+  const { repository } = useRepository();
+  return useInfiniteQuery({
+    enabled: options.enabled,
+    queryKey: ['contractor-ranking', sort, read],
+    queryFn: ({ pageParam }) =>
+      repository.getContractorRanking({
+        sort,
+        departmentCode: read.departmentCode,
+        level: read.level,
+        status: read.status,
+        page: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => (all.length * PAGE_SIZE < last.total ? all.length : undefined),
+  });
+}
+
+/** One contractor's national totals. */
+export function useContractorSummary(ruc: string) {
+  const { repository } = useRepository();
+  return useQuery({
+    queryKey: ['contractor-summary', ruc],
+    queryFn: () => repository.getContractorSummary(ruc),
+  });
+}
+
+/** One contractor's obras, paged. */
+export function useContractorWorks(ruc: string) {
+  const { repository } = useRepository();
+  return useInfiniteQuery({
+    queryKey: ['contractor-works', ruc],
+    queryFn: ({ pageParam }) => repository.getContractorWorks({ ruc, page: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => nextPageParam(last, all, PAGE_SIZE),
   });
 }

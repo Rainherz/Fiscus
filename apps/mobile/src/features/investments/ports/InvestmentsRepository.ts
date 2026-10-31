@@ -2,6 +2,13 @@ import type { CostChange, RecentCostIncrease } from '../domain/costChange';
 import type { EntityComparison } from '../domain/entityComparison';
 import type { DataFreshness } from '../domain/freshness';
 import type { LevelFilter } from '../domain/governmentLevel';
+import type {
+  ContractorRankingPage,
+  ContractorRankingParams,
+  ContractorSummary,
+  ContractorWork,
+  InfobrasWork,
+} from '../domain/infobras';
 import type { FunctionSummary, IngestRun, Investment } from '../domain/investment';
 import type { StatusFilter } from '../domain/investmentStatus';
 import type { MapListPage, MapListRequest, MapPoints, MapPointsRequest } from '../domain/mapPoints';
@@ -74,4 +81,14 @@ export interface InvestmentsRepository {
   countParalyzedInvestments(departmentCode?: number, level?: LevelFilter, status?: StatusFilter): Promise<number>;
   /** Cut-off and publication of the latest Contraloría edition; null before the first ingest. */
   getParalyzedEdition(): Promise<ParalyzedEdition | null>;
+  /** The obras of one CUI in INFOBRAS, largest contract first (at most 100). */
+  getInfobrasWorks(cui: string): Promise<InfobrasWork[]>;
+  /** The date the INFOBRAS data describes (yyyy-mm-dd); null before the first ingest. */
+  getInfobrasDataAsOf(): Promise<string | null>;
+  /** "Contratistas": a page of companies and consortia in the scope (see domain/infobras). */
+  getContractorRanking(params: ContractorRankingParams): Promise<ContractorRankingPage>;
+  /** National totals of one contractor; null when unknown. */
+  getContractorSummary(ruc: string): Promise<ContractorSummary | null>;
+  /** A page of one contractor's obras, largest contract first. */
+  getContractorWorks(params: { ruc: string; page: number; pageSize?: number }): Promise<ContractorWork[]>;
 }

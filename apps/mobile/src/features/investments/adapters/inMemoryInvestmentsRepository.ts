@@ -1,6 +1,14 @@
 import { isCostIncrease, type CostChange } from '../domain/costChange';
 import { computeEntityComparison, type EntityComparison } from '../domain/entityComparison';
-import type { LevelFilter } from '../domain/governmentLevel';
+import { isGovernmentLevel, type LevelFilter } from '../domain/governmentLevel';
+import {
+  INFOBRAS_WORKS_LIMIT,
+  rankContractors,
+  type ContractorWork,
+  type ExecutionStatus,
+  type InfobrasWork,
+  type WorkScope,
+} from '../domain/infobras';
 import { matchesStatus, type StatusFilter } from '../domain/investmentStatus';
 import type { DataFreshness } from '../domain/freshness';
 import type { FunctionSummary, IngestRun } from '../domain/investment';
@@ -23,6 +31,7 @@ import {
 } from '../domain/paralyzed';
 import {
   NATIONAL_SCOPE_CODE,
+  PAGE_SIZE,
   buildEntityQuery,
   buildParalyzedQuery,
   buildStalledQuery,
@@ -164,8 +173,29 @@ export function createInMemoryInvestmentsRepository(seed: {
   freshness?: DataFreshness;
   /** Obras of the latest Contraloría edition of paralyzed works; none by default. */
   paralyzedWorks?: ParalyzedWork[];
+  /** INFOBRAS obras; none by default. */
+  infobrasWorks?: InfobrasWork[];
+  /** The date the INFOBRAS data describes; null by default. */
+  infobrasDataAsOf?: string | null;
 }): InvestmentsRepository {
   const rows = seed.rows;
+  const infobras = seed.infobrasWorks ?? [];
+  const infobrasDataAsOf = seed.infobrasDataAsOf ?? null;
+  const rowByCui = new Map(rows.map((row) => [row.cui, row]));
+  const scopeOf = (cui: string | null): WorkScope | null => {
+    const row = cui === null ? undefined : rowByCui.get(cui);
+    if (!row) return null;
+    return {
+      departmentCode: row.department_code ?? null,
+      governmentLevel: isGovernmentLevel(row.government_level) ? row.government_level : null,
+      status: row.status ?? null,
+    };
+  };
+  /** Largest contract first, then code (like the Supabase reads). */
+  const byContract = (a: { contractAmount: number | null; infobrasCode: number }, b: typeof a) =>
+    (b.contractAmount ?? -Infinity) - (a.contractAmount ?? -Infinity) || a.infobrasCode - b.infobrasCode;
+  const contractorWorks = (ruc: string) =>
+    infobras.filter((work) => work.contractor.ruc === ruc && (work.contractor.kind === 'empresa' || work.contractor.kind === 'consorcio'));
   const changes = (seed.costChanges ?? []).map(mapCostChangeRow);
   const works = seed.paralyzedWorks ?? [];
   const paralyzedCuis = new Set(works.flatMap((work) => (work.cui === null ? [] : [work.cui])));
@@ -322,6 +352,54 @@ export function createInMemoryInvestmentsRepository(seed: {
         null,
       );
       return latest ? { editionCutoff: latest.editionCutoff, publishedAt: latest.publishedAt } : null;
+    },
+    async getInfobrasWorks(cui) {
+      return infobras.filter((work) => work.cui === cui).sort(byContract).slice(0, INFOBRAS_WORKS_LIMIT);
+    },
+    async getInfobrasDataAsOf() {
+      return infobrasDataAsOf;
+    },
+    async getContractorRanking(params) {
+      const paralyzedCodes = new Set(works.map((work) => work.infobrasCode));
+      return { ...rankContractors(infobras, scopeOf, paralyzedCodes, params), dataAsOf: infobrasDataAsOf };
+    },
+    async getContractorSummary(ruc) {
+      const own = contractorWorks(ruc);
+      const paralyzedCodes = new Set(works.map((work) => work.infobrasCode));
+      const [item] = rankContractors(own, scopeOf, paralyzedCodes, { sort: 'contract', page: 0 }).items;
+      if (!item) return null;
+      const count = (status: ExecutionStatus) => own.filter((work) => work.executionStatus === status).length;
+      return {
+        ...item,
+        finishedCount: count('Finalizado'),
+        inProgressCount: count('En Ejecución'),
+        notStartedCount: count('Sin Ejecución'),
+        infobrasParalyzedCount: count('Paralizada'),
+        dataAsOf: infobrasDataAsOf,
+      };
+    },
+    async getContractorWorks({ ruc, page, pageSize = PAGE_SIZE }) {
+      const paralyzedCodes = new Set(works.map((work) => work.infobrasCode));
+      return contractorWorks(ruc)
+        .sort(byContract)
+        .slice(page * pageSize, (page + 1) * pageSize)
+        .map((work): ContractorWork => {
+          const row = work.cui === null ? undefined : rowByCui.get(work.cui);
+          return {
+            infobrasCode: work.infobrasCode,
+            cui: work.cui,
+            executionStatus: work.executionStatus,
+            contractAmount: work.contractAmount,
+            additionalWorksAmount: work.additionalWorksAmount,
+            physicalProgressActual: work.physicalProgressActual,
+            investmentName: row?.name ?? null,
+            entity: row?.entity ?? null,
+            departmentCode: row?.department_code ?? null,
+            governmentLevel: isGovernmentLevel(row?.government_level) ? row.government_level : null,
+            investmentStatus: row?.status ?? null,
+            contraloriaParalyzed: paralyzedCodes.has(work.infobrasCode),
+          };
+        });
     },
   };
 }

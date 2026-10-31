@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { InfobrasBlockContainer } from '@/features/infobras/InfobrasBlockContainer';
 import { useAccrualReferenceMonth, useInvestment } from '@/features/investments/hooks/queries';
 import { ParalyzedBlockContainer } from '@/features/paralyzed/ParalyzedBlockContainer';
 import { ShareCardContainer } from '@/features/share-card/ShareCardContainer';
@@ -41,6 +42,7 @@ export function InvestmentDetailContainer() {
             referenceMonth={referenceMonth.data ?? null}
             costHistory={<CostHistoryContainer cui={cui} />}
             paralyzed={<ParalyzedBlockContainer cui={cui} />}
+            infobras={<InfobrasBlockContainer cui={cui} />}
             onShare={() => setSharing(true)}
             onOpenMap={() => router.push({ pathname: '/map', params: { cui } })}
           />
