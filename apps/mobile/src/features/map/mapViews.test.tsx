@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
+import { department } from '@/features/department/scope';
 import type { MapListItem, MapPoint } from '@/features/investments/domain/mapPoints';
+import { TestScope } from '@/test/scope';
 
 import { MapControls } from './MapControls';
 import { MapLegend } from './MapLegend';
@@ -160,6 +162,26 @@ describe('MapProjectList', () => {
 
     await render(<MapProjectList list={{ kind: 'ready', items: [], total: 0, hasMore: false, loadingMore: false }} filtered selectedCui={null} onPressItem={jest.fn()} onLoadMore={jest.fn()} onRetry={jest.fn()} />);
     expect(screen.getByText('No hay proyectos que cumplan los filtros en esta zona.')).toBeOnTheScreen();
+  });
+
+  it('names the global filters behind an empty list and offers to relax them', async () => {
+    await render(
+      <TestScope preset={{ scope: department(4), level: 'GR', status: 'CLOSED' }}>
+        <MapProjectList
+          list={{ kind: 'ready', items: [], total: 0, hasMore: false, loadingMore: false }}
+          filtered={false}
+          selectedCui={null}
+          onPressItem={jest.fn()}
+          onLoadMore={jest.fn()}
+          onRetry={jest.fn()}
+        />
+      </TestScope>,
+    );
+    expect(
+      screen.getByText('No hay proyectos con coordenadas en esta zona · Gobiernos regionales · Proyectos cerrados.'),
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver proyectos activos y cerrados' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver todos los niveles de gobierno' })).toBeOnTheScreen();
   });
 });
 

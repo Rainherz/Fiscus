@@ -5,7 +5,9 @@ import { sampleRow } from '@/features/investments/adapters/sampleData';
 import { mapInvestmentRow } from '@/features/investments/domain/mappers';
 import { toStalledInvestment } from '@/features/investments/domain/stalled';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
+import { department } from '@/features/department/scope';
 import { NOW, arequipa } from '@/test/fixtures';
+import { ScopeProbe, TestScope } from '@/test/scope';
 
 import { RankingsView } from './RankingsView';
 
@@ -75,7 +77,7 @@ describe('RankingsView', () => {
     expect(baseProps.onRetry).toHaveBeenCalled();
 
     await rerender(<RankingsView {...baseProps} list={{ kind: 'cost', items: [] }} status="success" />);
-    expect(screen.getByText('No hay proyectos para este ranking en esta región.')).toBeOnTheScreen();
+    expect(screen.getByText('No hay proyectos para este ranking.')).toBeOnTheScreen();
   });
 
   it('lists projects without recent spending with the rule in one line', async () => {
@@ -136,7 +138,43 @@ describe('RankingsView', () => {
 
   it('states when no project of the scope is in the Contraloría report', async () => {
     await render(<RankingsView {...baseProps} list={{ kind: 'paralyzed', items: [] }} />);
-    expect(screen.getByText('Ningún proyecto de este ámbito figura en el último informe de obras paralizadas.')).toBeOnTheScreen();
+    expect(screen.getByText('Ningún proyecto figura en el último informe de obras paralizadas.')).toBeOnTheScreen();
+  });
+
+  it('names the filters behind an empty Contraloría list and relaxes them in place', async () => {
+    await render(
+      <TestScope preset={{ scope: department(4), status: 'CLOSED' }}>
+        <RankingsView {...baseProps} list={{ kind: 'paralyzed', items: [] }} />
+        <ScopeProbe />
+      </TestScope>,
+    );
+    expect(
+      screen.getByText('Ningún proyecto figura en el último informe de obras paralizadas en Arequipa · Proyectos cerrados.'),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Las obras paralizadas suelen ser proyectos activos.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver proyectos de todo el Perú' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ver proyectos activos y cerrados' }));
+    expect(screen.getByTestId('scope-probe')).toHaveTextContent('Arequipa | Todos los niveles | Activos y cerrados');
+  });
+
+  it('offers to show every status where an active-only ranking is replaced by its note', async () => {
+    await render(
+      <TestScope preset={{ status: 'CLOSED' }}>
+        <RankingsView {...baseProps} list={{ kind: 'stalled', items: [] }} activeOnlyHidden />
+      </TestScope>,
+    );
+    expect(screen.getByText(/se aplica solo a proyectos activos/)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver proyectos activos y cerrados' })).toBeOnTheScreen();
+  });
+
+  it('does not describe nor relax the global level on an entity, which has its own', async () => {
+    await render(
+      <TestScope preset={{ level: 'GN' }}>
+        <RankingsView {...baseProps} options="projects" emptyFollowsLevel={false} list={{ kind: 'cost', items: [] }} />
+      </TestScope>,
+    );
+    expect(screen.getByText('No hay proyectos para este ranking en todo el Perú.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Ver todos los niveles de gobierno' })).toBeNull();
   });
 
   it('keeps the other rankings and states when no project lacks recent spending', async () => {
@@ -168,8 +206,13 @@ describe('RankingsView', () => {
     });
 
     it('speaks of the country when a ranking is empty', async () => {
-      await render(<RankingsView {...baseProps} national list={{ kind: 'cost', items: [] }} />);
-      expect(screen.getByText('No hay proyectos para este ranking en el país.')).toBeOnTheScreen();
+      await render(
+        <TestScope>
+          <RankingsView {...baseProps} national list={{ kind: 'cost', items: [] }} />
+        </TestScope>,
+      );
+      expect(screen.getByText('No hay proyectos para este ranking en todo el Perú.')).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: /^Ver / })).toBeNull();
     });
   });
 
@@ -225,7 +268,7 @@ describe('RankingsView', () => {
 
     it('says so when no entity has the figure', async () => {
       await render(<RankingsView {...baseProps} list={{ kind: 'entities', items: [] }} entitySort="overspent" />);
-      expect(screen.getByText('No hay entidades con este dato en el ámbito elegido.')).toBeOnTheScreen();
+      expect(screen.getByText('No hay entidades con este dato.')).toBeOnTheScreen();
     });
 
     it('can show only the project tabs under a header, for one entity', async () => {

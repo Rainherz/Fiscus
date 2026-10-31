@@ -1,5 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { department } from '@/features/department/scope';
+import { TestScope } from '@/test/scope';
+
 import { CategoriesView } from './CategoriesView';
 
 const summaries = [
@@ -33,16 +36,19 @@ describe('CategoriesView', () => {
     expect(onPressCategory).toHaveBeenCalledWith(null);
   });
 
-  it('speaks of the country when all of Peru has no projects', async () => {
+  it('names the filters when the scope has no projects', async () => {
     await render(
-      <CategoriesView summaries={[]} status="success" national onRetry={() => {}} onPressCategory={() => {}} />,
+      <TestScope preset={{ scope: department(4), status: 'ALL' }}>
+        <CategoriesView summaries={[]} status="success" onRetry={() => {}} onPressCategory={() => {}} />
+      </TestScope>,
     );
-    expect(screen.getByText('No hay proyectos registrados en el país.')).toBeOnTheScreen();
+    expect(screen.getByText('No hay proyectos registrados en Arequipa · Activos y cerrados.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Ver proyectos de todo el Perú' })).toBeOnTheScreen();
   });
 
   it('shows the empty state', async () => {
     await render(<CategoriesView summaries={[]} status="success" onRetry={() => {}} onPressCategory={() => {}} />);
-    expect(screen.getByText('No hay proyectos registrados en esta región.')).toBeOnTheScreen();
+    expect(screen.getByText('No hay proyectos registrados.')).toBeOnTheScreen();
   });
 
   it('states which government levels the totals cover', async () => {

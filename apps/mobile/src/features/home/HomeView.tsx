@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { regionLabel } from '@/features/department/departments';
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { projectTag } from '@/features/government-level/levelPresentation';
 import { TermHint } from '@/features/glossary/TermHint';
 import { spentOverUpdatedCost, type Investment } from '@/features/investments/domain/investment';
@@ -21,7 +22,6 @@ import { FitDisplayText } from '@/shared/ui/FitDisplayText';
 import { HazardProgressBar } from '@/shared/ui/HazardProgressBar';
 import { LevelTag } from '@/shared/ui/LevelTag';
 import { RankingRow } from '@/shared/ui/RankingRow';
-import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
 import { HERO_PARTS, heroFigureWidth, homeColumnPadding, homeGridColumns } from './homeLayout';
@@ -144,12 +144,7 @@ export function HomeView({
     ) : null;
 
   if (!hero) {
-    const empty = (
-      <StateMessage
-        kind="empty"
-        message={`No hay proyectos con aumento de costo ${national ? 'en el país' : 'en esta región'}.`}
-      />
-    );
+    const empty = <FilteredEmptyState what="No hay proyectos con aumento de costo" />;
     if (wide) {
       return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.wideScroll}>

@@ -8,6 +8,7 @@ import { gutterFor, isWide } from '@/shared/layout/breakpoints';
 import { useBreakpoint } from '@/shared/layout/useBreakpoint';
 import { colors, maxContentWidth, minTouch, rule, space } from '@/shared/theme/tokens';
 import { BackHeader } from '@/shared/ui/BackHeader';
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { BodyText, DisplayText, MonoText } from '@/shared/ui/typography';
 
@@ -177,11 +178,8 @@ function Selectors({ pair, onOpen, onSwap }: { pair: RegionPair; onOpen: (side: 
 
 function MissingData({ codes }: { codes: number[] }) {
   if (codes.length === 0) return null;
-  return (
-    <MonoText size={12} style={styles.missing}>
-      {`Sin datos para ${codes.map(departmentName).join(' ni ')}.`}
-    </MonoText>
-  );
+  // The regions are the ones compared, not the global scope: only the level and status are named.
+  return <FilteredEmptyState what={`Sin datos para ${codes.map(departmentName).join(' ni ')}`} followsScope={false} />;
 }
 
 function MetricTable({
@@ -360,7 +358,6 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.7 },
   swatch: { width: 14, height: 14 },
-  missing: { paddingHorizontal: space.lg, paddingTop: space.md },
   section: { marginTop: space.xl, paddingHorizontal: space.lg },
   sectionNote: { marginTop: 2 },
   metric: { paddingTop: space.sm, paddingBottom: 2, borderBottomWidth: 1, borderBottomColor: colors.muted, gap: 2 },

@@ -4,6 +4,7 @@ import { rankRegions, type RegionComparison } from '@/features/investments/domai
 import { REGIONS_EMPTY, regionDetail, regionName, regionNote, regionValue } from '@/features/regions/regionPresentation';
 import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
 import { RankingRow } from '@/shared/ui/RankingRow';
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
@@ -51,7 +52,7 @@ export function TopRegionsSection({ state, note, onPressRegion, onPressSeeAll, o
       ) : state.status === 'error' ? (
         <StateMessage kind="error" message="No se pudieron cargar las regiones." onRetry={state.onRetry} />
       ) : state.regions.length === 0 ? (
-        <StateMessage kind="empty" message={REGIONS_EMPTY} />
+        <FilteredEmptyState what={REGIONS_EMPTY} followsScope={false} />
       ) : (
         <>
           <MonoText size={11} muted style={styles.note}>

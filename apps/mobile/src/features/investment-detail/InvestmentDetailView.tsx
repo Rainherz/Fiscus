@@ -13,6 +13,7 @@ import { stalledStatus } from '@/features/investments/domain/stalled';
 import { TermHint } from '@/features/glossary/TermHint';
 import type { TermId } from '@/features/glossary/terms';
 import { regionLabel } from '@/features/department/departments';
+import { displayLocation } from '@/features/department/location';
 import { levelName, projectTag } from '@/features/government-level/levelPresentation';
 import { stalledSinceSentence } from '@/features/stalled/stalledPresentation';
 import {
@@ -216,8 +217,8 @@ export function InvestmentDetailView({
     fact('Devengado acumulado', formatSoles(inv.accruedTotal)),
     fact('Beneficiarios', formatInteger(inv.beneficiaries)),
     fact('Región', inv.departmentCode === null ? regionLabel(null) : (inv.departmentName ?? DASH)),
-    ...optional('Provincia', inv.province),
-    ...optional('Distrito', inv.district),
+    ...optional('Provincia', displayLocation(inv.province, 'provincia')),
+    ...optional('Distrito', displayLocation(inv.district, 'distrito')),
   ];
 
   const breakpoint = useBreakpoint();

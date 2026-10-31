@@ -7,6 +7,7 @@ import { HomeLink } from '@/shared/ui/HomeLink';
 import { OptionRow } from '@/shared/ui/OptionRow';
 import { RankingRow } from '@/shared/ui/RankingRow';
 import { SegmentedTabs } from '@/shared/ui/SegmentedTabs';
+import { FilteredEmptyState } from '@/features/department/FilteredEmptyState';
 import { StateMessage } from '@/shared/ui/StateMessage';
 import { DisplayText, MonoText } from '@/shared/ui/typography';
 
@@ -150,7 +151,7 @@ export function RegionPickerView({
       ) : status === 'error' ? (
         <StateMessage kind="error" onRetry={onRetry} />
       ) : (
-        <StateMessage kind="empty" message={REGIONS_EMPTY} />
+        <FilteredEmptyState what={REGIONS_EMPTY} followsScope={false} />
       )}
     </View>
   );

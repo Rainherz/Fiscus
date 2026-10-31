@@ -16,7 +16,6 @@ export function CategoriesContainer() {
     <CategoriesView
       summaries={summaries.data ?? []}
       status={summaries.status}
-      national={read.departmentCode === undefined}
       levelNote={levelScopeNote(read.level)}
       onRetry={() => summaries.refetch()}
       onPressCategory={(fn) =>

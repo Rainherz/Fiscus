@@ -57,6 +57,7 @@ function EntityProjects({ params }: { params: EntityParams }) {
     <RankingsView
       {...ranking}
       options="projects"
+      emptyFollowsLevel={false}
       now={new Date()}
       national={departmentCode === undefined}
       header={
