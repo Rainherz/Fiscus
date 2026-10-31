@@ -165,6 +165,11 @@ export function useScope(): ScopeContextValue {
   return value;
 }
 
+/** The scope, or null outside ScopeProvider (isolated view tests, previews). */
+export function useOptionalScope(): ScopeContextValue | null {
+  return useContext(ScopeContext);
+}
+
 /** The department, level and status filters of every read in the current scope. */
 export function useReadScope(): { departmentCode: number | undefined; level: LevelFilter; status: StatusFilter } {
   const { scope, level, status } = useScope();
