@@ -255,8 +255,10 @@ The test fixture (`packages/ingest/test/fixtures/infobras-obras-sample.xlsx`, 23
 `scripts/build-infobras-fixture.ts`, which replaces every person name, every natural-person RUC and the
 comments.
 
-Reachability of `infobras.contraloria.gob.pe` from GitHub-hosted runners is unverified. If the workflow
-times out like the MEF SSI host, run it from the PC instead, mirroring the SSI timer of "Daily ingest":
+`infobras.contraloria.gob.pe` drops connections from GitHub-hosted runners (the first workflow run
+timed out after 10 s, like the MEF SSI host), so the weekly ingest runs from the PC, mirroring the SSI
+timer of "Daily ingest" (same `Fiscus-ingest` worktree and `ExecStartPre` update steps).
+`infobras-ingest.yml` is kept for manual dispatch only:
 
 ```ini
 # ~/.config/systemd/user/fiscus-infobras.service
@@ -285,8 +287,7 @@ RandomizedDelaySec=10min
 WantedBy=timers.target
 ```
 
-(`systemctl --user daemon-reload && systemctl --user enable --now fiscus-infobras.timer`, and disable
-the schedule of `infobras-ingest.yml`.)
+(`systemctl --user daemon-reload && systemctl --user enable --now fiscus-infobras.timer`.)
 
 ## Layout
 

@@ -8,16 +8,12 @@ name: Fiscus INFOBRAS ingest
 # it row by row and upserts through upsert_infobras_works (unchanged obras are not rewritten). Two
 # GET requests per run. Person names are never read; natural-person contractors keep no name or RUC.
 #
-# Weekly on Tuesdays at 11:00 UTC = 06:00 Lima (the paralyzed-works run is on Mondays). Freshness
-# (a run that stops happening, 9 days) is data-freshness.yml; the age of the data itself
-# (data_as_of) is shown in the app, not alerted.
-#
-# Reachability of infobras.contraloria.gob.pe from GitHub-hosted runners is unverified: check the
-# first run. If it times out (like the MEF SSI host), run the same command from the PC timer instead
-# (README, "INFOBRAS").
+# No schedule: infobras.contraloria.gob.pe drops connections from GitHub-hosted runners (first run
+# on 2026-10-31 failed after a 10 s connect timeout, like the MEF SSI host). The weekly run happens
+# from the machine in Peru through the fiscus-infobras systemd timer (README, "INFOBRAS"). Manual
+# dispatch is kept for retries. Freshness (a run that stops happening, 9 days) is data-freshness.yml;
+# the age of the data itself (data_as_of) is shown in the app, not alerted.
 on:
-  schedule:
-    - cron: "0 11 * * 2"
   workflow_dispatch:
     inputs:
       force:
