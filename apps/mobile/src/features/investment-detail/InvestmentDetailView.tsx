@@ -48,7 +48,10 @@ interface Props {
   onOpenMap?: () => void;
   /** "Paralizada según la Contraloría", shown under the name, before the figures. */
   paralyzed?: ReactNode;
-  /** "Obras en INFOBRAS", shown after the figures (and the closure), before the cost history. */
+  /**
+   * "Obras en INFOBRAS": after the figures (and the closure), before the cost history; on desktop,
+   * in the right column under the facts and the source note.
+   */
   infobras?: ReactNode;
 }
 
@@ -367,7 +370,8 @@ export function InvestmentDetailView({
 
       {inv.closure && isClosed(inv) ? <ClosureSection closure={inv.closure} grid={wide} /> : null}
 
-      {infobras}
+      {/* Desktop moves the INFOBRAS works to the right column, under the facts, to balance both. */}
+      {columns ? null : infobras}
 
       {costHistory}
     </>
@@ -394,9 +398,10 @@ export function InvestmentDetailView({
           <View testID="detail-main" style={styles.mainColumn}>
             {main}
           </View>
-          <View style={styles.sideColumn}>
+          <View testID="detail-side" style={styles.sideColumn}>
             {factList}
             {sourceNote}
+            {infobras}
           </View>
         </View>
       </ScrollView>

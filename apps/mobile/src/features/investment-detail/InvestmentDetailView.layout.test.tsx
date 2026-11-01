@@ -20,9 +20,17 @@ const renderDetail = () =>
       investment={{ ...majes, entity: 'GOBIERNO REGIONAL AREQUIPA' }}
       now={NOW}
       costHistory={<Text>Historial</Text>}
+      paralyzed={<Text>Paralizada</Text>}
+      infobras={<Text>Infobras</Text>}
       onShare={jest.fn()}
     />,
   );
+
+/** The rendered texts in reading order, among the given ones. */
+const readingOrder = (texts: string[]) => {
+  const tree = JSON.stringify(screen.toJSON());
+  return [...texts].sort((a, b) => tree.indexOf(`"${a}"`) - tree.indexOf(`"${b}"`));
+};
 
 const factStyle = () => StyleSheet.flatten(screen.getByLabelText('Entidad: GOBIERNO REGIONAL AREQUIPA').props.style);
 
@@ -45,6 +53,29 @@ describe('InvestmentDetailView layout', () => {
     const facts = screen.getByTestId('detail-facts');
     expect(within(facts).getByLabelText('Entidad: GOBIERNO REGIONAL AREQUIPA')).toBeOnTheScreen();
     expect(factStyle()).toMatchObject({ flexBasis: '50%' });
+  });
+
+  it('moves the INFOBRAS works under the facts in the right column on desktop', async () => {
+    windowWidth(1440);
+    await renderDetail();
+    const main = screen.getByTestId('detail-main');
+    const side = screen.getByTestId('detail-side');
+    expect(within(main).getByText('Paralizada')).toBeOnTheScreen();
+    expect(within(main).queryByText('Infobras')).toBeNull();
+    expect(within(side).getByText('Infobras')).toBeOnTheScreen();
+    expect(within(side).getByTestId('detail-facts')).toBeOnTheScreen();
+    // Reading order: the left column first, then the facts, then the INFOBRAS works.
+    expect(readingOrder(['Paralizada', 'Historial', 'Infobras'])).toEqual(['Paralizada', 'Historial', 'Infobras']);
+  });
+
+  it.each([
+    ['phones', 390],
+    ['tablets', 1024],
+  ])('keeps the INFOBRAS works between the figures and the cost history on %s', async (_, width) => {
+    windowWidth(width);
+    await renderDetail();
+    expect(screen.queryByTestId('detail-side')).toBeNull();
+    expect(readingOrder(['Paralizada', 'Historial', 'Infobras'])).toEqual(['Paralizada', 'Infobras', 'Historial']);
   });
 
   it('keeps one wider column on tablets, the facts in two columns', async () => {
