@@ -49,8 +49,8 @@ export function invalidContractsText(count: number): string | null {
   return count === 1 ? '1 monto no válido excluido' : `${formatInteger(count)} montos no válidos excluidos`;
 }
 
-/** A fact of a line; `term` is the glossary term it names, whose hint is drawn right after it. */
-export interface InfobrasLinePart {
+/** A fact of a line; `term` is the glossary term it names. */
+interface InfobrasLinePart {
   text: string;
   term?: TermId;
 }
@@ -59,7 +59,6 @@ export interface InfobrasLinePart {
 export interface InfobrasObraLine {
   text: string;
   terms: TermId[];
-  parts: InfobrasLinePart[];
 }
 
 export interface InfobrasObraRow {
@@ -80,7 +79,6 @@ function toLine(facts: InfobrasLinePart[]): InfobrasObraLine | null {
   return {
     text: parts.map((part) => part.text).join(' · '),
     terms: parts.flatMap((part) => (part.term ? [part.term] : [])),
-    parts,
   };
 }
 
@@ -147,23 +145,18 @@ export function infobrasDetailLine(work: InfobrasWork): InfobrasObraLine | null 
   return toLine(parts);
 }
 
-/** One compact row per obra; each glossary term keeps its hint only where it first appears. */
+/** One compact row per obra, all with the same structure: plain lines, no hint inside them. */
 export function infobrasObraRows(works: readonly InfobrasWork[]): InfobrasObraRow[] {
-  const seen = new Set<TermId>();
   return works.map((work) => ({
     infobrasCode: work.infobrasCode,
     summary: infobrasObraSummary(work),
-    lines: [infobrasContractLine(work), infobrasDetailLine(work)]
-      .filter((line): line is InfobrasObraLine => line !== null)
-      .map((line) => {
-        const parts = line.parts.map(({ text, term }) => {
-          if (!term || seen.has(term)) return { text };
-          seen.add(term);
-          return { text, term };
-        });
-        return { ...line, parts, terms: parts.flatMap((part) => (part.term ? [part.term] : [])) };
-      }),
+    lines: [infobrasContractLine(work), infobrasDetailLine(work)].filter((line): line is InfobrasObraLine => line !== null),
   }));
+}
+
+/** The glossary terms these rows use, once each and in the order they first appear: the panel's legend. */
+export function infobrasTerms(rows: readonly InfobrasObraRow[]): TermId[] {
+  return [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => line.terms)))];
 }
 
 /** Key figures: obras, sum of the valid contract amounts and the range of real physical progress. */

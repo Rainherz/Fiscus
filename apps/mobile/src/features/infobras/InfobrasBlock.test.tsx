@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { mapInfobrasWorkRow, type InfobrasWork } from '@/features/investments/domain/infobras';
@@ -50,12 +50,11 @@ describe('InfobrasBlock', () => {
     expect(screen.getByLabelText('Monto contratado: S/ 1.5 M')).toBeOnTheScreen();
     expect(screen.getByLabelText('Avance físico real: 52 %')).toBeOnTheScreen();
     expect(screen.getByText('Obra 36233 · En Ejecución · avance 52 % (prog. 100 %, jun 2024)')).toBeOnTheScreen();
-    // Facts that name a glossary term are drawn with their hint right after them.
-    expect(screen.getByText('Contratista: CONSTRUCTORA ANDES S.A.C. (demo) (RUC 20100000001)')).toBeOnTheScreen();
-    expect(screen.getAllByText('S/ 1.5 M')).toHaveLength(2); // the key figure and the obra's contract
-    expect(screen.getByText('Supervisión: persona natural')).toBeOnTheScreen();
-    expect(screen.getByText('ampliaciones de plazo 30 días')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: /Qué significa Ampliación de plazo/ })).toBeOnTheScreen();
+    // Each line is one flowing text; the glossary hints live in the legend, not in the lines.
+    expect(screen.getByText('Contratista: CONSTRUCTORA ANDES S.A.C. (demo) (RUC 20100000001) · S/ 1.5 M')).toBeOnTheScreen();
+    expect(screen.getByText('Supervisión: persona natural · ampliaciones de plazo 30 días')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('infobras-terms')).getByRole('button', { name: /Qué significa Ampliación de plazo/ })).toBeOnTheScreen();
+    expect(within(screen.getByTestId('infobras-obra-36233')).queryAllByRole('button')).toHaveLength(0);
     expect(screen.getByText('Datos de INFOBRAS al 31/03/2026. El estado puede haber cambiado.')).toBeOnTheScreen();
     expect(screen.getByText('Fuente: Contraloría General de la República – INFOBRAS.')).toBeOnTheScreen();
 
@@ -63,7 +62,7 @@ describe('InfobrasBlock', () => {
     expect(onOpenUrl).toHaveBeenCalledWith('https://infobras.contraloria.gob.pe/InfobrasWeb/Mapa/Sumario?ObraId=36233');
   });
 
-  it('keeps the glossary hints of the terms it uses', async () => {
+  it('keeps the glossary hints of the terms it uses, once each, and draws every obra row alike', async () => {
     await render(
       <InfobrasBlock
         works={[
@@ -78,6 +77,11 @@ describe('InfobrasBlock', () => {
     expect(screen.getAllByRole('button', { name: /Qué significa Supervisión/ })).toHaveLength(1);
     expect(screen.getByRole('button', { name: /Qué significa Adicional/ })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: /Monto de contrato no válido/ })).toBeOnTheScreen();
+    // No hint inside any obra row: the first row has the same structure as the others.
+    for (const code of [1, 2]) {
+      expect(within(screen.getByTestId(`infobras-obra-${code}`)).queryAllByRole('button')).toHaveLength(0);
+    }
+    expect(screen.getAllByText(/^Supervisión: persona natural$/)).toHaveLength(2);
   });
 
   it('shows five obras and the rest on "Ver N obras más"', async () => {

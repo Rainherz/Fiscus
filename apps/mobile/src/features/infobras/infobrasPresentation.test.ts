@@ -13,6 +13,7 @@ import {
   infobrasFooter,
   infobrasMoreLabel,
   infobrasObraRows,
+  infobrasTerms,
   infobrasObraSummary,
   infobrasSourceName,
   INVALID_CONTRACT_AMOUNT_TEXT,
@@ -228,20 +229,31 @@ describe('infobrasDetailLine', () => {
 });
 
 describe('infobrasObraRows', () => {
-  it('keeps each glossary term only where it first appears', () => {
-    const rows = infobrasObraRows([work({ infobrasCode: 1 }), work({ infobrasCode: 2, contractAmountValid: false })]);
+  it('gives every obra the same structure: summary, contract line and detail line, with their terms', () => {
+    const rows = infobrasObraRows([work({ infobrasCode: 1 }), work({ infobrasCode: 2 })]);
     expect(rows.map((row) => row.summary)).toEqual([expect.stringMatching(/^Obra 1 /), expect.stringMatching(/^Obra 2 /)]);
-    expect(rows[0].lines.map((line) => line.terms)).toEqual([['contratista'], ['supervision']]);
-    expect(rows[1].lines.map((line) => line.terms)).toEqual([['monto-contrato-no-valido'], []]);
-  });
-
-  it('splits each line into facts, the term attached to the fact that names it', () => {
-    const [row] = infobrasObraRows([work({ contractAmount: 9_800_000, additionalWorksAmount: 640_000 })]);
-    expect(row.lines[0].parts).toEqual([
-      { text: 'Contratista: CONSTRUCTORA ANDES S.A.C. (demo) (RUC 20301552115)', term: 'contratista' },
-      { text: 'S/ 9.8 M' },
-      { text: 'adicionales S/ 640,000', term: 'adicional-de-obra' },
+    // The second obra keeps its terms too: the hints are no longer tied to the first row.
+    expect(rows.map((row) => row.lines.map((line) => line.terms))).toEqual([
+      [['contratista'], ['supervision']],
+      [['contratista'], ['supervision']],
     ]);
+  });
+});
+
+describe('infobrasTerms', () => {
+  it('lists each glossary term the rows use once, in the order they first appear', () => {
+    const rows = infobrasObraRows([
+      work({ infobrasCode: 1, additionalWorksAmount: 640_000 }),
+      work({ infobrasCode: 2, contractAmountValid: false, extensionDays: 30 }),
+    ]);
+    expect(infobrasTerms(rows)).toEqual([
+      'contratista',
+      'adicional-de-obra',
+      'supervision',
+      'monto-contrato-no-valido',
+      'ampliacion-de-plazo',
+    ]);
+    expect(infobrasTerms([])).toEqual([]);
   });
 });
 

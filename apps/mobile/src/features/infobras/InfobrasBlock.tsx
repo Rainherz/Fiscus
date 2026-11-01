@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { TermHint } from '@/features/glossary/TermHint';
+import { termById } from '@/features/glossary/terms';
 import type { InfobrasWork } from '@/features/investments/domain/infobras';
 import { infobrasUrl } from '@/features/investments/domain/paralyzed';
 import { SourcePanel, type SourcePanelItem } from '@/shared/ui/SourcePanel';
@@ -11,6 +12,7 @@ import {
   infobrasFooter,
   infobrasMoreLabel,
   infobrasObraRows,
+  infobrasTerms,
   visibleInfobrasWorks,
 } from './infobrasPresentation';
 
@@ -24,8 +26,9 @@ interface Props {
 
 /**
  * "OBRAS EN INFOBRAS" on the detail screen: the same panel as the Contraloría paralyzed block, in
- * the neutral tone so that one stays the warning. Key figures, one compact row per obra (five, then
- * "Ver N obras más") and always the date of the data.
+ * the neutral tone so that one stays the warning. Key figures, a legend with the hint of each
+ * glossary term the rows use (so every obra row is plain text with the same structure), one compact
+ * row per obra (five, then "Ver N obras más") and always the date of the data.
  */
 export function InfobrasBlock({ works, dataAsOf, onOpenUrl }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -35,10 +38,7 @@ export function InfobrasBlock({ works, dataAsOf, onOpenUrl }: Props) {
     key: String(row.infobrasCode),
     testID: `infobras-obra-${row.infobrasCode}`,
     summary: row.summary,
-    lines: row.lines.map((line) => ({
-      text: line.text,
-      parts: line.parts.map((part) => ({ text: part.text, hint: part.term ? <TermHint term={part.term} /> : undefined })),
-    })),
+    lines: row.lines.map((line) => ({ text: line.text })),
     links: [
       {
         label: 'Ver ficha en INFOBRAS',
@@ -54,6 +54,7 @@ export function InfobrasBlock({ works, dataAsOf, onOpenUrl }: Props) {
       title={INFOBRAS_TITLE}
       titleHint={<TermHint term="infobras" />}
       figures={infobrasFigures(works)}
+      terms={infobrasTerms(shown).map((term) => ({ label: termById(term).term, hint: <TermHint term={term} /> }))}
       items={items}
       more={hidden > 0 ? { label: infobrasMoreLabel(hidden), onPress: () => setExpanded(true) } : undefined}
       footer={infobrasFooter(works, dataAsOf)}
