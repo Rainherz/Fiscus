@@ -191,9 +191,11 @@ export function createInMemoryInvestmentsRepository(seed: {
       status: row.status ?? null,
     };
   };
-  /** Largest contract first, then code (like the Supabase reads). */
-  const byContract = (a: { contractAmount: number | null; infobrasCode: number }, b: typeof a) =>
-    (b.contractAmount ?? -Infinity) - (a.contractAmount ?? -Infinity) || a.infobrasCode - b.infobrasCode;
+  /** Valid amounts first, then largest contract, then code (like the Supabase reads). */
+  const byContract = (a: { contractAmount: number | null; contractAmountValid: boolean; infobrasCode: number }, b: typeof a) =>
+    Number(b.contractAmountValid) - Number(a.contractAmountValid) ||
+    (b.contractAmount ?? -Infinity) - (a.contractAmount ?? -Infinity) ||
+    a.infobrasCode - b.infobrasCode;
   const contractorWorks = (ruc: string) =>
     infobras.filter((work) => work.contractor.ruc === ruc && (work.contractor.kind === 'empresa' || work.contractor.kind === 'consorcio'));
   const changes = (seed.costChanges ?? []).map(mapCostChangeRow);
@@ -390,6 +392,7 @@ export function createInMemoryInvestmentsRepository(seed: {
             cui: work.cui,
             executionStatus: work.executionStatus,
             contractAmount: work.contractAmount,
+            contractAmountValid: work.contractAmountValid,
             additionalWorksAmount: work.additionalWorksAmount,
             physicalProgressActual: work.physicalProgressActual,
             investmentName: row?.name ?? null,

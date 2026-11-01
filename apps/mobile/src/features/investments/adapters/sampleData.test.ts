@@ -239,5 +239,10 @@ describe('MOCK_INFOBRAS_WORKS', () => {
     expect(ranking.items[0]).toMatchObject({ name: 'CONSORCIO VIAL AREQUIPA (demo)', contraloriaParalyzedCount: 1 });
     expect(ranking.items.every((item) => item.kind !== 'persona_natural')).toBe(true);
     expect(await repo.getInfobrasWorks('9900001')).toHaveLength(2);
+    // One demo amount breaks the Regla de Fiscus: excluded from the total and counted.
+    expect(ranking.items.find((item) => item.name === 'CONSTRUCTORA ANDINA S.A.C. (demo)')).toMatchObject({
+      totalContractAmount: 48_100_000,
+      invalidContractCount: 1,
+    });
   });
 });

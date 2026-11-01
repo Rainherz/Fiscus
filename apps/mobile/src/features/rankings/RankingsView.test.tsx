@@ -147,6 +147,7 @@ describe('RankingsView', () => {
       totalContractAmount: 30_000_000,
       totalAdditionalWorks: 0,
       contraloriaParalyzedCount: 0,
+      invalidContractCount: 0,
     };
     await render(
       <RankingsView

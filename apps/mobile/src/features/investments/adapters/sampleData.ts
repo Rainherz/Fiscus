@@ -569,6 +569,7 @@ function demoInfobras(work: Partial<InfobrasWork> & Pick<InfobrasWork, 'infobras
     physicalProgressActual: null,
     progressPeriod: null,
     contractAmount: null,
+    contractAmountValid: true,
     contractor: NONE,
     supervisor: NONE,
     additionalWorksAmount: null,
@@ -653,6 +654,16 @@ export const MOCK_INFOBRAS_WORKS: InfobrasWork[] = [
     contractor: DEMO_COMPANY_A,
     additionalWorksAmount: 640_000,
     extensionDays: 60,
+  }),
+  // A contract amount typed without its decimal separator, as some real ones are: above 10 times
+  // the expediente cost, so the Regla de Fiscus marks it as not valid.
+  demoInfobras({
+    infobrasCode: 990016,
+    cui: '9900003',
+    executionStatus: 'Finalizado',
+    contractAmount: 1_250_000_000,
+    contractAmountValid: false,
+    contractor: DEMO_COMPANY_A,
   }),
   demoInfobras({
     infobrasCode: 990014,

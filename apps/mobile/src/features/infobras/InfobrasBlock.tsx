@@ -28,12 +28,15 @@ const FACT_TERMS: Partial<Record<string, TermId>> = {
   'Ampliaciones de plazo': 'ampliacion-de-plazo',
 };
 
+/** The hint of a contract amount shown as not valid. */
+const INVALID_CONTRACT_TERM: TermId = 'monto-contrato-no-valido';
+
 function Obra({ work, onOpenUrl }: { work: InfobrasWork; onOpenUrl: (url: string) => void }) {
   return (
     <View testID={`infobras-obra-${work.infobrasCode}`} style={styles.obra}>
       <MonoText bold size={12}>{`Obra ${work.infobrasCode}`}</MonoText>
       {infobrasObraFacts(work).map((fact) => {
-        const term = FACT_TERMS[fact.label];
+        const term = fact.invalid ? INVALID_CONTRACT_TERM : FACT_TERMS[fact.label];
         return (
           <View key={fact.label} style={styles.fact}>
             <View style={styles.label}>
@@ -42,7 +45,13 @@ function Obra({ work, onOpenUrl }: { work: InfobrasWork; onOpenUrl: (url: string
               </MonoText>
               {term ? <TermHint term={term} /> : null}
             </View>
-            <BodyText size={15}>{fact.value}</BodyText>
+            {fact.invalid ? (
+              <BodyText size={14} muted>
+                {fact.value}
+              </BodyText>
+            ) : (
+              <BodyText size={15}>{fact.value}</BodyText>
+            )}
           </View>
         );
       })}

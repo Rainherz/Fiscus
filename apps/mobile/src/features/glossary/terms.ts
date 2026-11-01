@@ -2,7 +2,7 @@
  * Glossary of the terms the app shows. Definitions follow Invierte.pe and MEF terminology; terms
  * that are a rule or a record of Fiscus itself (kind 'fiscus') say so ("Regla de Fiscus: …").
  * One sentence each, plus an optional second sentence. Keep the rules in sync with
- * features/investments/domain (stalled.ts, investment.ts, costChange.ts).
+ * features/investments/domain (stalled.ts, investment.ts, costChange.ts, infobras.ts).
  */
 
 export const TERM_IDS = [
@@ -30,6 +30,7 @@ export const TERM_IDS = [
   'ampliacion-de-plazo',
   'sin-gasto-reciente',
   'costo-no-valido',
+  'monto-contrato-no-valido',
   'dato-inusual',
   'historial',
   'fuentes',
@@ -213,6 +214,13 @@ export const TERMS: Record<TermId, GlossaryTerm> = {
     term: 'Costo actualizado no válido',
     definition: 'Regla de Fiscus: el costo actualizado no es válido cuando es menor que S/ 1,000 o menor que el 1 % del monto viable.',
     extra: 'Suelen ser valores de relleno o truncados en la fuente; con ellos no se calculan el aumento ni el porcentaje gastado.',
+    kind: 'fiscus',
+  },
+  'monto-contrato-no-valido': {
+    id: 'monto-contrato-no-valido',
+    term: 'Monto de contrato no válido',
+    definition: 'Regla de Fiscus: el monto de contrato de una obra en INFOBRAS no es válido cuando es mayor a 10 veces el costo del expediente técnico de la misma obra.',
+    extra: 'Suele ser un monto escrito sin el separador decimal en la fuente; no se muestra ni se suma en los totales de los contratistas.',
     kind: 'fiscus',
   },
   'dato-inusual': {

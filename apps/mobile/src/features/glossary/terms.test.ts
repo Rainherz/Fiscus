@@ -60,6 +60,7 @@ describe('glossary terms', () => {
       'Ampliación de plazo',
       'Sin gasto reciente',
       'Costo actualizado no válido',
+      'Monto de contrato no válido',
       'Dato inusual',
       'Historial del costo',
       'Fuentes (SSI y Datos Abiertos del MEF)',
@@ -88,6 +89,13 @@ describe('glossary terms', () => {
     expect(termById('supervision').extra).toMatch(/personas naturales/);
   });
 
+  it('states the 10x rule for INFOBRAS contract amounts as a rule of Fiscus', () => {
+    const rule = termById('monto-contrato-no-valido');
+    expect(rule.kind).toBe('fiscus');
+    expect(rule.definition).toMatch(/^Regla de Fiscus: .*mayor a 10 veces el costo del expediente técnico de la misma obra/);
+    expect(FISCUS_RULES).toContain(rule);
+  });
+
   it('keys every term by its id', () => {
     for (const id of TERM_IDS) expect(termById(id).id).toBe(id);
   });
@@ -100,7 +108,13 @@ describe('glossary terms', () => {
   });
 
   it('says so when a definition is a rule of Fiscus', () => {
-    expect(FISCUS_RULES.map((t) => t.id)).toEqual(['sin-gasto-reciente', 'costo-no-valido', 'dato-inusual', 'historial']);
+    expect(FISCUS_RULES.map((t) => t.id)).toEqual([
+      'sin-gasto-reciente',
+      'costo-no-valido',
+      'monto-contrato-no-valido',
+      'dato-inusual',
+      'historial',
+    ]);
     for (const term of FISCUS_RULES) expect(term.definition.startsWith('Regla de Fiscus: ')).toBe(true);
     for (const term of GLOSSARY.filter((t) => t.kind !== 'fiscus')) expect(term.definition).not.toMatch(/Regla de Fiscus/);
   });

@@ -5,9 +5,12 @@ import {
   contractorRowDetail,
   contractorSortValue,
   contractorsNote,
+  contractorWorkRow,
   infobrasCaveat,
   infobrasObraFacts,
   infobrasSourceName,
+  INVALID_CONTRACT_AMOUNT_TEXT,
+  invalidContractsText,
   partyText,
   visibleInfobrasWorks,
 } from './infobrasPresentation';
@@ -103,6 +106,44 @@ describe('infobrasObraFacts', () => {
   });
 });
 
+describe('invalid contract amounts (Regla de Fiscus)', () => {
+  it('shows the notice instead of the figure, marked as invalid', () => {
+    const facts = infobrasObraFacts(work({ contractAmount: 113_862_565_000, contractAmountValid: false }));
+    expect(facts.find((fact) => fact.label === 'Monto de contrato')).toEqual({
+      label: 'Monto de contrato',
+      value: INVALID_CONTRACT_AMOUNT_TEXT,
+      invalid: true,
+    });
+    expect(INVALID_CONTRACT_AMOUNT_TEXT).toBe('Monto de contrato no válido en la fuente INFOBRAS');
+    expect(JSON.stringify(facts)).not.toMatch(/113,862|113\.9/);
+  });
+
+  it('says how many amounts were excluded', () => {
+    expect(invalidContractsText(0)).toBeNull();
+    expect(invalidContractsText(1)).toBe('1 monto no válido excluido');
+    expect(invalidContractsText(3)).toBe('3 montos no válidos excluidos');
+  });
+
+  it('marks an invalid amount in the obra row of the contractor page', () => {
+    const row = contractorWorkRow({
+      infobrasCode: 507248,
+      cui: null,
+      executionStatus: 'Paralizada',
+      contractAmount: 113_862_565_000,
+      contractAmountValid: false,
+      additionalWorksAmount: null,
+      physicalProgressActual: 97,
+      investmentName: null,
+      entity: null,
+      departmentCode: null,
+      governmentLevel: null,
+      investmentStatus: null,
+      contraloriaParalyzed: false,
+    });
+    expect(row.detail[1]).toBe('Paralizada · monto de contrato no válido en la fuente INFOBRAS');
+  });
+});
+
 describe('visibleInfobrasWorks', () => {
   const works = Array.from({ length: 7 }, (_, i) => work({ infobrasCode: i + 1 }));
 
@@ -122,6 +163,7 @@ describe('contractor ranking wording', () => {
     totalContractAmount: 48_000_000,
     totalAdditionalWorks: 2_500_000,
     contraloriaParalyzedCount: 1,
+    invalidContractCount: 0,
   };
 
   it('shows the figure of the sort', () => {
@@ -137,6 +179,12 @@ describe('contractor ranking wording', () => {
     );
   });
 
+  it('says how many invalid contract amounts the total leaves out', () => {
+    expect(contractorRowDetail({ ...item, totalAdditionalWorks: 0, contraloriaParalyzedCount: 0, invalidContractCount: 3 })).toBe(
+      'Empresa · RUC 20301552115 · 12 obras · 3 montos no válidos excluidos',
+    );
+  });
+
   it('labels the kinds', () => {
     expect(contractorKindLabel('empresa')).toBe('Empresa');
     expect(contractorKindLabel('consorcio')).toBe('Consorcio');
@@ -146,7 +194,8 @@ describe('contractor ranking wording', () => {
   it('explains the list, its scope and the date of the data', () => {
     expect(contractorsNote('2026-03-31')).toBe(
       'Empresas y consorcios con obras registradas en INFOBRAS; no incluye personas naturales. ' +
-        'La región, el nivel y el estado son los del proyecto de cada obra. Datos de INFOBRAS al 31/03/2026.',
+        'La región, el nivel y el estado son los del proyecto de cada obra. ' +
+        'Los montos de contrato no válidos en la fuente no se suman. Datos de INFOBRAS al 31/03/2026.',
     );
   });
 });

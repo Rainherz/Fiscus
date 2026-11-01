@@ -1,7 +1,7 @@
 import { regionLabel } from '@/features/department/departments';
 import type { TermId } from '@/features/glossary/terms';
 import { levelTag, projectTag } from '@/features/government-level/levelPresentation';
-import { contractorKindLabel, identifierText } from '@/features/infobras/infobrasPresentation';
+import { contractorKindLabel, identifierText, invalidContractsText } from '@/features/infobras/infobrasPresentation';
 import type { EntityComparison } from '@/features/investments/domain/entityComparison';
 import type { ContractorRankingItem, ContractorSort } from '@/features/investments/domain/infobras';
 import type { Investment, RankingKind } from '@/features/investments/domain/investment';
@@ -219,7 +219,9 @@ export function rankingTable(list: RankingList, now: Date, options: Options = {}
         (item) => ({
           key: item.ruc,
           name: item.name ?? item.ruc,
-          sub: `${contractorKindLabel(item.kind)} · ${identifierText(item.ruc)}`,
+          sub: [contractorKindLabel(item.kind), identifierText(item.ruc), invalidContractsText(item.invalidContractCount)]
+            .filter(Boolean)
+            .join(' · '),
           region: '',
           target: { kind: 'contractor', ruc: item.ruc },
         }),

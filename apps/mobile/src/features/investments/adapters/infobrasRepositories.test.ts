@@ -52,6 +52,7 @@ describe('supabase repository: INFOBRAS', () => {
       ['from', 'infobras_works'],
       ['select', expect.stringContaining('supervisor_kind')],
       ['eq', 'cui', '2132947'],
+      ['order', 'contract_amount_valid', { ascending: false }],
       ['order', 'contract_amount', { ascending: false, nullsFirst: false }],
       ['order', 'infobras_code', { ascending: true, nullsFirst: false }],
       ['limit', 100],
@@ -124,6 +125,7 @@ describe('supabase repository: INFOBRAS', () => {
       ['from', 'contractor_works'],
       ['select', expect.stringContaining('investment_name')],
       ['eq', 'contractor_ruc', '20301552115'],
+      ['order', 'contract_amount_valid', { ascending: false }],
       ['order', 'contract_amount', { ascending: false, nullsFirst: false }],
       ['order', 'infobras_code', { ascending: true, nullsFirst: false }],
       ['range', 0, 29],
@@ -154,6 +156,12 @@ describe('in-memory repository: INFOBRAS', () => {
       contractor: { kind: 'persona_natural', ruc: null, name: null },
       contractAmount: 100,
     },
+    {
+      ...mapInfobrasWorkRow({ infobras_code: 13, cui: '9900001', execution_status: 'Paralizada' }),
+      contractor: { kind: 'empresa', ruc: '20100000001', name: 'CONSTRUCTORA A (demo)' },
+      contractAmount: 113_862_565_000,
+      contractAmountValid: false,
+    },
   ];
   const paralyzed: ParalyzedWork[] = [
     {
@@ -180,8 +188,8 @@ describe('in-memory repository: INFOBRAS', () => {
     infobrasDataAsOf: '2026-03-31',
   });
 
-  it('serves the obras of a CUI largest contract first and the data date', async () => {
-    expect((await repo.getInfobrasWorks('9900001')).map((w) => w.infobrasCode)).toEqual([11, 10]);
+  it('serves the obras of a CUI largest valid contract first, invalid amounts last, and the data date', async () => {
+    expect((await repo.getInfobrasWorks('9900001')).map((w) => w.infobrasCode)).toEqual([11, 10, 13]);
     expect(await repo.getInfobrasWorks('1')).toEqual([]);
     expect(await repo.getInfobrasDataAsOf()).toBe('2026-03-31');
   });
@@ -189,10 +197,18 @@ describe('in-memory repository: INFOBRAS', () => {
   it('ranks, summarizes and lists a contractor like the database', async () => {
     const page = await repo.getContractorRanking({ sort: 'contract', page: 0 });
     expect(page).toMatchObject({ total: 1, dataAsOf: '2026-03-31' });
-    expect(page.items[0]).toMatchObject({ ruc: '20100000001', obraCount: 2, totalContractAmount: 1400, contraloriaParalyzedCount: 1 });
+    expect(page.items[0]).toMatchObject({
+      ruc: '20100000001',
+      obraCount: 3,
+      totalContractAmount: 1400,
+      contraloriaParalyzedCount: 1,
+      invalidContractCount: 1,
+    });
 
     expect(await repo.getContractorSummary('20100000001')).toMatchObject({
-      obraCount: 2,
+      obraCount: 3,
+      totalContractAmount: 1400,
+      invalidContractCount: 1,
       finishedCount: 1,
       inProgressCount: 1,
       contraloriaParalyzedCount: 1,
@@ -201,7 +217,8 @@ describe('in-memory repository: INFOBRAS', () => {
     expect(await repo.getContractorSummary('20999999999')).toBeNull();
     expect(await repo.getContractorWorks({ ruc: '20100000001', page: 0 })).toEqual([
       expect.objectContaining({ infobrasCode: 11, investmentName: 'Agua (demo)', departmentCode: 4, contraloriaParalyzed: false }),
-      expect.objectContaining({ infobrasCode: 10, contraloriaParalyzed: true }),
+      expect.objectContaining({ infobrasCode: 10, contraloriaParalyzed: true, contractAmountValid: true }),
+      expect.objectContaining({ infobrasCode: 13, contractAmountValid: false }),
     ]);
   });
 });
