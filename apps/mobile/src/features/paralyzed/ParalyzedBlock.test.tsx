@@ -1,8 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { StyleSheet } from 'react-native';
+
 import type { ParalyzedDetail, ParalyzedWork } from '@/features/investments/domain/paralyzed';
+import { colors } from '@/shared/theme/tokens';
 
 import { ParalyzedBlock } from './ParalyzedBlock';
+import { PARALYZED_TITLE } from './paralyzedPresentation';
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   __esModule: true,
@@ -52,6 +56,17 @@ describe('ParalyzedBlock', () => {
     expect(screen.getByText('Corte: junio 2026 (hace 4 meses) · publicado 17/08/2026')).toBeOnTheScreen();
     expect(screen.getByText('Fuente: Contraloría General de la República.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Qué significa Obra paralizada (Contraloría)' })).toBeOnTheScreen();
+  });
+
+  it('keeps the alert look: ink ground, signal edge and signal title', async () => {
+    await render(<ParalyzedBlock detail={single} now={NOW} onOpenUrl={jest.fn()} />);
+    expect(StyleSheet.flatten(screen.getByTestId('paralyzed').props.style)).toMatchObject({
+      backgroundColor: colors.ink,
+      borderLeftWidth: 6,
+      borderLeftColor: colors.signal,
+    });
+    expect(StyleSheet.flatten(screen.getByText(PARALYZED_TITLE).props.style).color).toBe(colors.signal);
+    expect(StyleSheet.flatten(screen.getByText('Ver ficha en INFOBRAS →').props.style).color).toBe(colors.signal);
   });
 
   it('opens the INFOBRAS ficha and the MEF situational report', async () => {

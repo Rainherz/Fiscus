@@ -7,13 +7,20 @@ import {
   contractorsNote,
   contractorWorkRow,
   infobrasCaveat,
-  infobrasObraFacts,
+  infobrasContractLine,
+  infobrasDetailLine,
+  infobrasFigures,
+  infobrasFooter,
+  infobrasMoreLabel,
+  infobrasObraRows,
+  infobrasObraSummary,
   infobrasSourceName,
   INVALID_CONTRACT_AMOUNT_TEXT,
   invalidContractsText,
-  partyText,
   visibleInfobrasWorks,
 } from './infobrasPresentation';
+
+const NO_PARTY = { kind: null, ruc: null, name: null };
 
 function work(overrides: Partial<InfobrasWork> = {}): InfobrasWork {
   return {
@@ -37,85 +44,12 @@ describe('infobrasCaveat', () => {
   });
 });
 
-describe('partyText', () => {
-  it('names companies and consortia with their RUC or consortium code', () => {
-    expect(partyText({ kind: 'empresa', ruc: '20301552115', name: 'A S.A.C.' })).toBe('A S.A.C. · RUC 20301552115');
-    expect(partyText({ kind: 'consorcio', ruc: 'C0003136723', name: 'CONSORCIO B' })).toBe('CONSORCIO B · código C0003136723');
-    expect(partyText({ kind: 'consorcio', ruc: null, name: 'CONSORCIO C' })).toBe('CONSORCIO C');
-  });
-
-  it('never names a natural person', () => {
-    expect(partyText({ kind: 'persona_natural', ruc: null, name: null })).toBe('Persona natural');
-  });
-
-  it('is null when nothing is registered', () => {
-    expect(partyText({ kind: null, ruc: null, name: null })).toBeNull();
-  });
-});
-
-describe('infobrasObraFacts', () => {
-  it('lists the registered facts of an obra in reading order', () => {
-    expect(
-      infobrasObraFacts(
-        work({
-          additionalWorksAmount: 159_570,
-          deductionsAmount: 710,
-          extensionDays: 45,
-          hasParalysis: true,
-          paralysisCause: 'Incumplimiento de contrato',
-          paralysisDate: '2025-12-01',
-          paralysisDays: 31,
-        }),
-      ),
-    ).toEqual([
-      { label: 'Estado de ejecución', value: 'En Ejecución' },
-      { label: 'Avance físico', value: '63 % real · 80 % programado (dic 2025)' },
-      { label: 'Contratista', value: 'CONSTRUCTORA ANDES S.A.C. (demo) · RUC 20301552115' },
-      { label: 'Monto de contrato', value: 'S/ 3.2 M' },
-      { label: 'Supervisión', value: 'CONSORCIO SUPERVISOR (demo) · código C0003136723' },
-      { label: 'Adicionales de obra', value: 'S/ 159,570' },
-      { label: 'Deductivos', value: 'S/ 710' },
-      { label: 'Ampliaciones de plazo', value: '45 días' },
-      { label: 'Paralización informada', value: 'Desde 01/12/2025 · 31 días · Incumplimiento de contrato' },
-      { label: 'Modalidad', value: 'Contrata' },
-    ]);
-  });
-
-  it('shows reception and liquidation dates and leaves out what is not registered', () => {
-    expect(
-      infobrasObraFacts(
-        work({
-          executionStatus: 'Finalizado',
-          physicalProgressActual: null,
-          physicalProgressPlanned: null,
-          progressPeriod: null,
-          contractAmount: null,
-          contractor: { kind: 'persona_natural', ruc: null, name: null },
-          supervisor: { kind: null, ruc: null, name: null },
-          receptionDate: '2013-12-31',
-          liquidationDate: '2014-02-10',
-          modality: null,
-        }),
-      ),
-    ).toEqual([
-      { label: 'Estado de ejecución', value: 'Finalizado' },
-      { label: 'Contratista', value: 'Persona natural' },
-      { label: 'Recepción', value: '31/12/2013' },
-      { label: 'Liquidación', value: '10/02/2014' },
-    ]);
-  });
-});
-
 describe('invalid contract amounts (Regla de Fiscus)', () => {
-  it('shows the notice instead of the figure, marked as invalid', () => {
-    const facts = infobrasObraFacts(work({ contractAmount: 113_862_565_000, contractAmountValid: false }));
-    expect(facts.find((fact) => fact.label === 'Monto de contrato')).toEqual({
-      label: 'Monto de contrato',
-      value: INVALID_CONTRACT_AMOUNT_TEXT,
-      invalid: true,
-    });
+  it('shows the notice instead of the figure and leaves it out of the total', () => {
+    const invalid = work({ contractAmount: 113_862_565_000, contractAmountValid: false });
+    expect(infobrasContractLine({ ...invalid, contractor: NO_PARTY })?.text).toBe(INVALID_CONTRACT_AMOUNT_TEXT);
     expect(INVALID_CONTRACT_AMOUNT_TEXT).toBe('Monto de contrato no válido en la fuente INFOBRAS');
-    expect(JSON.stringify(facts)).not.toMatch(/113,862|113\.9/);
+    expect(JSON.stringify([infobrasObraRows([invalid]), infobrasFigures([invalid])])).not.toMatch(/113,862|113\.9|114 M/);
   });
 
   it('says how many amounts were excluded', () => {
@@ -197,6 +131,162 @@ describe('contractor ranking wording', () => {
         'La región, el nivel y el estado son los del proyecto de cada obra. ' +
         'Los montos de contrato no válidos en la fuente no se suman. Datos de INFOBRAS al 31/03/2026.',
     );
+  });
+});
+
+describe('infobrasObraSummary', () => {
+  it('states code, status and real progress with the programmed one and its month', () => {
+    expect(infobrasObraSummary(work({ infobrasCode: 171686, executionStatus: 'Finalizado', physicalProgressActual: 52, physicalProgressPlanned: 100, progressPeriod: '2024-06-01' }))).toBe(
+      'Obra 171686 · Finalizado · avance 52 % (prog. 100 %, jun 2024)',
+    );
+  });
+
+  it('keeps what is registered and says when the status is not', () => {
+    expect(infobrasObraSummary(work({ physicalProgressPlanned: null, progressPeriod: null }))).toBe('Obra 36233 · En Ejecución · avance 63 %');
+    expect(infobrasObraSummary(work({ physicalProgressActual: null }))).toBe('Obra 36233 · En Ejecución · avance — (prog. 80 %, dic 2025)');
+    expect(
+      infobrasObraSummary(work({ executionStatus: null, physicalProgressActual: null, physicalProgressPlanned: null, progressPeriod: null })),
+    ).toBe('Obra 36233 · Estado no informado');
+  });
+});
+
+describe('infobrasContractLine', () => {
+  it('names the contractor with its consortium code or RUC and the valid contract amount', () => {
+    expect(
+      infobrasContractLine(work({ contractor: { kind: 'consorcio', ruc: 'C0003423283', name: 'CONSORCIO TIERRA BLANCA' }, contractAmount: 301_640 })),
+    ).toMatchObject({ text: 'Contratista: CONSORCIO TIERRA BLANCA (código C0003423283) · S/ 301,640', terms: ['contratista'] });
+  });
+
+  it('never names a natural person', () => {
+    expect(infobrasContractLine(work({ contractor: { kind: 'persona_natural', ruc: null, name: null }, contractAmount: null }))).toMatchObject({
+      text: 'Contratista: persona natural',
+      terms: ['contratista'],
+    });
+  });
+
+  it('shows the notice instead of an invalid contract amount', () => {
+    expect(infobrasContractLine(work({ contractAmount: 1_250_000_000, contractAmountValid: false }))).toMatchObject({
+      text: 'Contratista: CONSTRUCTORA ANDES S.A.C. (demo) (RUC 20301552115) · monto de contrato no válido en la fuente INFOBRAS',
+      terms: ['contratista', 'monto-contrato-no-valido'],
+    });
+    expect(infobrasContractLine(work({ contractor: NO_PARTY, contractAmount: 1_250_000_000, contractAmountValid: false }))).toMatchObject({
+      text: 'Monto de contrato no válido en la fuente INFOBRAS',
+      terms: ['monto-contrato-no-valido'],
+    });
+  });
+
+  it('says when no contractor is registered, and is null when nothing is', () => {
+    expect(infobrasContractLine(work({ contractor: NO_PARTY, contractAmount: 2_300_000 }))).toMatchObject({
+      text: 'Contratista no registrado · S/ 2.3 M',
+      terms: [],
+    });
+    expect(infobrasContractLine(work({ contractor: NO_PARTY, contractAmount: null }))).toBeNull();
+  });
+
+  it('adds additional works and deductions', () => {
+    expect(infobrasContractLine(work({ contractAmount: 9_800_000, additionalWorksAmount: 640_000, deductionsAmount: 20_000 }))).toMatchObject({
+      text: 'Contratista: CONSTRUCTORA ANDES S.A.C. (demo) (RUC 20301552115) · S/ 9.8 M · adicionales S/ 640,000 · deductivos S/ 20,000',
+      terms: ['contratista', 'adicional-de-obra', 'deductivo'],
+    });
+  });
+});
+
+describe('infobrasDetailLine', () => {
+  it('states supervision and the paralysis reported in INFOBRAS', () => {
+    expect(
+      infobrasDetailLine(
+        work({ hasParalysis: true, paralysisDate: '2024-03-23', paralysisDays: 99, paralysisCause: 'Incumplimiento de contrato' }),
+      ),
+    ).toMatchObject({
+      text: 'Supervisión: CONSORCIO SUPERVISOR (demo) (código C0003136723) · paralización informada desde 23/03/2024 · 99 días · Incumplimiento de contrato',
+      terms: ['supervision'],
+    });
+  });
+
+  it('never names a natural-person supervisor and leaves out an absent paralysis', () => {
+    expect(infobrasDetailLine(work({ supervisor: { kind: 'persona_natural', ruc: null, name: null }, hasParalysis: false }))).toMatchObject({
+      text: 'Supervisión: persona natural',
+      terms: ['supervision'],
+    });
+  });
+
+  it('adds extensions, reception, liquidation and a modality other than Contrata', () => {
+    expect(
+      infobrasDetailLine(
+        work({ supervisor: NO_PARTY, extensionDays: 1, receptionDate: '2024-12-20', liquidationDate: '2025-06-30', modality: 'Administración directa' }),
+      ),
+    ).toMatchObject({
+      text: 'Ampliaciones de plazo 1 día · recepción 20/12/2024 · liquidación 30/06/2025 · modalidad Administración directa',
+      terms: ['ampliacion-de-plazo'],
+    });
+  });
+
+  it('is null when there is nothing more to say', () => {
+    expect(infobrasDetailLine(work({ supervisor: NO_PARTY }))).toBeNull();
+    expect(infobrasDetailLine(work({ supervisor: NO_PARTY, hasParalysis: true }))).toMatchObject({ text: 'Paralización informada', terms: [] });
+  });
+});
+
+describe('infobrasObraRows', () => {
+  it('keeps each glossary term only where it first appears', () => {
+    const rows = infobrasObraRows([work({ infobrasCode: 1 }), work({ infobrasCode: 2, contractAmountValid: false })]);
+    expect(rows.map((row) => row.summary)).toEqual([expect.stringMatching(/^Obra 1 /), expect.stringMatching(/^Obra 2 /)]);
+    expect(rows[0].lines.map((line) => line.terms)).toEqual([['contratista'], ['supervision']]);
+    expect(rows[1].lines.map((line) => line.terms)).toEqual([['monto-contrato-no-valido'], []]);
+  });
+
+  it('splits each line into facts, the term attached to the fact that names it', () => {
+    const [row] = infobrasObraRows([work({ contractAmount: 9_800_000, additionalWorksAmount: 640_000 })]);
+    expect(row.lines[0].parts).toEqual([
+      { text: 'Contratista: CONSTRUCTORA ANDES S.A.C. (demo) (RUC 20301552115)', term: 'contratista' },
+      { text: 'S/ 9.8 M' },
+      { text: 'adicionales S/ 640,000', term: 'adicional-de-obra' },
+    ]);
+  });
+});
+
+describe('infobrasFigures', () => {
+  it('counts the obras, sums the valid contract amounts and gives the real progress range', () => {
+    const works = [
+      work({ contractAmount: 1_000_000, physicalProgressActual: 31 }),
+      work({ contractAmount: 500_000, physicalProgressActual: 60 }),
+      work({ contractAmount: 9_000_000_000, contractAmountValid: false, physicalProgressActual: null }),
+    ];
+    expect(infobrasFigures(works)).toEqual([
+      { label: 'Obras', value: '3' },
+      { label: 'Monto contratado', value: 'S/ 1.5 M' },
+      { label: 'Avance físico real', value: '31–60 %' },
+    ]);
+  });
+
+  it('uses a dash when no amount or progress is registered, and one value for one obra', () => {
+    expect(infobrasFigures([work({ contractAmount: null, physicalProgressActual: null })])).toEqual([
+      { label: 'Obras', value: '1' },
+      { label: 'Monto contratado', value: '—' },
+      { label: 'Avance físico real', value: '—' },
+    ]);
+    expect(infobrasFigures([work({})])[2]).toEqual({ label: 'Avance físico real', value: '63 %' });
+  });
+});
+
+describe('infobrasFooter', () => {
+  it('dates the data, names the source and says which amounts the total leaves out', () => {
+    expect(infobrasFooter([work({})], '2026-03-31')).toEqual([
+      'Datos de INFOBRAS al 31/03/2026. El estado puede haber cambiado.',
+      'Fuente: Contraloría General de la República – INFOBRAS.',
+    ]);
+    expect(infobrasFooter([work({ contractAmountValid: false })], null)).toEqual([
+      'Monto contratado: 1 monto no válido excluido.',
+      'Datos de INFOBRAS. El estado puede haber cambiado.',
+      'Fuente: Contraloría General de la República – INFOBRAS.',
+    ]);
+  });
+});
+
+describe('infobrasMoreLabel', () => {
+  it('says how many obras are left', () => {
+    expect(infobrasMoreLabel(1)).toBe('Ver 1 obra más');
+    expect(infobrasMoreLabel(12)).toBe('Ver 12 obras más');
   });
 });
 

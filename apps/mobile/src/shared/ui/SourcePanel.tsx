@@ -1,0 +1,207 @@
+import type { ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { colors, minTouch, rule, space } from '@/shared/theme/tokens';
+import { BodyText, MonoText } from '@/shared/ui/typography';
+
+/**
+ * `alert`: ink ground, signal text and edge, for an official warning (the Contraloría paralyzed
+ * list). `neutral`: concrete ground, ink border and text with a signal edge, for a dated source
+ * shown with the same structure (INFOBRAS).
+ */
+export type SourcePanelTone = 'alert' | 'neutral';
+
+export interface SourcePanelLink {
+  label: string;
+  accessibilityLabel: string;
+  onPress: () => void;
+}
+
+export interface SourcePanelLinePart {
+  text: string;
+  /** A glossary hint for the term this fact names, drawn right after it. */
+  hint?: ReactNode;
+}
+
+export interface SourcePanelLine {
+  text: string;
+  /** The facts of the line, when some carry a hint; they are joined by " · " and wrap as units. */
+  parts?: readonly SourcePanelLinePart[];
+}
+
+export interface SourcePanelItem {
+  key: string;
+  testID?: string;
+  summary: string;
+  lines?: readonly SourcePanelLine[];
+  links: readonly SourcePanelLink[];
+}
+
+export interface SourcePanelFigure {
+  label: string;
+  value: string;
+}
+
+export interface SourcePanelProps {
+  testID?: string;
+  tone: SourcePanelTone;
+  title: string;
+  titleHint?: ReactNode;
+  headline?: string;
+  figures: readonly SourcePanelFigure[];
+  /** One row per item: a summary line, optional lines and its links. */
+  items?: readonly SourcePanelItem[];
+  /** Links of the whole panel, when it has no rows. */
+  links?: readonly SourcePanelLink[];
+  more?: { label: string; onPress: () => void };
+  footer: readonly string[];
+}
+
+function Figure({ figure, alert }: { figure: SourcePanelFigure; alert: boolean }) {
+  return (
+    <View accessible accessibilityLabel={`${figure.label}: ${figure.value}`} style={styles.figure}>
+      <MonoText size={10} muted={!alert} style={alert && styles.onInkMuted}>
+        {figure.label.toUpperCase()}
+      </MonoText>
+      <MonoText bold size={15} style={alert && styles.onInk}>
+        {figure.value}
+      </MonoText>
+    </View>
+  );
+}
+
+function Links({ links, alert }: { links: readonly SourcePanelLink[]; alert: boolean }) {
+  return (
+    <View style={styles.links}>
+      {links.map((link) => (
+        <Pressable
+          key={link.accessibilityLabel}
+          accessibilityRole="link"
+          accessibilityLabel={link.accessibilityLabel}
+          onPress={link.onPress}
+          style={({ pressed }) => [styles.link, pressed && styles.linkPressed]}>
+          <MonoText bold size={12} style={alert ? styles.signal : styles.underline}>
+            {`${link.label} →`}
+          </MonoText>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function Line({ line, alert }: { line: SourcePanelLine; alert: boolean }) {
+  const text = (value: string) => (
+    <MonoText size={11} muted={!alert} style={[alert && styles.onInkMuted, styles.shrink]}>
+      {value}
+    </MonoText>
+  );
+  if (!line.parts?.some((part) => part.hint)) return text(line.text);
+  return (
+    <View style={styles.line}>
+      {line.parts.map((part, i) => (
+        <View key={part.text} style={styles.part}>
+          {i > 0 ? text('·') : null}
+          {text(part.text)}
+          {part.hint}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** A boxed panel for one source: header, key figures, a compact row per item and a dated footer. */
+export function SourcePanel({ testID, tone, title, titleHint, headline, figures, items, links, more, footer }: SourcePanelProps) {
+  const alert = tone === 'alert';
+  return (
+    <View testID={testID} style={[styles.block, alert ? styles.alert : styles.neutral]}>
+      <View style={styles.head}>
+        <MonoText bold size={13} accessibilityRole="header" style={[alert && styles.signal, styles.shrink]}>
+          {title}
+        </MonoText>
+        {titleHint}
+      </View>
+      {headline ? (
+        <BodyText weight={600} size={16} style={alert && styles.onInk}>
+          {headline}
+        </BodyText>
+      ) : null}
+      {figures.length ? (
+        <View style={styles.figures}>
+          {figures.map((figure) => (
+            <Figure key={figure.label} figure={figure} alert={alert} />
+          ))}
+        </View>
+      ) : null}
+      {items?.map((item) => (
+        <View key={item.key} testID={item.testID} style={[styles.item, !alert && styles.itemNeutral]}>
+          <MonoText size={11} bold={!alert} style={alert && styles.onInk}>
+            {item.summary}
+          </MonoText>
+          {item.lines?.map((line) => (
+            <Line key={line.text} line={line} alert={alert} />
+          ))}
+          <Links links={item.links} alert={alert} />
+        </View>
+      ))}
+      {links?.length ? <Links links={links} alert={alert} /> : null}
+      {more ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={more.label}
+          onPress={more.onPress}
+          style={({ pressed }) => [styles.more, alert && styles.moreOnInk, pressed && styles.linkPressed]}>
+          <MonoText bold size={12} style={alert && styles.signal}>
+            {more.label}
+          </MonoText>
+        </Pressable>
+      ) : null}
+      {footer.map((line) => (
+        <MonoText key={line} size={11} muted={!alert} style={alert && styles.onInkMuted}>
+          {line}
+        </MonoText>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  block: {
+    marginTop: space.lg,
+    marginHorizontal: space.lg,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+    gap: space.sm,
+  },
+  alert: { backgroundColor: colors.ink, borderLeftWidth: 6, borderLeftColor: colors.signal },
+  neutral: {
+    backgroundColor: colors.concrete,
+    borderWidth: rule,
+    borderColor: colors.ink,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.signal,
+  },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  shrink: { flexShrink: 1 },
+  signal: { color: colors.signal },
+  underline: { textDecorationLine: 'underline' },
+  onInk: { color: colors.concrete },
+  onInkMuted: { color: colors.concrete, opacity: 0.8 },
+  figures: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg, rowGap: space.xs },
+  figure: { gap: 2 },
+  item: { borderTopWidth: 1, borderTopColor: colors.muted, paddingTop: space.sm, gap: 2 },
+  itemNeutral: { borderTopColor: colors.ink },
+  line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', columnGap: space.xs, rowGap: 2 },
+  part: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xs, flexShrink: 1, maxWidth: '100%' },
+  links: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg },
+  link: { minHeight: minTouch, justifyContent: 'center' },
+  linkPressed: { opacity: 0.7 },
+  more: {
+    alignSelf: 'flex-start',
+    minHeight: minTouch,
+    justifyContent: 'center',
+    borderWidth: rule,
+    borderColor: colors.ink,
+    paddingHorizontal: space.lg,
+  },
+  moreOnInk: { borderColor: colors.signal },
+});
