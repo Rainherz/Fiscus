@@ -31,13 +31,7 @@ describe('SourcePanel', () => {
             key: '1',
             testID: 'row-1',
             summary: 'Obra 1 · avance 31 %',
-            lines: [
-              { text: 'Modalidad: contrata' },
-              {
-                text: 'Contratista: A · S/ 1 M',
-                parts: [{ text: 'Contratista: A', hint: <Text>contratista?</Text> }, { text: 'S/ 1 M' }],
-              },
-            ],
+            lines: [{ text: 'Modalidad: contrata' }, { text: 'Contratista: A · S/ 1 M' }],
             links: [{ label: 'Ver ficha', accessibilityLabel: 'Ver ficha de la obra 1', onPress }],
           },
         ]}
@@ -52,14 +46,33 @@ describe('SourcePanel', () => {
     expect(screen.getByText('OBRAS')).toBeOnTheScreen();
     expect(screen.getByText('Obra 1 · avance 31 %')).toBeOnTheScreen();
     expect(screen.getByText('Modalidad: contrata')).toBeOnTheScreen();
-    expect(screen.getByText('Contratista: A')).toBeOnTheScreen();
-    expect(screen.getByText('S/ 1 M')).toBeOnTheScreen();
-    expect(screen.getByText('contratista?')).toBeOnTheScreen();
+    // Every line is one flowing text, so all rows wrap the same way.
+    expect(screen.getByText('Contratista: A · S/ 1 M')).toBeOnTheScreen();
     expect(screen.getByText('Ver ficha →')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('link', { name: 'Ver ficha de la obra 1' }));
     expect(onPress).toHaveBeenCalled();
     expect(screen.getByText('Corte: junio 2026')).toBeOnTheScreen();
     expect(screen.getByText('Fuente: Contraloría General de la República.')).toBeOnTheScreen();
+  });
+
+  it('shows the glossary terms once, in a legend under the key figures', async () => {
+    await render(
+      <SourcePanel
+        {...base}
+        terms={[
+          { label: 'Contratista', hint: <Text>contratista?</Text> },
+          { label: 'Deductivo', hint: <Text>deductivo?</Text> },
+        ]}
+      />,
+    );
+    const legend = screen.getByTestId('panel-terms');
+    expect(screen.getByText('TÉRMINOS')).toBeOnTheScreen();
+    expect(legend).toHaveTextContent(/Contratista.*contratista\?.*Deductivo.*deductivo\?/);
+  });
+
+  it('has no legend without terms', async () => {
+    await render(<SourcePanel {...base} terms={[]} />);
+    expect(screen.queryByTestId('panel-terms')).toBeNull();
   });
 
   it('shows panel-level links without rows', async () => {

@@ -17,16 +17,15 @@ export interface SourcePanelLink {
   onPress: () => void;
 }
 
-export interface SourcePanelLinePart {
-  text: string;
-  /** A glossary hint for the term this fact names, drawn right after it. */
-  hint?: ReactNode;
-}
-
+/** One flowing text, so every row wraps the same way. */
 export interface SourcePanelLine {
   text: string;
-  /** The facts of the line, when some carry a hint; they are joined by " · " and wrap as units. */
-  parts?: readonly SourcePanelLinePart[];
+}
+
+/** A glossary term of the panel's legend and its hint. */
+export interface SourcePanelTerm {
+  label: string;
+  hint: ReactNode;
 }
 
 export interface SourcePanelItem {
@@ -49,6 +48,8 @@ export interface SourcePanelProps {
   titleHint?: ReactNode;
   headline?: string;
   figures: readonly SourcePanelFigure[];
+  /** Glossary terms the rows use, each hinted once in a legend under the figures instead of inside the rows. */
+  terms?: readonly SourcePanelTerm[];
   /** One row per item: a summary line, optional lines and its links. */
   items?: readonly SourcePanelItem[];
   /** Links of the whole panel, when it has no rows. */
@@ -89,20 +90,19 @@ function Links({ links, alert }: { links: readonly SourcePanelLink[]; alert: boo
   );
 }
 
-function Line({ line, alert }: { line: SourcePanelLine; alert: boolean }) {
-  const text = (value: string) => (
-    <MonoText size={11} muted={!alert} style={[alert && styles.onInkMuted, styles.shrink]}>
-      {value}
-    </MonoText>
-  );
-  if (!line.parts?.some((part) => part.hint)) return text(line.text);
+/** "TÉRMINOS  Contratista (?)  Supervisión (?) …": each term and its hint wrap as one unit. */
+function Legend({ testID, terms, alert }: { testID?: string; terms: readonly SourcePanelTerm[]; alert: boolean }) {
   return (
-    <View style={styles.line}>
-      {line.parts.map((part, i) => (
-        <View key={part.text} style={styles.part}>
-          {i > 0 ? text('·') : null}
-          {text(part.text)}
-          {part.hint}
+    <View testID={testID ? `${testID}-terms` : undefined} style={styles.legend}>
+      <MonoText size={10} muted={!alert} style={alert && styles.onInkMuted}>
+        TÉRMINOS
+      </MonoText>
+      {terms.map((term) => (
+        <View key={term.label} style={styles.term}>
+          <MonoText size={11} muted={!alert} style={alert && styles.onInkMuted}>
+            {term.label}
+          </MonoText>
+          {term.hint}
         </View>
       ))}
     </View>
@@ -110,7 +110,7 @@ function Line({ line, alert }: { line: SourcePanelLine; alert: boolean }) {
 }
 
 /** A boxed panel for one source: header, key figures, a compact row per item and a dated footer. */
-export function SourcePanel({ testID, tone, title, titleHint, headline, figures, items, links, more, footer }: SourcePanelProps) {
+export function SourcePanel({ testID, tone, title, titleHint, headline, figures, terms, items, links, more, footer }: SourcePanelProps) {
   const alert = tone === 'alert';
   return (
     <View testID={testID} style={[styles.block, alert ? styles.alert : styles.neutral]}>
@@ -132,13 +132,16 @@ export function SourcePanel({ testID, tone, title, titleHint, headline, figures,
           ))}
         </View>
       ) : null}
+      {terms?.length ? <Legend testID={testID} terms={terms} alert={alert} /> : null}
       {items?.map((item) => (
         <View key={item.key} testID={item.testID} style={[styles.item, !alert && styles.itemNeutral]}>
           <MonoText size={11} bold={!alert} style={alert && styles.onInk}>
             {item.summary}
           </MonoText>
           {item.lines?.map((line) => (
-            <Line key={line.text} line={line} alert={alert} />
+            <MonoText key={line.text} size={11} muted={!alert} style={alert && styles.onInkMuted}>
+              {line.text}
+            </MonoText>
           ))}
           <Links links={item.links} alert={alert} />
         </View>
@@ -190,8 +193,8 @@ const styles = StyleSheet.create({
   figure: { gap: 2 },
   item: { borderTopWidth: 1, borderTopColor: colors.muted, paddingTop: space.sm, gap: 2 },
   itemNeutral: { borderTopColor: colors.ink },
-  line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', columnGap: space.xs, rowGap: 2 },
-  part: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xs, flexShrink: 1, maxWidth: '100%' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.md, rowGap: space.xs },
+  term: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   links: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg },
   link: { minHeight: minTouch, justifyContent: 'center' },
   linkPressed: { opacity: 0.7 },
