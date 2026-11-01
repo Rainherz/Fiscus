@@ -7,6 +7,8 @@ import type {
   Party,
   PartyKind,
 } from '@/features/investments/domain/infobras';
+import type { TermId } from '@/features/glossary/terms';
+import { paralyzedProgressText } from '@/features/paralyzed/paralyzedPresentation';
 import { formatDate, formatInteger, formatMonthShort, formatSoles } from '@/shared/format';
 import { INFOBRAS_DATA_SOURCE_NAME } from '@/shared/ui/DataFooter';
 
@@ -36,23 +38,10 @@ export function identifierText(ruc: string): string {
   return /^C/i.test(ruc) ? `código ${ruc}` : `RUC ${ruc}`;
 }
 
-/** Contractor or supervision firm; a natural person is never named. Null when nothing is registered. */
-export function partyText(party: Party): string | null {
-  if (party.kind === 'persona_natural') return 'Persona natural';
-  if (party.name === null && party.ruc === null) return null;
-  if (party.ruc === null) return party.name;
-  return party.name ? `${party.name} · ${identifierText(party.ruc)}` : identifierText(party.ruc);
-}
-
-export interface InfobrasFact {
-  label: string;
-  value: string;
-  /** The source figure is not valid (Regla de Fiscus): value is a notice, shown muted. */
-  invalid?: true;
-}
-
 /** Shown instead of a contract amount above 10 times the expediente cost of the same obra. */
 export const INVALID_CONTRACT_AMOUNT_TEXT = 'Monto de contrato no válido en la fuente INFOBRAS';
+/** The same notice within a sentence. */
+const INVALID_CONTRACT_AMOUNT_INLINE = 'monto de contrato no válido en la fuente INFOBRAS';
 
 /** "3 montos no válidos excluidos": the contract amounts a total leaves out; null for none. */
 export function invalidContractsText(count: number): string | null {
@@ -60,52 +49,148 @@ export function invalidContractsText(count: number): string | null {
   return count === 1 ? '1 monto no válido excluido' : `${formatInteger(count)} montos no válidos excluidos`;
 }
 
-function progressText(work: InfobrasWork): string | null {
-  const { physicalProgressActual: actual, physicalProgressPlanned: planned, progressPeriod } = work;
-  if (actual === null && planned === null) return null;
-  const parts = [
-    ...(actual === null ? [] : [`${formatInteger(actual)} % real`]),
-    ...(planned === null ? [] : [`${formatInteger(planned)} % programado`]),
-  ];
-  return `${parts.join(' · ')}${progressPeriod ? ` (${formatMonthShort(progressPeriod)})` : ''}`;
+/** A fact of a line; `term` is the glossary term it names, whose hint is drawn right after it. */
+export interface InfobrasLinePart {
+  text: string;
+  term?: TermId;
 }
 
-function paralysisText(work: InfobrasWork): string | null {
-  if (!work.hasParalysis) return null;
-  const parts = [
-    ...(work.paralysisDate ? [`Desde ${formatDate(work.paralysisDate)}`] : []),
-    ...(work.paralysisDays ? [`${formatInteger(work.paralysisDays)} ${work.paralysisDays === 1 ? 'día' : 'días'}`] : []),
-    ...(work.paralysisCause ? [work.paralysisCause] : []),
-  ];
-  return parts.length ? parts.join(' · ') : 'Sí';
+/** A line of an obra row: its facts joined by " · ", and the glossary terms they use. */
+export interface InfobrasObraLine {
+  text: string;
+  terms: TermId[];
+  parts: InfobrasLinePart[];
 }
 
-/** The registered facts of one obra, in reading order; unregistered ones are left out. */
-export function infobrasObraFacts(work: InfobrasWork): InfobrasFact[] {
-  const facts: InfobrasFact[] = [];
-  const add = (label: string, value: string | null) => {
-    if (value) facts.push({ label, value });
+export interface InfobrasObraRow {
+  infobrasCode: number;
+  summary: string;
+  lines: InfobrasObraLine[];
+}
+
+export const INFOBRAS_ATTRIBUTION = 'Fuente: Contraloría General de la República – INFOBRAS.';
+
+const days = (count: number) => `${formatInteger(count)} ${count === 1 ? 'día' : 'días'}`;
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** The line of these facts, the first one capitalized; null for none. */
+function toLine(facts: InfobrasLinePart[]): InfobrasObraLine | null {
+  if (!facts.length) return null;
+  const parts = facts.map((part, i) => (i === 0 ? { ...part, text: capitalize(part.text) } : part));
+  return {
+    text: parts.map((part) => part.text).join(' · '),
+    terms: parts.flatMap((part) => (part.term ? [part.term] : [])),
+    parts,
   };
-  add('Estado de ejecución', work.executionStatus);
-  add('Avance físico', progressText(work));
-  add('Contratista', partyText(work.contractor));
-  if (work.contractAmount !== null && !work.contractAmountValid) {
-    facts.push({ label: 'Monto de contrato', value: INVALID_CONTRACT_AMOUNT_TEXT, invalid: true });
-  } else {
-    add('Monto de contrato', work.contractAmount === null ? null : formatSoles(work.contractAmount));
+}
+
+/** A party within a sentence: "NAME (código C…)", "persona natural"; null when nothing is registered. */
+function partyInline(party: Party): string | null {
+  if (party.kind === 'persona_natural') return 'persona natural';
+  if (party.ruc === null) return party.name;
+  return party.name ? `${party.name} (${identifierText(party.ruc)})` : identifierText(party.ruc);
+}
+
+/** "Obra 171686 · Finalizado · avance 52 % (prog. 100 %, jun 2024)". */
+export function infobrasObraSummary(work: InfobrasWork): string {
+  const { physicalProgressActual: actual, physicalProgressPlanned: planned, progressPeriod } = work;
+  const parts = [`Obra ${work.infobrasCode}`, work.executionStatus ?? 'Estado no informado'];
+  if (actual !== null || planned !== null) {
+    const context = [
+      ...(planned === null ? [] : [`prog. ${formatInteger(planned)} %`]),
+      ...(progressPeriod ? [formatMonthShort(progressPeriod)] : []),
+    ];
+    const real = actual === null ? '—' : `${formatInteger(actual)} %`;
+    parts.push(`avance ${real}${context.length ? ` (${context.join(', ')})` : ''}`);
   }
-  add('Supervisión', partyText(work.supervisor));
-  add('Adicionales de obra', work.additionalWorksAmount === null ? null : formatSoles(work.additionalWorksAmount));
-  add('Deductivos', work.deductionsAmount === null ? null : formatSoles(work.deductionsAmount));
-  add(
-    'Ampliaciones de plazo',
-    work.extensionDays === null ? null : `${formatInteger(work.extensionDays)} ${work.extensionDays === 1 ? 'día' : 'días'}`,
-  );
-  add('Paralización informada', paralysisText(work));
-  add('Recepción', work.receptionDate ? formatDate(work.receptionDate) : null);
-  add('Liquidación', work.liquidationDate ? formatDate(work.liquidationDate) : null);
-  add('Modalidad', work.modality);
-  return facts;
+  return parts.join(' · ');
+}
+
+/** Contractor, contract amount (or its invalid notice), additional works and deductions; null when none is registered. */
+export function infobrasContractLine(work: InfobrasWork): InfobrasObraLine | null {
+  const contractor = partyInline(work.contractor);
+  const invalid = work.contractAmount !== null && !work.contractAmountValid;
+  const parts: InfobrasLinePart[] = [];
+  if (contractor) parts.push({ text: `Contratista: ${contractor}`, term: 'contratista' });
+  if (invalid) {
+    parts.push({ text: INVALID_CONTRACT_AMOUNT_INLINE, term: 'monto-contrato-no-valido' });
+  } else if (work.contractAmount !== null) {
+    parts.push({ text: formatSoles(work.contractAmount) });
+  }
+  if (work.additionalWorksAmount !== null) {
+    parts.push({ text: `adicionales ${formatSoles(work.additionalWorksAmount)}`, term: 'adicional-de-obra' });
+  }
+  if (work.deductionsAmount !== null) {
+    parts.push({ text: `deductivos ${formatSoles(work.deductionsAmount)}`, term: 'deductivo' });
+  }
+  if (parts.length && !contractor && !invalid) parts.unshift({ text: 'Contratista no registrado' });
+  return toLine(parts);
+}
+
+/** Supervision, paralysis reported in INFOBRAS, extensions, dates and an uncommon modality; null when none. */
+export function infobrasDetailLine(work: InfobrasWork): InfobrasObraLine | null {
+  const parts: InfobrasLinePart[] = [];
+  const supervisor = partyInline(work.supervisor);
+  if (supervisor) parts.push({ text: `Supervisión: ${supervisor}`, term: 'supervision' });
+  if (work.hasParalysis) {
+    const since = work.paralysisDate ? ` desde ${formatDate(work.paralysisDate)}` : '';
+    parts.push({ text: `paralización informada${since}` });
+    if (work.paralysisDays) parts.push({ text: days(work.paralysisDays) });
+    if (work.paralysisCause) parts.push({ text: work.paralysisCause });
+  }
+  if (work.extensionDays !== null) {
+    parts.push({ text: `ampliaciones de plazo ${days(work.extensionDays)}`, term: 'ampliacion-de-plazo' });
+  }
+  if (work.receptionDate) parts.push({ text: `recepción ${formatDate(work.receptionDate)}` });
+  if (work.liquidationDate) parts.push({ text: `liquidación ${formatDate(work.liquidationDate)}` });
+  if (work.modality && work.modality.trim().toLowerCase() !== 'contrata') parts.push({ text: `modalidad ${work.modality}` });
+  return toLine(parts);
+}
+
+/** One compact row per obra; each glossary term keeps its hint only where it first appears. */
+export function infobrasObraRows(works: readonly InfobrasWork[]): InfobrasObraRow[] {
+  const seen = new Set<TermId>();
+  return works.map((work) => ({
+    infobrasCode: work.infobrasCode,
+    summary: infobrasObraSummary(work),
+    lines: [infobrasContractLine(work), infobrasDetailLine(work)]
+      .filter((line): line is InfobrasObraLine => line !== null)
+      .map((line) => {
+        const parts = line.parts.map(({ text, term }) => {
+          if (!term || seen.has(term)) return { text };
+          seen.add(term);
+          return { text, term };
+        });
+        return { ...line, parts, terms: parts.flatMap((part) => (part.term ? [part.term] : [])) };
+      }),
+  }));
+}
+
+/** Key figures: obras, sum of the valid contract amounts and the range of real physical progress. */
+export function infobrasFigures(works: readonly InfobrasWork[]): { label: string; value: string }[] {
+  const amounts = works.filter((w) => w.contractAmount !== null && w.contractAmountValid).map((w) => w.contractAmount!);
+  const progress = works.map((w) => w.physicalProgressActual).filter((p): p is number => p !== null);
+  return [
+    { label: 'Obras', value: formatInteger(works.length) },
+    { label: 'Monto contratado', value: amounts.length ? formatSoles(amounts.reduce((a, b) => a + b, 0)) : formatSoles(null) },
+    {
+      label: 'Avance físico real',
+      value: paralyzedProgressText({
+        minPhysicalProgress: progress.length ? Math.min(...progress) : null,
+        maxPhysicalProgress: progress.length ? Math.max(...progress) : null,
+      }),
+    },
+  ];
+}
+
+/** Footer: the invalid amounts the total leaves out, the date of the data and the source. */
+export function infobrasFooter(works: readonly InfobrasWork[], dataAsOf: string | null): string[] {
+  const excluded = invalidContractsText(works.filter((w) => w.contractAmount !== null && !w.contractAmountValid).length);
+  return [...(excluded ? [`Monto contratado: ${excluded}.`] : []), infobrasCaveat(dataAsOf), INFOBRAS_ATTRIBUTION];
+}
+
+export function infobrasMoreLabel(hidden: number): string {
+  return `Ver ${formatInteger(hidden)} ${hidden === 1 ? 'obra' : 'obras'} más`;
 }
 
 /** The first five obras until "Ver más" is pressed. */
@@ -192,7 +277,7 @@ export function contractorWorkRow(work: ContractorWork): { name: string; detail:
       ? []
       : work.contractAmountValid
         ? [`contrato ${formatSoles(work.contractAmount)}`]
-        : ['monto de contrato no válido en la fuente INFOBRAS']),
+        : [INVALID_CONTRACT_AMOUNT_INLINE]),
     ...(work.contraloriaParalyzed ? ['en el informe de obras paralizadas'] : []),
   ];
   return { name: known ? work.investmentName! : `Obra ${work.infobrasCode} en INFOBRAS`, detail: [where, facts.join(' · ')] };
